@@ -3,7 +3,10 @@ A collection of tools to help Lighting (LND) node operators with rebalancing and
 
 ## Prerequisites
 - Install [BalanceOfSatoshi](https://github.com/alexbosworth/balanceofsatoshis) - this includes the prerequisites for Node install
+
+## Installation
 - Update `./api/config.json` with correct paths for `adminMacaroonPath` and `tlsCertPath`.  Optional: list expensive nodes to avoid in `avoid` (can be done later). 
+-- Run `npm install`
 
 ## Example commands
 ```shell
