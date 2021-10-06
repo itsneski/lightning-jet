@@ -14,7 +14,7 @@
     "deasync": "0.1.23",
     "run-parallel": "1.2.0"
   },
-  "description": "A collection of tools to help Lighting (LND) node operators with rebalancing and other functions their node.",
+  "description": "A collection of tools to help Lighting (LND) node operators with rebalancing, fee optimization, htlc analysis, and other node management functions.",
   "engines": {
     "node": ">=12"
   },

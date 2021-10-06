@@ -1,3 +1,5 @@
+// generates initial ./api/config.json
+
 const fs = require('fs');
 
 const FILE = './api/config.json';
