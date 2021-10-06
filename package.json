@@ -1,0 +1,37 @@
+{
+  "author": {
+    "name": "Neski",
+    "url": "https://twitter.com/itsneski"
+  },
+  "bin": {
+  },
+  "bugs": {
+    "url": "https://github.com/itsneski/lnd-optimize/issues"
+  },
+  "dependencies": {
+    "deasync": "0.1.23",
+    "grpc": "1.24.11",
+    "run-parallel": "1.2.0"
+  },
+  "description": "A collection of tools to help Lighting (LND) node operators with rebalancing and other functions their node.",
+  "engines": {
+    "node": ">=12"
+  },
+  "keywords": [
+    "cli",
+    "lightning",
+    "lightning-network",
+    "lnd",
+    "rebalance"
+  ],
+  "license": "MIT",
+  "main": "bosrebalance.js",
+  "name": "lnd-optimize",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/itsneski/lnd-optimize.git"
+  },
+  "scripts": {
+  },
+  "version": "1.0.0"
+}

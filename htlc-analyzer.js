@@ -1,7 +1,6 @@
 // analyzes htlcs logged in htlc-logger.db
 
 const fs = require('fs');
-const readline = require('readline');
 const lndClient = require('./api/connect');
 const {getInfoSync} = require('./lnd-api/utils');
 const {listChannelsSync} = require('./lnd-api/utils');

@@ -1,8 +1,8 @@
-// lnd rebalance built on top of https://github.com/alexbosworth/balanceofsatoshis
+// lnd rebalance is built on top of https://github.com/alexbosworth/balanceofsatoshis
 // tool.
 //
-// calls 'bos rebalance' in a loop, until the target amount is met or until the list
-// of possible routes is exhausted.  dynamically builds a list of nodes to avoid
+// calls 'bos rebalance' in a loop, until the target amount is met or until all
+// possible routes is exhausted.  dynamically builds a list of nodes to avoid
 // based on candidate routes.  once it encounters a candidate route where max ppm
 // exceeds the argument, it excludes the most expensive route, or the corresponding hop.
 //

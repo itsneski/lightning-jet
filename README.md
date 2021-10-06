@@ -1,25 +1,25 @@
-lnd-optimize is a collection of tools to help optimize rebalancing and other functions of a Lighting (LND) routing node.
+# lnd-optimize
+A collection of tools to help Lighting (LND) node operators with rebalancing and other functions their node.
 
-prerequisites:
-- https://github.com/alexbosworth/balanceofsatoshis - including Node
+## Prerequisites
+- [BalanceOfSatoshi](https://github.com/alexbosworth/balanceofsatoshis) - this includes the prerequisites for Node install
 
-how to run:
-- 'node <command> [options]', e.g. 'node fees.js'
+## Example commands
+```shell
+node peers.js
+node fees.js
+node htlc-history.js --d 7
+node bosrebalance.js dplus neski 500000 --ppm 550
+```
 
-list of tools:
-
-  bosrebalance.js - main rebalancing tool.  Runs BalanceOfSatoshis in a loop until the target amount is met or until all possible routes are exhausted.
-
-  fees.js - displays local and remote fees for routing peers.
-
-  peers.js - partitions peers into inbound, outbound and balanced based on htlc history.
-
-  htlc-history.js - outputs cumulative stats about htlc history.
-
-  htlc-logger.js - logs select htlcs into a local database (currently stored in a file).
-
-  htlc-analyzer.js - outputs stats about the htlcs logged into the local database.
-
-  list-channels.js - lists channels along with the peers.
-
-  list-peers.js - lists peer aliases along with their ids.
+## List of tools
+| Tool  | Description |
+| ------------- | ------------- |
+| `bosrebalance.js`  | Runs BalanceOfSatoshis in a loop until the target amount is met or until all possible routes are exhausted.  |
+| `fees.js`  |  Displays local and remote fees for routing peers.  |
+| `peers.js`  |  Partitions peers into inbound, outbound and balanced based on the htlc history.  |
+| `htlc-history.js`  |  Outputs cumulative stats about the htlc history.  |
+| `htlc-logger.js`  |  Logs select htlcs into a local database (currently stored in a file).  |
+| `htlc-analyzer.js`   |  Outputs stats about the htlcs logged into the local database.  |
+| `list-channels.js`  |  Lists channels along with the peers.  |
+| `list-peers.js`  |  Lists peer aliases along with their ids.  |
