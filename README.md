@@ -1,11 +1,12 @@
 # lnd-optimize
-A collection of tools to help Lighting (LND) node operators with rebalancing and other functions their node.
+A collection of tools to help Lighting (LND) node operators with rebalancing, fee optimization, htlc analysis and other node management functions.
 
 ## Prerequisites
-- Install [BalanceOfSatoshi](https://github.com/alexbosworth/balanceofsatoshis) - this includes the prerequisites for Node install
+- Install [BalanceOfSatoshi](https://github.com/alexbosworth/balanceofsatoshis) - this includes the prerequisites for Node install.
 
 ## Installation
-- Update `./api/config.json` with correct paths for `adminMacaroonPath` and `tlsCertPath`.  Optional: list expensive nodes to avoid in `avoid` (can be done later). 
+- Run `node genconfig.js` to generate `./api/config.json`
+- Update `./api/config.json` with correct paths for `adminMacaroonPath` and `tlsCertPath`.  Optional: list expensive nodes to avoid in `avoid` (can be done later)
 - Run `npm install`
 
 ## Example commands

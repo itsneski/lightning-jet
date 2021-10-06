@@ -20,7 +20,8 @@ if (args[0]) {
 let history = htlcHistorySync(lndClient, days);
 
 console.log('htlc history over the past', days, 'days');
-console.log('unknown channels:', history.unknown);
+if (history.unknown && history.unknown.length > 0) 
+  console.log('unknown channels:', history.unknown);
 console.log('inbound traffic:');
 console.table(formatArray(history.inbound));
 console.log('outbound traffic:');
