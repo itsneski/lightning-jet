@@ -6,7 +6,7 @@ A collection of tools to help Lighting (LND) node operators with rebalancing and
 
 ## Installation
 - Update `./api/config.json` with correct paths for `adminMacaroonPath` and `tlsCertPath`.  Optional: list expensive nodes to avoid in `avoid` (can be done later). 
--- Run `npm install`
+- Run `npm install`
 
 ## Example commands
 ```shell
