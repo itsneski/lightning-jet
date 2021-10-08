@@ -19,6 +19,16 @@ const withCommas = x => x.toString().replace(/\B(?<!\.\d*)(?=(\d{3})+(?!\d))/g, 
 
 let history = htlcHistorySync(lndClient, days);
 
+// figure out peers without traffic
+let peers = listPeersSync(lndClient);
+let withTraffic = {};
+history.inbound.forEach(h => withTraffic[h.peer] = true);
+history.outbound.forEach(h => withTraffic[h.peer] = true);
+let noTraffic = [];
+peers.forEach(p => { 
+  if (!withTraffic[p.id]) noTraffic.push(p.name);
+})
+
 console.log('htlc history over the past', days, 'days');
 if (history.unknown && history.unknown.length > 0) 
   console.log('unknown channels:', history.unknown);
@@ -26,6 +36,8 @@ console.log('inbound traffic:');
 console.table(formatArray(history.inbound));
 console.log('outbound traffic:');
 console.table(formatArray(history.outbound));
+console.log('no traffic:');
+console.table(noTraffic);
 
 function printHelp() {
   console.log(

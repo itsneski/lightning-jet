@@ -4,6 +4,19 @@ const deasync = require('deasync');
 const round = n => Math.round(n);
 
 module.exports = {
+  listPendingChannelsSync: function(lndClient) {
+    let channels;
+    lndClient.pendingChannels({}, function(err, response) {
+      if (err) {
+        throw new Error(err);
+      }
+      channels = response;
+    })
+    while(channels === undefined) {
+      require('deasync').runLoopOnce();
+    }
+    return channels;
+  },
   classifyPeersSync: function(lndClient, days = 7) {
     let history = module.exports.htlcHistorySync(lndClient, days);
     let inSum = 0;
