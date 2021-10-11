@@ -10,4 +10,7 @@ peers.forEach(p => {
     active: p.active
   })
 })
+peerNames.sort(function(a, b) {
+  return a.name.localeCompare(b.name);
+})
 console.table(peerNames);

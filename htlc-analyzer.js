@@ -68,6 +68,12 @@ let info = getInfoSync(lndClient);
 
 Object.keys(sumMap).forEach(k => {
   Object.keys(sumMap[k]).forEach(l => {
+    if (!channelMap[k]) {
+      return console.error('unknown channel:', k);
+    }
+    if (!channelMap[l]) {
+      return console.error('unknown channel:', l);
+    }
     let name = (k == '0') ? info.alias : peerMap[channelMap[k].remote_pubkey].name
     formatted.push({
       from: name,

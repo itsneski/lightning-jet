@@ -5,6 +5,7 @@ const {classifyPeersSync} = require('./lnd-api/utils');
 var IN_PEERS = {};
 var OUT_PEERS = {};
 var BALANCED_PEERS = {};
+var SKIPPED_PEERS = {};
 
 let classified = classifyPeersSync(lndClient);
 classified.inbound.forEach(c => {
@@ -15,6 +16,9 @@ classified.outbound.forEach(c => {
 })
 classified.balanced.forEach(c => {
   BALANCED_PEERS[c.peer] = { p: c.p };
+})
+classified.skipped.forEach(c => {
+  SKIPPED_PEERS[c.peer] = { p: c.p };
 })
 
 let peers = listPeersSync(lndClient);
@@ -54,6 +58,15 @@ balancedPeers.sort(function(a, b) {
 })
 balancedPeers.forEach(p => { p.in = numberWithCommas(p.in); p.out = numberWithCommas(p.out); });
 
+let skippedPeers = [];
+peers.forEach(p => {
+  if (SKIPPED_PEERS[p.id]) skippedPeers.push(convertPeer(p, SKIPPED_PEERS[p.id]));
+})
+skippedPeers.sort(function(a, b) {
+  return a.out - b.out;
+})
+skippedPeers.forEach(p => { p.in = numberWithCommas(p.in); p.out = numberWithCommas(p.out); });
+
 console.table(allPeers);
 console.log('inbound peers:');
 console.table(inPeers);
@@ -61,6 +74,10 @@ console.log('outbound peers:');
 console.table(outPeers);
 console.log('balanced peers:');
 console.table(balancedPeers);
+if (skippedPeers.length > 0) {
+  console.log('skipped peers:');
+  console.table(skippedPeers);  
+}
 
 function convertPeer(p, pp = undefined, inbound = false) {
   let s = (inbound) ? { name: p.name, in: p.in, out: p.out } : { name: p.name, out: p.out, in: p.in };

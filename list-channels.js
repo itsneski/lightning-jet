@@ -18,6 +18,9 @@ channels.forEach(c => {
     active: c.active
   })
 })
+formatted.sort(function(a, b) {
+  return a.peer.localeCompare(b.peer);
+})
 
 console.log('active channels:');
 console.table(formatted);
@@ -51,7 +54,8 @@ if (list && list.length > 0) {
       id: p.channel.remote_node_pub,
       limbo: withCommas(p.limbo_balance),
       htlcs: p.pending_htlcs.length,
-      maturity: maturity
+      maturity: maturity,
+      time: (maturity * 10 / 60).toFixed(1)
     })
   })
 }

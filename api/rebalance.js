@@ -85,13 +85,15 @@ module.exports = ({from, to, amount, ppm = config.max_ppm || 750, avoidArr = con
   let info = getNodesInfoSync(lndClient, Object.keys(avoidNodes));
   if (info) {
     info.forEach(n => {
-      nodeInfo[n.node.pub_key] = n;
+      if (n) nodeInfo[n.node.pub_key] = n;  // can be null if a node mentioned in the config doesn't exist
     })
   }
   let epoch = Math.floor(+new Date() / 1000);
   Object.keys(avoidNodes).forEach(node => {
-    console.log('excluding node:', node + ', ' + nodeInfo[node].node.alias + ', channels: '  + nodeInfo[node].num_channels + ', last updated', Math.round((epoch - nodeInfo[node].node.last_update)/3600), 'hours ago');
-    avoid += ' --avoid ' + node;
+    if (nodeInfo[node]) {
+      console.log('excluding node:', node + ', ' + nodeInfo[node].node.alias + ', channels: '  + nodeInfo[node].num_channels + ', last updated', Math.round((epoch - nodeInfo[node].node.last_update)/3600), 'hours ago');
+      avoid += ' --avoid ' + node;
+    }
   })
 
   console.log('\n----------------------------------------')
@@ -338,7 +340,7 @@ module.exports = ({from, to, amount, ppm = config.max_ppm || 750, avoidArr = con
 
     // helper function
     function canAvoidNode(id) {
-      return !avoidNodes[id] && id !== tags[OUT] && id !== tags[IN];
+      return !avoidNodes[id] && id !== OUT && id !== IN && id !== tags[OUT] && id !== tags[IN];
     }
   } // for
 

@@ -3,7 +3,22 @@ const deasync = require('deasync');
 
 const round = n => Math.round(n);
 
+const pThreshold = 4;
+
 module.exports = {
+  sendMessageToNode: function(routerRpc, node, message) {
+    sendMessage();
+    async function sendMessage() {
+      let req = {
+        dest: node,
+        amp: true,
+        timeout_seconds: 60
+      }
+      for await (const payment of routerRpc.sendPaymentV2(req)) {
+        console.log('payment:', payment);
+      }
+    }
+  },
   listPendingChannelsSync: function(lndClient) {
     let channels;
     lndClient.pendingChannels({}, function(err, response) {
@@ -42,7 +57,7 @@ module.exports = {
     history.inbound.forEach(h => {
       if (currTime - h.lifetime < minlife && h.name.indexOf('LNBIG.com') < 0) {
         balanced[h.id] = h;
-      } else  if (h.p >= 5) {
+      } else if (h.p >= pThreshold) {
         inbound[h.id] = h;
         delete balanced[h.id];
       }
@@ -51,7 +66,7 @@ module.exports = {
     history.outbound.forEach(h => {
       if (currTime - h.lifetime < minlife && h.name.indexOf('LNBIG.com') < 0) {
         balanced[h.id] = h;
-      } else if (h.p >= 5) {
+      } else if (h.p >= pThreshold) {
         if (inbound[h.id]) {  // can a node be classified as both inbound & outbound?
           if (h.sum > inbound[h.id].sum) {
             outbound[h.id] = h;
@@ -65,6 +80,7 @@ module.exports = {
       }
     })
 
+    let skipped = {};
     let peers = module.exports.listPeersMapSync(lndClient);
     let channels = module.exports.listChannelsSync(lndClient);
     channels.forEach(c => {
@@ -72,8 +88,9 @@ module.exports = {
       let map;
       if (peers[c.remote_pubkey].name.indexOf('LNBIG.com') >= 0) {  // find a better way
         map = outbound;
-      } else if (c.capacity <= 500000) {  // should we even have tiny nodes?
+      } else if (c.capacity <= 1000000) {  // should we even have tiny nodes?
         // skip tiny nodes
+        map = skipped;
       } else if (c.capacity <= 2000000) { // are smaller nodes given a chance to shine???
         map = inbound;
       } else {
@@ -92,7 +109,8 @@ module.exports = {
     return ({
       inbound: Object.values(inbound),
       outbound: Object.values(outbound),
-      balanced: Object.values(balanced)
+      balanced: Object.values(balanced),
+      skipped: Object.values(skipped)
     })
   },
   htlcHistorySync: function(lndClient, days = 7) {
@@ -353,8 +371,8 @@ module.exports = {
       calls.push(function(cb) {
         lndClient.getNodeInfo({pub_key: n}, (err, response) => {
           if (err) {
-            console.log('node: ' + n + ', error: ' + err);
-            return cb(err);
+            console.error('node: ' + n + ', error: ' + err);
+            return cb(null, null);
           }
           return cb(null, response);
         })
