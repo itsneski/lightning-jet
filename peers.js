@@ -1,6 +1,7 @@
 const lndClient = require('./api/connect');
 const {listPeersSync} = require('./lnd-api/utils');
 const {classifyPeersSync} = require('./lnd-api/utils');
+const {listFeesSync} = require('./lnd-api/utils');
 
 var IN_PEERS = {};
 var OUT_PEERS = {};
@@ -22,6 +23,10 @@ classified.skipped.forEach(c => {
 })
 
 let peers = listPeersSync(lndClient);
+let feeMap = {};
+listFeesSync(lndClient).forEach(f => {
+  feeMap[f.id] = f;
+})
 
 let allPeers = [];
 peers.forEach(p => allPeers.push(convertPeer(p)) );
@@ -33,25 +38,37 @@ allPeers.forEach(p => { p.in = numberWithCommas(p.in); p.out = numberWithCommas(
 
 let inPeers = [];
 peers.forEach(p => {
-  if (IN_PEERS[p.id]) inPeers.push(convertPeer(p, IN_PEERS[p.id], true));
+  if (IN_PEERS[p.id]) {
+    let peer = convertPeer(p, IN_PEERS[p.id], true);
+    peer.ppm = parseInt(feeMap[p.id].local.rate);
+    inPeers.push(peer);
+  }
 })
 inPeers.sort(function(a, b) {
-  return a.in - b.in;
+  return b.p - a.p;
 })
 inPeers.forEach(p => { p.in = numberWithCommas(p.in); p.out = numberWithCommas(p.out); });
 
 let outPeers = [];
 peers.forEach(p => {
-  if (OUT_PEERS[p.id]) outPeers.push(convertPeer(p, OUT_PEERS[p.id]));
+  if (OUT_PEERS[p.id]) {
+    let peer = convertPeer(p, OUT_PEERS[p.id]);
+    peer.ppm = parseInt(feeMap[p.id].local.rate);
+    outPeers.push(peer);
+  }
 })
 outPeers.sort(function(a, b) {
-  return a.out - b.out;
+  return b.p - a.p;
 })
 outPeers.forEach(p => { p.in = numberWithCommas(p.in); p.out = numberWithCommas(p.out); });
 
 let balancedPeers = [];
 peers.forEach(p => {
-  if (BALANCED_PEERS[p.id]) balancedPeers.push(convertPeer(p, BALANCED_PEERS[p.id]));
+  if (BALANCED_PEERS[p.id]) {
+    let peer = convertPeer(p, BALANCED_PEERS[p.id]);
+    peer.ppm = parseInt(feeMap[p.id].local.rate);
+    balancedPeers.push(peer);
+  }
 })
 balancedPeers.sort(function(a, b) {
   return a.out - b.out;

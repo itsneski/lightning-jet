@@ -10,6 +10,9 @@ A collection of tools to help Lighting (LND) node operators with rebalancing, fe
 - Edit `config.json`, e.g. `nano ./api/config.json`: set correct paths for `adminMacaroonPath` and `tlsCertPath`. On umbrel, admin macaroon is typicall located at `~/umbrel/lnd/data/chain/bitcoin/mainnet/admin.macaroon`, tls cert is at `~/umbrel/lnd/tls.cert`. Optional: you can list expensive nodes to avoid in the `avoid` section of the config file (can be done later)
 - Run `npm install`
 
+## Post-Installation
+- Kick off htlc logger: `nohup node htlc-logger.js > /tmp/htlc-logger.log 2>&1 & disown`
+
 ## How to run tools
 
 ```shell
@@ -38,3 +41,5 @@ node bosrebalance.js dplus neski 500000 --ppm 550
 | `htlc-analyzer.js`   |  Outputs stats about the htlcs logged into the local database.  |
 | `list-channels.js`  |  Lists channels along with the peers.  |
 | `list-peers.js`  |  Lists peer aliases along with their ids.  |
+| `send-message.js`  |  Sends message to a node via keysend.  |
+| `monitor.js`  |  Lists active rebalances in a table format.  |

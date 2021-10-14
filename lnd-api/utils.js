@@ -3,7 +3,7 @@ const deasync = require('deasync');
 
 const round = n => Math.round(n);
 
-const pThreshold = 4;
+const pThreshold = 2;
 
 module.exports = {
   sendMessageToNode: function(routerRpc, node, message) {
@@ -55,18 +55,16 @@ module.exports = {
     let currTime = Math.floor(+new Date() / 1000);
     let minlife = 7 * 24 * 60 * 60;
     history.inbound.forEach(h => {
-      if (currTime - h.lifetime < minlife && h.name.indexOf('LNBIG.com') < 0) {
-        balanced[h.id] = h;
-      } else if (h.p >= pThreshold) {
+      if (h.p >= pThreshold) {
         inbound[h.id] = h;
         delete balanced[h.id];
+      } else if (currTime - h.lifetime < minlife && h.name.indexOf('LNBIG.com') < 0) {
+        balanced[h.id] = h;
       }
     })
     let outbound = {};
     history.outbound.forEach(h => {
-      if (currTime - h.lifetime < minlife && h.name.indexOf('LNBIG.com') < 0) {
-        balanced[h.id] = h;
-      } else if (h.p >= pThreshold) {
+      if (h.p >= pThreshold) {
         if (inbound[h.id]) {  // can a node be classified as both inbound & outbound?
           if (h.sum > inbound[h.id].sum) {
             outbound[h.id] = h;
@@ -77,6 +75,8 @@ module.exports = {
           outbound[h.id] = h;
           delete balanced[h.id];
         }
+      } else if (currTime - h.lifetime < minlife && h.name.indexOf('LNBIG.com') < 0) {
+        balanced[h.id] = h;
       }
     })
 
@@ -92,7 +92,7 @@ module.exports = {
         // skip tiny nodes
         map = skipped;
       } else if (c.capacity <= 2000000) { // are smaller nodes given a chance to shine???
-        map = inbound;
+        map = balanced; // what about stale nodes????
       } else {
         map = balanced;
       }
@@ -106,9 +106,18 @@ module.exports = {
       }
     })
 
+    let inboundSorted = Object.values(inbound);
+    inboundSorted.sort(function(a, b) {
+      return b.p - a.p;
+    })
+    let outboundSorted = Object.values(outbound);
+    outboundSorted.sort(function(a, b) {
+      return b.p - a.p;
+    })
+
     return ({
-      inbound: Object.values(inbound),
-      outbound: Object.values(outbound),
+      inbound: inboundSorted,
+      outbound: outboundSorted,
       balanced: Object.values(balanced),
       skipped: Object.values(skipped)
     })

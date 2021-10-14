@@ -57,7 +57,7 @@ module.exports = ({from, to, amount, ppm = config.max_ppm || 750, avoidArr = con
   const AMOUNT = amount;
 
   // test arguments against parsed tags
-  if (OUT.length < 60 && !tags[OUT]) {
+  if (OUT.length < 60 && !tags[OUT]) {  // hardcoded, now awesome
     throw new Error('tag ' + OUT + ' does not exist');
   }
   if (IN.length < 60 && !tags[IN]) {
@@ -96,9 +96,13 @@ module.exports = ({from, to, amount, ppm = config.max_ppm || 750, avoidArr = con
     }
   })
 
+  let fromStr = 'from: ' + OUT;
+  fromStr += (tags[OUT]) ? ', ' + tags[OUT] : '';
+  let toStr = 'to: ' + IN;
+  toStr += (tags[IN]) ? ', ' + tags[IN] : '';
   console.log('\n----------------------------------------')
-  console.log('from:', OUT + ', ' + tags[OUT]);
-  console.log('to:', IN + ', ' + tags[IN]);
+  console.log(fromStr);
+  console.log(toStr);
   console.log('amount:', numberWithCommas(AMOUNT));
   console.log('max ppm:', ppm);
   console.log('ppm per hop:', ppm_per_hop);

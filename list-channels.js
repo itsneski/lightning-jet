@@ -11,9 +11,11 @@ let peerMap = listPeersMapSync(lndClient);
 let channels = listChannelsSync(lndClient);
 let formatted = [];
 channels.forEach(c => {
+  let name = peerMap[c.remote_pubkey].name;
+  if (!c.active) name = '💀 ' + name;
   formatted.push({
     chan: c.chan_id,
-    peer: peerMap[c.remote_pubkey].name,
+    peer: name,
     id: c.remote_pubkey,
     active: c.active
   })
