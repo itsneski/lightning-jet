@@ -41,5 +41,6 @@ node bosrebalance.js dplus neski 500000 --ppm 550
 | `htlc-analyzer.js`   |  Outputs stats about the htlcs logged into the local database.  |
 | `list-channels.js`  |  Lists channels along with the peers.  |
 | `list-peers.js`  |  Lists peer aliases along with their ids.  |
-| `send-message.js`  |  Sends message to a node via keysend.  |
 | `monitor.js`  |  Lists active rebalances in a table format.  |
+| `send-message.js`  |  Sends message to a node via keysend.  |
+| `decode-message.js`  |  Decodes a message received via keysend.  |
