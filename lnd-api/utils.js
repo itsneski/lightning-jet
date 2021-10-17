@@ -33,6 +33,10 @@ module.exports = {
     return channels;
   },
   classifyPeersSync: function(lndClient, days = 7) {
+    // not to classify into inbound & outboud
+    let exceptions = [
+      '033dee9c6a0afc40ffd8f27d68ef260f3e5e1c19e59c6f9bb607fb04c1d497a809'  // for KP due to stuck htlcs
+    ]
     let history = module.exports.htlcHistorySync(lndClient, days);
     let inSum = 0;
     let outSum = 0;
@@ -55,6 +59,7 @@ module.exports = {
     let currTime = Math.floor(+new Date() / 1000);
     let minlife = 7 * 24 * 60 * 60;
     history.inbound.forEach(h => {
+      if (exceptions.indexOf(h.peer) >= 0) return;
       if (h.p >= pThreshold) {
         inbound[h.id] = h;
         delete balanced[h.id];
@@ -64,6 +69,7 @@ module.exports = {
     })
     let outbound = {};
     history.outbound.forEach(h => {
+      if (exceptions.indexOf(h.peer) >= 0) return;
       if (h.p >= pThreshold) {
         if (inbound[h.id]) {  // can a node be classified as both inbound & outbound?
           if (h.sum > inbound[h.id].sum) {
@@ -76,7 +82,7 @@ module.exports = {
           delete balanced[h.id];
         }
       } else if (currTime - h.lifetime < minlife && h.name.indexOf('LNBIG.com') < 0) {
-        balanced[h.id] = h;
+        balanced[h.id] = h; // exception for KP (Yoda)
       }
     })
 
