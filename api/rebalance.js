@@ -24,6 +24,8 @@ const config = require('./config');
 const lndClient = require('./connect');
 const tags = require('./tags');
 const {getNodesInfoSync} = require('../lnd-api/utils');
+const {recordRebalance} = require('./db');
+const {recordRebalanceFailure} = require('./db');
 
 const arrAvg = arr => arr.reduce((a,b) => a + b, 0) / arr.length;
 const stringify = obj => JSON.stringify(obj, null, 2);
@@ -55,13 +57,18 @@ module.exports = ({from, to, amount, ppm = config.max_ppm || 750, avoidArr = con
   const OUT = from;
   const IN = to;
   const AMOUNT = amount;
+  var outId;
+  var inId;
 
   // test arguments against parsed tags
-  if (OUT.length < 60 && !tags[OUT]) {  // hardcoded, now awesome
-    throw new Error('tag ' + OUT + ' does not exist');
+  if (OUT.length < 60) outId = tags[OUT]; else outId = OUT; // 60 hardcoded???
+  if (IN.length < 60) inId = tags[IN]; else inId = IN;
+
+  if (!outId) {
+    throw new Error('couldnt find pub id for ' + OUT);
   }
-  if (IN.length < 60 && !tags[IN]) {
-    throw new ('tag ' + IN + ' does not exist');
+  if (!inId) {
+    throw new Error('couldnt find pub id for ' + IN);
   }
 
   var ppm_per_hop = Math.min(PPM_PET_HOP, Math.round(.75 * ppm));
@@ -70,6 +77,7 @@ module.exports = ({from, to, amount, ppm = config.max_ppm || 750, avoidArr = con
   var nodeStats = {};
   var routes = [];
   var lastMessage;
+  var lastError;
   var amountRebalanced = 0;
   var feesSpent = 0;
   var skippedHops = {};
@@ -166,6 +174,7 @@ module.exports = ({from, to, amount, ppm = config.max_ppm || 750, avoidArr = con
       if (rebalanceFeeTooHigh) {
         // find nodes that exceed the per hop ppm in the last
         // segment of the output
+        lastError = 'rebalanceFeeTooHigh';
         console.log('\n-------------------------------------------');
         console.log('found a prospective route, but the fee is too high');
         //console.log('evaluating output:', stdout);
@@ -247,6 +256,7 @@ module.exports = ({from, to, amount, ppm = config.max_ppm || 750, avoidArr = con
       } else if (failedToFindPath) {
         // didn't find a route; last ditch effort - exclude all expensive nodes
         // that have not yet been excluded and retry
+        lastError = 'failedToFindPath';
         lastMessage = 'failed to find a route';
         console.log('\n-------------------------------------------');
         console.log(lastMessage);
@@ -268,19 +278,23 @@ module.exports = ({from, to, amount, ppm = config.max_ppm || 750, avoidArr = con
           rep++;
         }
       } else if (lowRebalanceAmount) {
+        lastError = 'lowRebalanceAmount';
         lastMessage = 'low rebalance amount';
         console.log('\n-------------------------------------------');
         console.log(lastMessage + ', exiting');
         rep = REPS; // force to exit the loop
       } else if (failedToFindPeer) {
+        lastError = 'failedToFindPeer';
         lastMessage = 'failed to find peer'
         console.log(lastMessage + ', exiting');
         rep = REPS; // force to exit the loop
       } else if (noSufficientBalance) {
+        lastError = 'noSufficientBalance';
         lastMessage = 'insufficient local balance';
         console.log(lastMessage + ', exiting');
         rep = REPS;
       } else {
+        lastError = 'unknownError';
         lastMessage = 'unidentified error';
         console.log('\n-------------------------------------------');
         console.log(lastMessage + ', retrying');
@@ -296,6 +310,10 @@ module.exports = ({from, to, amount, ppm = config.max_ppm || 750, avoidArr = con
       if (amount > 0) {
         console.log('* amount rebalanced:', numberWithCommas(amount));
         amountRebalanced += amount;
+
+        // record result in the db for further optimation
+        recordRebalance(outId, inId, AMOUNT, amount);
+
         console.log('* total amount rebalanced:', numberWithCommas(amountRebalanced));
         if (fees > 0) {
           console.log('* fees spent:', fees);
@@ -347,6 +365,11 @@ module.exports = ({from, to, amount, ppm = config.max_ppm || 750, avoidArr = con
       return !avoidNodes[id] && id !== OUT && id !== IN && id !== tags[OUT] && id !== tags[IN];
     }
   } // for
+
+  // record rebalance failure, success has already been recorded
+  if (amountRebalanced <= 0 && ['rebalanceFeeTooHigh', 'failedToFindPath'].indexOf(lastError) >= 0) {
+    recordRebalanceFailure(outId, inId, AMOUNT, lastError);
+  }
 
   printStats(lndClient, nodeStats, nodeInfo);
 

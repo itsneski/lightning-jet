@@ -98,7 +98,7 @@ if (skippedPeers.length > 0) {
 
 function convertPeer(p, pp = undefined, inbound = false) {
   let s = (inbound) ? { name: p.name, in: p.in, out: p.out } : { name: p.name, out: p.out, in: p.in };
-  if (pp && pp.p) s.p = pp.p;
+  if (pp && pp.p) s.p = pp.p; else s.p = 0;
   if (!p.active) s.name = '💀 ' + s.name;
   return s;
 }

@@ -6,6 +6,31 @@ const round = n => Math.round(n);
 const pThreshold = 2;
 
 module.exports = {
+  withCommas: function(s) {
+    return s.toString().replace(/\B(?<!\.\d*)(?=(\d{3})+(?!\d))/g, ",");
+  },
+  stuckHtlcsSync: function(lndClient) {
+    let data;
+    lndClient.listChannels({}, function(err, response) {
+      if (err) {
+        throw new Error(err);
+      }
+      data = response;
+    })
+    while(data === undefined) {
+      require('deasync').runLoopOnce();
+    }
+    let htlcs = [];
+    data.channels.forEach(c => {
+      if (c.pending_htlcs.length === 0) return;
+      htlcs.push({
+        id: c.chan_id,
+        peer: c.remote_pubkey,
+        htlcs: c.pending_htlcs
+      })
+    })
+    return htlcs;
+  },
   sendMessageToNode: function(routerRpc, node, message) {
     sendMessage();
     async function sendMessage() {
@@ -33,10 +58,6 @@ module.exports = {
     return channels;
   },
   classifyPeersSync: function(lndClient, days = 7) {
-    // not to classify into inbound & outboud
-    let exceptions = [
-      '033dee9c6a0afc40ffd8f27d68ef260f3e5e1c19e59c6f9bb607fb04c1d497a809'  // for KP due to stuck htlcs
-    ]
     let history = module.exports.htlcHistorySync(lndClient, days);
     let inSum = 0;
     let outSum = 0;
@@ -59,7 +80,6 @@ module.exports = {
     let currTime = Math.floor(+new Date() / 1000);
     let minlife = 7 * 24 * 60 * 60;
     history.inbound.forEach(h => {
-      if (exceptions.indexOf(h.peer) >= 0) return;
       if (h.p >= pThreshold) {
         inbound[h.id] = h;
         delete balanced[h.id];
@@ -69,7 +89,6 @@ module.exports = {
     })
     let outbound = {};
     history.outbound.forEach(h => {
-      if (exceptions.indexOf(h.peer) >= 0) return;
       if (h.p >= pThreshold) {
         if (inbound[h.id]) {  // can a node be classified as both inbound & outbound?
           if (h.sum > inbound[h.id].sum) {
