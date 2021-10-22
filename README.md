@@ -1,3 +1,4 @@
+
 # Lightning Jet, or simply Jet
 Tool that helps Lighting (LND) node operators to keep their node up to speed with rebalancing, fees, stuck htlcs, etc.
 
@@ -11,7 +12,19 @@ cd lightning-jet
 npm install
 nano ./api/config.json
 ```
-Edit `config.json`: set correct paths for `adminMacaroonPath` and `tlsCertPath`. On umbrel, admin macaroon is typicall located at `~/umbrel/lnd/data/chain/bitcoin/mainnet/readonly.macaroon`, tls cert is at `~/umbrel/lnd/tls.cert`. Optional: you can list expensive nodes to avoid in the `avoid` section of the config file (can be done later)
+Edit `config.json`: set correct paths for `adminMacaroonPath` and `tlsCertPath`. On umbrel, admin macaroon is typicall located at `~/umbrel/lnd/data/chain/bitcoin/mainnet/readonly.macaroon`, tls cert is at `~/umbrel/lnd/tls.cert`. Optional: you can list expensive nodes to avoid in the `avoid` section of the config file (can be done later).
+```bash
+nano ~/.profile
+```
+Edit `.profile`: add `$HOME/lightning-jet:` to the line that says `export PATH=`. The line should look like this:
+```bash
+export PATH="$HOME/lightning-jet:<rest of your path, leave it as is>"
+```
+Next execute the update `.profile` for you current terminal session. The path will be set automatically for all new sessions.
+```bash
+. ~/.profile
+```
+Test your path by running `jet`. If you get help promt then your path is set correctly. Double check the `PATH` in `.profile` in case you get an error.
 
 ## Post-Installation
 - Kick off htlc logger: `jet start htlc-logger`

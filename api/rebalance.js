@@ -26,6 +26,7 @@ const tags = require('./tags');
 const {getNodesInfoSync} = require('../lnd-api/utils');
 const {recordRebalance} = require('../db/utils');
 const {recordRebalanceFailure} = require('../db/utils');
+const {listPeersMapSync} = require('../lnd-api/utils');
 
 const arrAvg = arr => arr.reduce((a,b) => a + b, 0) / arr.length;
 const stringify = obj => JSON.stringify(obj, null, 2);
@@ -60,9 +61,11 @@ module.exports = ({from, to, amount, ppm = config.max_ppm || 750, avoidArr = con
   var outId;
   var inId;
 
+  var peerMap = listPeersMapSync(lndClient);
+
   // test arguments against parsed tags
-  if (OUT.length < 60) outId = tags[OUT]; else outId = OUT; // 60 hardcoded???
-  if (IN.length < 60) inId = tags[IN]; else inId = IN;
+  outId = findId(OUT);
+  inId = findId(IN);
 
   if (!outId) {
     throw new Error('couldnt find pub id for ' + OUT);
@@ -120,7 +123,7 @@ module.exports = ({from, to, amount, ppm = config.max_ppm || 750, avoidArr = con
 
   // run the loop for bos rebalance
   for (let rep = 0; rep < REPS; ) {
-    let command = "bos rebalance --no-color --out " + OUT + " --in " + IN + " --amount " + (AMOUNT - amountRebalanced) + " --max-fee-rate " + ppm + avoid;
+    let command = 'bos rebalance --no-color --out "' + OUT + '" --in "' + IN + '" --amount ' + (AMOUNT - amountRebalanced) + ' --max-fee-rate ' + ppm + avoid;
     console.log('\n-------------------------------------------');
     console.log('* rebalancing from', OUT, 'to', IN);
     if (amountRebalanced > 0) console.log('* targeted amount:', numberWithCommas(AMOUNT));
@@ -372,6 +375,21 @@ module.exports = ({from, to, amount, ppm = config.max_ppm || 750, avoidArr = con
   }
 
   printStats(lndClient, nodeStats, nodeInfo);
+
+  // str can either be a tag, a portion of node's alias, or node's pub id
+  function findId(str) {
+    if (tags[str]) return tags[str];
+    if (peerMap[str]) return str;
+    // see if str is part of an alias
+    let id;
+    Object.values(peerMap).forEach(p => {
+      if (p.name.toLowerCase().indexOf(str.toLowerCase()) >= 0) {
+        if (id) throw new Error('more than one pub id associated with ' + str);
+        id = p.id;
+      }
+    })
+    return id;
+  }
 
   // format for printing
   function printStats() {
