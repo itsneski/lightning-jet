@@ -7,8 +7,9 @@ Helps Lighting (LND) node operators to keep their node up to speed with rebalanc
 
 ## Installation
 - `git clone https://github.com/itsneski/lightning-jet`
-- Run `npm install`
-- Run `./tools/genconfig` to generate `./api/config.json`
+- `cd lightning-jet`
+- `npm install`
+- `./tools/genconfig`, this generates `./api/config.json`
 - Edit `config.json`, e.g. `nano ./api/config.json`: set correct paths for `adminMacaroonPath` and `tlsCertPath`. On umbrel, admin macaroon is typicall located at `~/umbrel/lnd/data/chain/bitcoin/mainnet/admin.macaroon`, tls cert is at `~/umbrel/lnd/tls.cert`. Optional: you can list expensive nodes to avoid in the `avoid` section of the config file (can be done later)
 
 ## Post-Installation

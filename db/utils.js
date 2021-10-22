@@ -7,8 +7,7 @@ const dbFile = __dirname + '/jet.db';
 const oldDbFile = __dirname + '/../lnd_optimize.db';  
 
 // rename db file based on the latest update
-if (!fs.existsSync(dbFile)) {
-  if (!fs.existsSync(oldDbFile)) throw new Error('couldnt convert db file');
+if (!fs.existsSync(dbFile) && fs.existsSync(oldDbFile)) {
   fs.renameSync(oldDbFile, dbFile);
 }
 
