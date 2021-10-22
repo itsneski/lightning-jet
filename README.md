@@ -1,6 +1,6 @@
 
 # Lightning Jet, or simply Jet
-Helps Lighting (LND) node operators to keep their node up to speed with rebalancing, fees, stuck htlcs, etc.
+Tool that helps Lighting (LND) node operators to keep their node up to speed with rebalancing, fees, stuck htlcs, etc.
 
 ## Prerequisites
 - Install [BalanceOfSatoshi](https://github.com/alexbosworth/balanceofsatoshis) along with its prerequisites (Node).

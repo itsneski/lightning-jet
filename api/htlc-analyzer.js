@@ -22,7 +22,7 @@ module.exports = {
       if (!item) {
         item = { sum: 0, count: 0 };
         sumMap[h.from_chan] = sumMap[h.from_chan] || {};
-        sumMap[h.from_chan][h.from_chan] = item;
+        sumMap[h.from_chan][h.to_chan] = item;
       }
       item.sum += h.sats;
       item.count++;
