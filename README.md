@@ -11,7 +11,7 @@ cd lightning-jet
 npm install
 nano ./api/config.json
 ```
-Edit `config.json`: set correct paths for `adminMacaroonPath` and `tlsCertPath`. On umbrel, admin macaroon is typicall located at `~/umbrel/lnd/data/chain/bitcoin/mainnet/admin.macaroon`, tls cert is at `~/umbrel/lnd/tls.cert`. Optional: you can list expensive nodes to avoid in the `avoid` section of the config file (can be done later)
+Edit `config.json`: set correct paths for `adminMacaroonPath` and `tlsCertPath`. On umbrel, admin macaroon is typicall located at `~/umbrel/lnd/data/chain/bitcoin/mainnet/readonly.macaroon`, tls cert is at `~/umbrel/lnd/tls.cert`. Optional: you can list expensive nodes to avoid in the `avoid` section of the config file (can be done later)
 
 ## Post-Installation
 - Kick off htlc logger: `jet start htlc-logger`

@@ -32,7 +32,7 @@ const rebalanceApi = require('./api/rebalance');
 cap
   .version(version)
 
-  .command('start', 'Start a service')
+  .command('start', 'Starts a service')
   .argument('<service>', 'Services', serviceNames)
   .help(`Services: ${serviceNames.join(', ')}`)
   .action((args, options, logger) => {
@@ -41,7 +41,7 @@ cap
     })
   })
 
-  .command('stop', 'Stop a service')
+  .command('stop', 'Stops a service')
   .argument('<service>', 'Services', serviceNames)
   .help(`Services: ${serviceNames.join(', ')}`)
   .action((args, options, logger) => {
@@ -50,7 +50,7 @@ cap
     })
   })
 
-  .command('restart', 'Restart a service')
+  .command('restart', 'Restarts a service')
   .argument('<service>', 'Services', serviceNames)
   .help(`Services: ${serviceNames.join(', ')}`)
   .action((args, options, logger) => {
@@ -248,14 +248,14 @@ function runMonitorLoop() {
 
   // stuck htlcs
   let htlcs = stuckHtlcsFormattedSync();
-  if (htlcs.length > 0) {
+  if (htlcs && htlcs.length > 0) {
     console.log('\nstuck htlcs:');
     console.table(htlcs);
   }
 
   // forced closed
   let closed = listForcedClosingFormattedSync();
-  if (closed.length > 0) {
+  if (closed && closed.length > 0) {
     console.log('\nforced closing channels:');
     console.table(closed);  
   }
