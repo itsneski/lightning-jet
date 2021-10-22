@@ -1,8 +1,10 @@
-// generates initial ./api/config.json
+#!/usr/bin/env node
+
+// generates initial ./api/config.json; run once after install
 
 const fs = require('fs');
 
-const FILE = './api/config.json';
+const FILE = __dirname + '/../api/config.json';
 
 const data = 
 '{\n\

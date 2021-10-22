@@ -116,7 +116,7 @@ module.exports = {
       } else if (c.capacity <= 1000000) {  // should we even have tiny nodes?
         // skip tiny nodes
         map = skipped;
-      } else if (c.capacity <= 2000000) { // are smaller nodes given a chance to shine???
+      } else if (c.capacity <= 2000000) { // do smaller nodes given a chance to shine???
         map = balanced; // what about stale nodes????
       } else {
         map = balanced;

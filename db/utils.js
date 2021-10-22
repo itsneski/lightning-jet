@@ -1,7 +1,17 @@
-var sqlite3 = require('sqlite3').verbose();
-var db = new sqlite3.Database('lnd_optimize.db');
+// https://www.npmjs.com/package/sqlite3
 
-const DB_FILE = 'lnd_optimize.db';
+const fs = require('fs');
+const sqlite3 = require('sqlite3').verbose();
+
+const dbFile = __dirname + '/jet.db';
+const oldDbFile = __dirname + '/../lnd_optimize.db';  
+
+// rename db file based on the latest update
+if (!fs.existsSync(dbFile)) {
+  if (!fs.existsSync(oldDbFile)) throw new Error('couldnt convert db file');
+  fs.renameSync(oldDbFile, dbFile);
+}
+
 const REBALANCE_HISTORY_TABLE = 'rebalance_history';
 const FAILED_HTLC_TABLE = 'failed_htlc';
 
@@ -10,6 +20,27 @@ createRebalanceHistoryTable();
 createFailedHtlcTable();
 
 module.exports = {
+  listHtlcsSync(days = -1) {
+    let db = getHandle();
+    let htlcs;
+    let list = [];
+    db.serialize(function() {
+      let q = 'SELECT * FROM ' + FAILED_HTLC_TABLE;
+      if (days > 0) {
+        q += ' WHERE date > ' + (Date.now() - Math.round(days * 24 * 60 * 60 * 1000));
+      }
+      db.each(q, function(err, row) {
+        list.push(row);
+      }, function(err) {
+        htlcs = list;
+      })
+    })
+    while(htlcs === undefined) {
+      require('deasync').runLoopOnce();
+    }
+    closeHandle(db);
+    return htlcs;
+  },
   recordHtlc(htlc) {
     let db = getHandle();
     db.serialize(function() {
@@ -22,7 +53,6 @@ module.exports = {
       ]);
       let cmd = 'INSERT INTO ' + FAILED_HTLC_TABLE + ' VALUES (' + values + ')';
       executeDb(cmd);
-      closeHandle(db);
     })
     closeHandle(db);
   },
@@ -83,7 +113,7 @@ module.exports = {
 }
 
 function getHandle() {
-  return new sqlite3.Database(DB_FILE)
+  return new sqlite3.Database(dbFile)
 }
 
 function closeHandle(handle) {
@@ -92,7 +122,7 @@ function closeHandle(handle) {
 
 function executeDb(cmd) {
   console.log(cmd);
-  db.run(cmd);
+  getHandle().run(cmd);
 }
 
 function constructInsertString(arr) {
@@ -100,9 +130,9 @@ function constructInsertString(arr) {
 }
 
 function createFailedHtlcTable() {
-  db.run("CREATE TABLE IF NOT EXISTS " + FAILED_HTLC_TABLE + " (date INTEGER NOT NULL, from_chan TEXT NOT NULL, to_chan TEXT NOT NULL, sats INTEGER NOT NULL, extra TEXT DEFAULT NULL)");
+  getHandle().run("CREATE TABLE IF NOT EXISTS " + FAILED_HTLC_TABLE + " (date INTEGER NOT NULL, from_chan TEXT NOT NULL, to_chan TEXT NOT NULL, sats INTEGER NOT NULL, extra TEXT DEFAULT NULL)");
 }
 
 function createRebalanceHistoryTable() {
-  db.run("CREATE TABLE IF NOT EXISTS " + REBALANCE_HISTORY_TABLE + " (date INTEGER NOT NULL, from_node TEXT NOT NULL, to_node TEXT NOT NULL, amount INTEGER NOT NULL, rebalanced INTEGER DEFAULT 0, status INTEGER, extra TEXT DEFAULT NULL)");
+  getHandle().run("CREATE TABLE IF NOT EXISTS " + REBALANCE_HISTORY_TABLE + " (date INTEGER NOT NULL, from_node TEXT NOT NULL, to_node TEXT NOT NULL, amount INTEGER NOT NULL, rebalanced INTEGER DEFAULT 0, status INTEGER, extra TEXT DEFAULT NULL)");
 }

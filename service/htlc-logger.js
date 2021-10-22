@@ -6,9 +6,8 @@
 //
 
 const fs = require('fs');
-const routerRpc = require('./api/router-rpc');
-
-const FILE = './htlc-logger.db';
+const routerRpc = require('../api/router-rpc');
+const {recordHtlc} = require('../db/utils');
 
 async function logEvents(readable) {
   console.log('logging events...');
@@ -16,18 +15,14 @@ async function logEvents(readable) {
     let lf = event.link_fail_event;
     // filter events 
     if (lf && lf.wire_failure === 'TEMPORARY_CHANNEL_FAILURE' && lf.failure_detail === 'INSUFFICIENT_BALANCE') {
-      logToFile(JSON.stringify(event, null, 2));
+      logEvent(event);
     }
   }
 }
 
-function logToFile(data) {
-  console.log('logging event:', data);
-  fs.writeFile(FILE, '\n' + data, { flag: 'a+' }, err => {
-    if (err) {
-      return console.error(err)
-    }
-  })
+function logEvent(event) {
+  console.log('logging event:', event);
+  recordHtlc(event);
 }
 
 logEvents();

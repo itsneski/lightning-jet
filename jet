@@ -1,0 +1,262 @@
+#!/usr/bin/env node
+
+const cap = require('caporal');
+const importLazy = require('import-lazy')(require);
+const {version} = importLazy('./package');
+
+const lndClient = require('./api/connect');
+const {listActiveRebalancesSync} = require('./api/utils');
+const {rebalanceHistoryFormattedSync} = require('./api/utils');
+const {stuckHtlcsFormattedSync} = require('./api/utils');
+const {listForcedClosingFormattedSync} = require('./api/utils');
+const {listPeersFormattedSync} = require('./api/utils');
+const {withCommas} = require('./lnd-api/utils');
+const {listFeesSync} = require('./lnd-api/utils');
+const {listPeersSync} = require('./lnd-api/utils');
+const {listChannels} = require('./api/list-channels');
+const {htlcHistoryFormatted} = require('./api/htlc-history');
+const {htlcAnalyzer} = require('./api/htlc-analyzer');
+const date = require('date-and-time');
+
+const {getServiceNames} = require('./service/utils');
+const {stopService} = require('./service/utils');
+const {startService} = require('./service/utils');
+const {restartService} = require('./service/utils');
+const {printStatus} = require('./service/utils');
+const serviceNames = getServiceNames();
+
+const {sendMessage} = require('./api/send-message');
+
+const rebalanceApi = require('./api/rebalance');
+
+cap
+  .version(version)
+
+  .command('start', 'Start a service')
+  .argument('<service>', 'Services', serviceNames)
+  .help(`Services: ${serviceNames.join(', ')}`)
+  .action((args, options, logger) => {
+    return new Promise(async (resolve, reject) => {
+      startService(args.service);
+    })
+  })
+
+  .command('stop', 'Stop a service')
+  .argument('<service>', 'Services', serviceNames)
+  .help(`Services: ${serviceNames.join(', ')}`)
+  .action((args, options, logger) => {
+    return new Promise(async (resolve, reject) => {
+      stopService(args.service);
+    })
+  })
+
+  .command('restart', 'Restart a service')
+  .argument('<service>', 'Services', serviceNames)
+  .help(`Services: ${serviceNames.join(', ')}`)
+  .action((args, options, logger) => {
+    return new Promise(async (resolve, reject) => {
+      restartService(args.service);
+    })
+  })
+
+  .command('status', 'Prints service status')
+  .action((args, options, logger) => {
+    return new Promise(async (resolve, reject) => {
+      printStatus();
+    })
+  })
+
+  .command('rebalance', 'Rebalances the node via circular rebalance.')
+  .help('Calls BalanceOfSatoshis in a loop until the target amount is met or all possible routes are exhausted.')
+  .argument('<from>', 'From this peer')
+  .argument('<to>', 'To this peer')
+  .argument('<amount>', 'Amount in sats')
+  .option('--ppm <ppm>', 'Max ppm')
+  .action((args, options, logger) => {
+    return new Promise(async (resolve, reject) => {
+      const amount = (args.amount < 1000) ? args.amount * 1000000 : args.amount;
+
+      rebalanceApi({
+        from: args.from,
+        to: args.to,
+        amount: amount,
+        ppm: options.ppm
+      })  
+    })
+  })
+
+  .command('peers', 'Lists peers classified into inbound, outbound and balanced based on routing')
+  .action((args, options, logger) => {
+    return new Promise(async (resolve, reject) => {
+      let peers = listPeersFormattedSync();
+      console.table(peers.all);
+      console.log('inbound peers:');
+      console.table(peers.inbound);
+      console.log('outbound peers:');
+      console.table(peers.outbound);
+      console.log('balanced peers:');
+      console.table(peers.balanced);
+      if (peers.skipped.length > 0) {
+        console.log('skipped peers:');
+        console.table(peers.skipped);  
+      }
+    })
+  })
+
+  .command('fees', 'Lists peer fees')
+  .action((args, options, logger) => {
+    return new Promise(async (resolve, reject) => {
+      let fees = listFeesSync(lndClient);
+      //console.log(fees);
+      let formatted = [];
+      fees.forEach(f => {
+        let name = f.name;
+        formatted.push({
+          peer: f.name,
+          lc_base: f.local.base,
+          lc_rate: f.local.rate,
+          rm_base: f.remote.base,
+          rm_rate: f.remote.rate
+        })
+      })
+      formatted.sort(function(a, b) {
+        return b.rm_rate - a.rm_rate;
+      })
+      console.table(formatted);
+    })
+  })
+
+  .command('htlc-history', 'Prints cumulative htlcs history for peers')
+  .argument('[days]', 'Depth of history in days')
+  .help('Prints % of total inbound / outbound routing for each peer (e.g. inbound routing from D++ takes 25% of total inbound traffic across all peers), and % of inbound / outbound routing for a peer (e.g. inbound routing from D++ takes 95% of total routing from D++)')
+  .action((args, options, logger) => {
+    return new Promise(async (resolve, reject) => {
+      let days = args.days || 7;  // hardcoded??
+      let history = htlcHistoryFormatted(days);
+      console.log('htlc history over the past', days, 'days');
+      if (history.unknown) {
+        console.log('unknown channels:', history.unknown);
+      }
+      console.log('inbound traffic:');
+      console.table(history.inbound);
+      console.log('outbound traffic:');
+      console.table(history.outbound);
+      if (history.noTraffic) {
+        console.log('no traffic:');
+        console.table(history.noTraffic);
+      }
+    })
+  })
+
+  .command('htlc-analyzer', 'Prints stats about failed htlcs')
+  .argument('[days]', 'Depth of history in days')
+  .action((args, options, logger) => {
+    return new Promise(async (resolve, reject) => {
+      let days = args.days || 1;
+      let formatted = htlcAnalyzer(days);
+      console.log('htlc analysis over the past', days, 'day(s)');
+      console.table(formatted);
+    })
+  })
+
+  .command('rebalance-history', 'Lists past rebalances')
+  .argument('[mins]', 'Depth of history in minutes')
+  .action((args, options, logger) => {
+    return new Promise(async (resolve, reject) => {
+      let mins = args.mins || 30;  // hardcoded???
+      let secs = (mins > 0) ? mins * 60 : -1;
+      let formatted = rebalanceHistoryFormattedSync(secs);
+      if (mins > 0) console.log('rebalances over the past', mins, 'minutes');
+      console.table(formatted);
+    })
+  })
+
+  .command('list-peers', 'Lists peer aliases and ids')
+  .action((args, options, logger) => {
+    return new Promise(async (resolve, reject) => {
+      let peers = listPeersSync(lndClient);
+      let peerNames = [];
+      peers.forEach(p => {
+        peerNames.push({
+          name: (p.active) ? p.name : '💀 ' + p.name,
+          id: p.id,
+          active: p.active
+        })
+      })
+      peerNames.sort(function(a, b) {
+        return a.name.localeCompare(b.name);
+      })
+      console.table(peerNames);
+    })
+  })
+
+  .command('list-channels', 'Lists channels along force closing ones')
+  .action((args, options, logger) => {
+    return new Promise(async (resolve, reject) => {
+      let chans = listChannels();
+      console.log('active channels:');
+      console.table(chans.active);
+      if (chans.pending.length > 0) {
+        console.log('forced closing channels:');
+        console.table(chans.pending);
+      }
+    })
+  })
+
+  .command('monitor', 'Prints information about ongoing rebalances and stuck htlcs')
+  .action((args, options, logger) => {
+    return new Promise(async (resolve, reject) => {
+      const delay = 60;  // in seconds
+      runMonitorLoop();
+      setInterval(runMonitorLoop, delay * 1000);
+    })
+  })
+
+  .command('send-message', 'Sends a message to a node via keysend')
+  .argument('<node>', 'Node pub id')
+  .argument('<message>', 'Message to send')
+  .action((args, options, logger) => {
+    return new Promise(async (resolve, reject) => {
+      sendMessage(args.node, args.message);
+    })
+  })
+
+cap.parse(process.argv);
+
+
+function runMonitorLoop() {
+  const mins = 120;
+  console.clear();
+  // active rebalances
+  console.log(date.format(new Date, 'MM/DD hh:mm:ss'));
+  let list = listActiveRebalancesSync();
+  if (list) {
+    list.forEach(l => l.amount = withCommas(l.amount));
+    list.sort(function(a, b) { return a.from.localeCompare(b.from); });
+    console.log('rebalances in progress:');
+    console.table(list);
+  } else {
+    console.log('no active rebalances');
+  }
+
+  // rebalance history
+  let history = rebalanceHistoryFormattedSync(mins * 60);
+  if (history.length > 0) {
+    console.log('\nrebalances over the past', mins, 'minutes:');
+    console.table(history);
+  }
+
+  // stuck htlcs
+  let htlcs = stuckHtlcsFormattedSync();
+  if (htlcs.length > 0) {
+    console.log('\nstuck htlcs:');
+    console.table(htlcs);
+  }
+
+  // forced closed
+  let closed = listForcedClosingFormattedSync();
+  if (closed.length > 0) {
+    console.log('\nforced closing channels:');
+    console.table(closed);  
+  }
+}

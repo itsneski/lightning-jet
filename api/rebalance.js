@@ -24,8 +24,8 @@ const config = require('./config');
 const lndClient = require('./connect');
 const tags = require('./tags');
 const {getNodesInfoSync} = require('../lnd-api/utils');
-const {recordRebalance} = require('./db');
-const {recordRebalanceFailure} = require('./db');
+const {recordRebalance} = require('../db/utils');
+const {recordRebalanceFailure} = require('../db/utils');
 
 const arrAvg = arr => arr.reduce((a,b) => a + b, 0) / arr.length;
 const stringify = obj => JSON.stringify(obj, null, 2);
