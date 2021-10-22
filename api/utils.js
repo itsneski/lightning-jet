@@ -107,6 +107,7 @@ module.exports = {
       let s = (inbound) ? { name: p.name, in: p.in, out: p.out } : { name: p.name, out: p.out, in: p.in };
       if (pp && pp.p) s.p = pp.p; else s.p = 0;
       if (!p.active) s.name = '💀 ' + s.name;
+      if (s.p === 0) delete s.p;  // no need to show 0
       return s;
     }
   },

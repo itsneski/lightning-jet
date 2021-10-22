@@ -16,6 +16,7 @@ const data =
   "debugMode": false\n\
 }';
 
+if (fs.existsSync(FILE)) return;  // don't overwrite config
 fs.writeFile(FILE, data, err => {
   if (err) {
     return console.error(err)
