@@ -20,7 +20,7 @@ Edit `.profile`: add `$HOME/lightning-jet:` to the line that says `export PATH=`
 ```bash
 export PATH="$HOME/lightning-jet:<rest of your path, leave it as is>"
 ```
-Next execute the update `.profile` for you current terminal session. The path will be set automatically for all new sessions.
+Next execute the updated `.profile` for you current terminal session. The path will be set automatically for all new sessions.
 ```bash
 . ~/.profile
 ```

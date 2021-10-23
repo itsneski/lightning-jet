@@ -10,9 +10,21 @@ const {getNodesInfoSync} = require('../lnd-api/utils');
 const {listPeersSync} = require('../lnd-api/utils');
 const {classifyPeersSync} = require('../lnd-api/utils');
 const {listFeesSync} = require('../lnd-api/utils');
+const {removeEmojis} = require('../lnd-api/utils');
+const findProc = require('find-process');
+
 const date = require('date-and-time');
 
 module.exports = {
+  // is process running
+  isRunningSync(proc, self = false) {
+    let res;
+    findProc('name', proc).then(list => res = list);
+    while(res === undefined) {
+      require('deasync').runLoopOnce();
+    }
+    return (self) ? res.length > 1 : res.length > 0;
+  },
   listPeersFormattedSync() {
     let IN_PEERS = {};
     let OUT_PEERS = {};
@@ -187,6 +199,26 @@ module.exports = {
     })
     return formatted;
   },
+  listActiveRebalancesFormattedSync: function() {
+    let list = module.exports.listActiveRebalancesSync();
+    if (!list) return;
+    let peers = listPeersMapSync(lndClient);
+    let tags = require('./tags');
+    let tagsMap = {};
+    Object.keys(tags).forEach(t => tagsMap[tags[t]] = t);
+    list.forEach(l => {
+      // fix listActiveRebalancesSync so that it always returns ids, not tags
+      l.from = tagsMap[l.from] || (peers[l.from] && peers[l.from].name) || l.from;
+      l.to = tagsMap[l.to] || (peers[l.to] && peers[l.to].name) || l.to;
+      l.log = '/tmp/rebalance_' + forLog(l.from) + '_' + forLog(l.to) + '.log';
+    })
+    return list;
+
+    function forLog(str) {   // copy & paste from autorebalance???
+      let name = removeEmojis(str);
+      return name.replace(/[^a-zA-Z.]/g, "").substring(0, 15);
+    }
+  },
   listActiveRebalancesSync: function() {
     try {
       var result = execSync('ps -aux | grep "jet rebalance" | grep -v grep').toString().trim();
@@ -213,7 +245,6 @@ module.exports = {
       })
       let item = {from:from, to:to, amount: amount};
       if (ppm) item.ppm = ppm;
-      item.log = '/tmp/rebalance_' + from + '_' + to + '.log';
       list.push(item);
     })
     return list;

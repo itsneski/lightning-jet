@@ -27,6 +27,7 @@ const {getNodesInfoSync} = require('../lnd-api/utils');
 const {recordRebalance} = require('../db/utils');
 const {recordRebalanceFailure} = require('../db/utils');
 const {listPeersMapSync} = require('../lnd-api/utils');
+const {getNodeFeeSync} = require('../lnd-api/utils');
 
 const arrAvg = arr => arr.reduce((a,b) => a + b, 0) / arr.length;
 const stringify = obj => JSON.stringify(obj, null, 2);
@@ -72,6 +73,19 @@ module.exports = ({from, to, amount, ppm = config.max_ppm || 750, avoidArr = con
   }
   if (!inId) {
     throw new Error('couldnt find pub id for ' + IN);
+  }
+
+  // check that the exit node's fee isn't higher than ppm
+  let fee = getNodeFeeSync(lndClient, inId);
+  if (fee) {
+    let sum = fee.base/1000 + fee.rate;
+    if (sum > ppm) {
+      return console.error(`exit node's fee, base:${fee.base} rate:${fee.rate}, exceeds supplied ppm of ${ppm}`);
+    } else if (100 * (ppm - sum) / ppm < 25) {   // enough fee buffer??
+      console.log(`exit node's fee is within 25% of supplied ppm, may not be sufficient room to rebalance`);
+    }
+  } else {
+    throw new Error(`couldnt find fee for ${inId}`);
   }
 
   var ppm_per_hop = Math.min(PPM_PET_HOP, Math.round(.75 * ppm));

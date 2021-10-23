@@ -5,7 +5,7 @@ const importLazy = require('import-lazy')(require);
 const {version} = importLazy('./package');
 
 const lndClient = require('./api/connect');
-const {listActiveRebalancesSync} = require('./api/utils');
+const {listActiveRebalancesFormattedSync} = require('./api/utils');
 const {rebalanceHistoryFormattedSync} = require('./api/utils');
 const {stuckHtlcsFormattedSync} = require('./api/utils');
 const {listForcedClosingFormattedSync} = require('./api/utils');
@@ -229,7 +229,7 @@ function runMonitorLoop() {
   console.clear();
   // active rebalances
   console.log(date.format(new Date, 'MM/DD hh:mm:ss'));
-  let list = listActiveRebalancesSync();
+  let list = listActiveRebalancesFormattedSync();
   if (list) {
     list.forEach(l => l.amount = withCommas(l.amount));
     list.sort(function(a, b) { return a.from.localeCompare(b.from); });
@@ -240,10 +240,11 @@ function runMonitorLoop() {
   }
 
   // rebalance history
+  const maxHistoryLines = 20; // config file???
   let history = rebalanceHistoryFormattedSync(mins * 60);
   if (history.length > 0) {
-    console.log('\nrebalances over the past', mins, 'minutes:');
-    console.table(history);
+    console.log(`\nrebalances over the past ${mins} mins (${maxHistoryLines} max lines):`);
+    console.table(history.slice(0, maxHistoryLines));
   }
 
   // stuck htlcs

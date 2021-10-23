@@ -8,6 +8,13 @@
 const fs = require('fs');
 const routerRpc = require('../api/router-rpc');
 const {recordHtlc} = require('../db/utils');
+const {isRunningSync} = require('../api/utils');
+
+// only one instance allowed
+const fileName = require('path').basename(__filename);
+if (isRunningSync(fileName, true)) {
+  return console.error(`${fileName} is already running, only one instance is allowed`);
+}
 
 async function logEvents(readable) {
   console.log('logging events...');

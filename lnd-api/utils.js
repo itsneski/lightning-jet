@@ -256,6 +256,15 @@ module.exports = {
 
     return {inbound: inPeers, outbound: outPeers, unknown: unknown};
   },
+  getNodeFeeSync: function(lndClient, node) {
+    // not the most optimal implementation, rethink
+    let fees = module.exports.listFeesSync(lndClient);
+    let fee;
+    fees.forEach(f => {
+      if (f.id === node) { fee = f; return; }
+    })
+    return fee && fee.remote;
+  },
   listFeesSync: function(lndClient) {
     let fees;
     module.exports.listFees(lndClient, function(result) {
@@ -304,21 +313,21 @@ module.exports = {
         }
         if (r.node1_pub === info.identity_pubkey) {
           fee.local = {
-            base: r.node1_policy.fee_base_msat,
-            rate: r.node1_policy.fee_rate_milli_msat
+            base: parseInt(r.node1_policy.fee_base_msat),
+            rate: parseInt(r.node1_policy.fee_rate_milli_msat)
           }
           fee.remote = {
-            base: r.node2_policy.fee_base_msat,
-            rate: r.node2_policy.fee_rate_milli_msat
+            base: parseInt(r.node2_policy.fee_base_msat),
+            rate: parseInt(r.node2_policy.fee_rate_milli_msat)
           }
         } else {
           fee.local = {
-            base: r.node2_policy.fee_base_msat,
-            rate: r.node2_policy.fee_rate_milli_msat
+            base: parseInt(r.node2_policy.fee_base_msat),
+            rate: parseInt(r.node2_policy.fee_rate_milli_msat)
           }
           fee.remote = {
-            base: r.node1_policy.fee_base_msat,
-            rate: r.node1_policy.fee_rate_milli_msat
+            base: parseInt(r.node1_policy.fee_base_msat),
+            rate: parseInt(r.node1_policy.fee_rate_milli_msat)
           }
         }
         fees.push(fee);
@@ -363,7 +372,7 @@ module.exports = {
       // fix funkiness in the alias that screws up the output
       // IMPORTANT: this is temporary, needs to be removed
       let name = peerInfo[c.remote_pubkey].node.alias;
-      if (name.indexOf('Island Bitcoin') === 0) name = 'Island Bitcoin';
+      name = module.exports.removeEmojis(name);  // get rid of emojis to avoid skewed tables
 
       peers.push({
         id: c.remote_pubkey,
@@ -446,5 +455,9 @@ module.exports = {
       require('deasync').runLoopOnce();
     }
     return info;
+  },
+  removeEmojis: function(str) {
+    const {isEmoji} = require('../api/constants');
+    return str.replace(isEmoji, String()).trim();
   }
 }
