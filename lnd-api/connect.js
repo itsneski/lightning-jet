@@ -16,26 +16,26 @@ const loaderOptions = {
 };
 
 module.exports = {
-  routerrpc(protoPath, adminMacaroonPath, tlsCertPath) {
-    let descriptor = generateDescriptor(protoPath, adminMacaroonPath, tlsCertPath);
+  routerrpc(protoPath, macaroonPath, tlsCertPath) {
+    let descriptor = generateDescriptor(protoPath, macaroonPath, tlsCertPath);
     let routerrpc = descriptor.desc.routerrpc;
     let client = new routerrpc.Router('localhost:10009', descriptor.creds);
     return client;
   },
-  lnrpc(protoPath, adminMacaroonPath, tlsCertPath) {
-    let descriptor = generateDescriptor(protoPath, adminMacaroonPath, tlsCertPath);
+  lnrpc(protoPath, macaroonPath, tlsCertPath) {
+    let descriptor = generateDescriptor(protoPath, macaroonPath, tlsCertPath);
     let lnrpc = descriptor.desc.lnrpc;
     let client = new lnrpc.Lightning('localhost:10009', descriptor.creds);
     return client;
   }
 }
 
-function generateDescriptor(protoPath, adminMacaroonPath, tlsCertPath) {
+function generateDescriptor(protoPath, macaroonPath, tlsCertPath) {
   const packageDefinition = protoLoader.loadSync(protoPath, loaderOptions);
 
   process.env.GRPC_SSL_CIPHER_SUITES = 'HIGH+ECDSA';
 
-  let m = fs.readFileSync(adminMacaroonPath);
+  let m = fs.readFileSync(macaroonPath);
   let macaroon = m.toString('hex');
 
   // build meta data credentials

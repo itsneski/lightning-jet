@@ -11,6 +11,7 @@ const {listPeersSync} = require('../lnd-api/utils');
 const {classifyPeersSync} = require('../lnd-api/utils');
 const {listFeesSync} = require('../lnd-api/utils');
 const {removeEmojis} = require('../lnd-api/utils');
+const constants = require('./constants');
 const findProc = require('find-process');
 
 const date = require('date-and-time');
@@ -216,7 +217,7 @@ module.exports = {
 
     function forLog(str) {   // copy & paste from autorebalance???
       let name = removeEmojis(str);
-      return name.replace(/[^a-zA-Z.]/g, "").substring(0, 15);
+      return name.replace(constants.logNameRegEx, "").substring(0, 15);
     }
   },
   listActiveRebalancesSync: function() {

@@ -23,6 +23,7 @@ const {stopService} = require('./service/utils');
 const {startService} = require('./service/utils');
 const {restartService} = require('./service/utils');
 const {printStatus} = require('./service/utils');
+const constants = require('./api/constants');
 const serviceNames = getServiceNames();
 
 const {sendMessage} = require('./api/send-message');
@@ -72,6 +73,7 @@ cap
   .argument('<to>', 'To this peer. Can be a partial alias, a pub id, or a bos tag')
   .argument('<amount>', 'Amount in sats')
   .option('--ppm <ppm>', 'Max ppm')
+  .option('--mins [mins]', 'Max time to run in minutes')
   .action((args, options, logger) => {
     return new Promise(async (resolve, reject) => {
       const amount = (args.amount < 1000) ? args.amount * 1000000 : args.amount;
@@ -80,7 +82,8 @@ cap
         from: args.from,
         to: args.to,
         amount: amount,
-        ppm: options.ppm
+        ppm: options.ppm,
+        mins: options.mins
       })  
     })
   })
@@ -204,9 +207,10 @@ cap
   })
 
   .command('monitor', 'Prints information about ongoing rebalances and stuck htlcs')
+  .argument('[secs]', 'Refresh delay in seconds')
   .action((args, options, logger) => {
     return new Promise(async (resolve, reject) => {
-      const delay = 60;  // in seconds
+      const delay = args.secs || constants.monitorRefresh;  // in seconds
       runMonitorLoop();
       setInterval(runMonitorLoop, delay * 1000);
     })
@@ -240,7 +244,7 @@ function runMonitorLoop() {
   }
 
   // rebalance history
-  const maxHistoryLines = 20; // config file???
+  const maxHistoryLines = constants.maxRebalanceHistoryLines;
   let history = rebalanceHistoryFormattedSync(mins * 60);
   if (history.length > 0) {
     console.log(`\nrebalances over the past ${mins} mins (${maxHistoryLines} max lines):`);

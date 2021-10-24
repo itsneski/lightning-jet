@@ -1,4 +1,5 @@
 
+
 # Lightning Jet, or simply Jet
 Tool that helps Lighting (LND) node operators to keep their node up to speed with rebalancing, fees, stuck htlcs, etc.
 
@@ -12,7 +13,7 @@ cd lightning-jet
 npm install
 nano ./api/config.json
 ```
-Edit `config.json`: set correct paths for `adminMacaroonPath` and `tlsCertPath`. On umbrel, admin macaroon is typicall located at `~/umbrel/lnd/data/chain/bitcoin/mainnet/readonly.macaroon`, tls cert is at `~/umbrel/lnd/tls.cert`. Optional: you can list expensive nodes to avoid in the `avoid` section of the config file (can be done later).
+Edit `config.json`: set correct paths for `macaroonPath` and `tlsCertPath`. On umbrel, admin macaroon is typicall located at `~/umbrel/lnd/data/chain/bitcoin/mainnet/readonly.macaroon`, tls cert is at `~/umbrel/lnd/tls.cert`. Optional: you can list expensive nodes to avoid in the `avoid` section of the config file (can be done later).
 ```bash
 nano ~/.profile
 ```
@@ -42,3 +43,11 @@ jet fees
 jet htlc-history
 jet rebalance dplus neski 500000 --ppm 550
 ```
+## Config file
+A list of properties located under `./api/config.json`. 
+|||
+|--|--|
+|macaroonPath|Macaroon path to enable LND API calls.|
+|tlsCertPath|Path to the tls cert to enable LND API calls.|
+|maxPpm|Maximum fee rate pay for rebalance.|
+|maxRebalanceTime|Timeout rebalance after N nimutes.|

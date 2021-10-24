@@ -10,8 +10,8 @@ const data =
 '{\n\
   "avoid": [\n\
   ],\n\
-  "max_ppm": 650,\n\
-  "adminMacaroonPath": "/home/umbrel/umbrel/lnd/data/chain/bitcoin/mainnet/admin.macaroon",\n\
+  "maxPpm": 650,\n\
+  "macaroonPath": "/home/umbrel/umbrel/lnd/data/chain/bitcoin/mainnet/readonly.macaroon",\n\
   "tlsCertPath": "/home/umbrel/umbrel/lnd/tls.cert",\n\
   "debugMode": false\n\
 }';

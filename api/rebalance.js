@@ -28,6 +28,7 @@ const {recordRebalance} = require('../db/utils');
 const {recordRebalanceFailure} = require('../db/utils');
 const {listPeersMapSync} = require('../lnd-api/utils');
 const {getNodeFeeSync} = require('../lnd-api/utils');
+const constants = require('./constants');
 
 const arrAvg = arr => arr.reduce((a,b) => a + b, 0) / arr.length;
 const stringify = obj => JSON.stringify(obj, null, 2);
@@ -51,7 +52,7 @@ const MIN_PPMS_TRIES = 4; // min ppm occurances before attempting to exclude a n
                           // the greater the number, the more chances nodes get
                           // to prove they are not expensive before being excluded
 
-module.exports = ({from, to, amount, ppm = config.max_ppm || 750, avoidArr = config.avoid || []}) => {
+module.exports = ({from, to, amount, ppm = config.maxPpm || 750, mins, avoidArr = config.avoid || []}) => {
   if (!from || !to || !amount) {
     throw new Error('from, to and amount are mandatory arguments');
   }
@@ -121,6 +122,9 @@ module.exports = ({from, to, amount, ppm = config.max_ppm || 750, avoidArr = con
     }
   })
 
+  const maxRuntime = mins || config.maxRebalanceTime || constants.maxRebalanceTime;
+  const startTime = Date.now();
+
   let fromStr = 'from: ' + OUT;
   fromStr += (tags[OUT]) ? ', ' + tags[OUT] : '';
   let toStr = 'to: ' + IN;
@@ -131,17 +135,27 @@ module.exports = ({from, to, amount, ppm = config.max_ppm || 750, avoidArr = con
   console.log('amount:', numberWithCommas(AMOUNT));
   console.log('max ppm:', ppm);
   console.log('ppm per hop:', ppm_per_hop);
+  console.log('time left:', maxRuntime, 'mins');
   console.log('repetitions:', REPS);
   if (config.debugMode) console.log('debug mode: enabled');
   console.log('----------------------------------------\n')
 
   // run the loop for bos rebalance
   for (let rep = 0; rep < REPS; ) {
-    let command = 'bos rebalance --no-color --out "' + OUT + '" --in "' + IN + '" --amount ' + (AMOUNT - amountRebalanced) + ' --max-fee-rate ' + ppm + avoid;
+    let timeRunning = Math.round((Date.now() - startTime) / 1000 / 60);
+    let timeLeft = maxRuntime - timeRunning;
+    if (timeLeft < 0) {
+      console.log('Ran out of time');
+      lastMessage = 'Ran out of time';
+      break;
+    }
+
+    let command = 'bos rebalance --no-color --out "' + OUT + '" --in "' + IN + '" --amount ' + (AMOUNT - amountRebalanced) + ' --max-fee-rate ' + ppm + ' --minutes ' + timeLeft + avoid;
     console.log('\n-------------------------------------------');
     console.log('* rebalancing from', OUT, 'to', IN);
     if (amountRebalanced > 0) console.log('* targeted amount:', numberWithCommas(AMOUNT));
     console.log('* remaining amount:', numberWithCommas(AMOUNT - amountRebalanced));
+    console.log('* time left:', timeLeft, 'mins');
     console.log('* running iteration:', rep + 1 + '/' + REPS)
     console.log('* command:', command);
 
@@ -187,6 +201,7 @@ module.exports = ({from, to, amount, ppm = config.max_ppm || 750, avoidArr = con
       let lowRebalanceAmount = stderr.indexOf('LowRebalanceAmount') >= 0;
       let failedToFindPeer = stderr.indexOf('FailedToFindPeerAliasMatch') >= 0;
       let noSufficientBalance = stderr.indexOf('NoOutboundPeerWithSufficientBalance') >= 0;
+      let probeTimeout = stderr.indexOf('ProbeTimeout') >= 0;
 
       if (rebalanceFeeTooHigh) {
         // find nodes that exceed the per hop ppm in the last
@@ -308,6 +323,11 @@ module.exports = ({from, to, amount, ppm = config.max_ppm || 750, avoidArr = con
       } else if (noSufficientBalance) {
         lastError = 'noSufficientBalance';
         lastMessage = 'insufficient local balance';
+        console.log(lastMessage + ', exiting');
+        rep = REPS;
+      } else if (probeTimeout) {
+        lastError = 'probeTimeout';
+        lastMessage = 'ran out of time';
         console.log(lastMessage + ', exiting');
         rep = REPS;
       } else {
