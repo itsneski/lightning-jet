@@ -10,11 +10,16 @@ const data =
 '{\n\
   "avoid": [\n\
   ],\n\
-  "maxPpm": 650,\n\
   "macaroonPath": "/home/umbrel/umbrel/lnd/data/chain/bitcoin/mainnet/readonly.macaroon",\n\
   "tlsCertPath": "/home/umbrel/umbrel/lnd/tls.cert",\n\
-  "debugMode": false\n\
-}';
+  "debugMode": false,\n\
+  "rebalancer": {\n\
+    "maxTime": 10,\n\
+    "maxPpm": 650,\n\
+    "maxAutoPpm": 500,\n\
+    "maxInstances": 10\n\
+  }\n\
+}\n';
 
 if (fs.existsSync(FILE)) return;  // don't overwrite config
 fs.writeFile(FILE, data, err => {

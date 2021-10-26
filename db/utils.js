@@ -120,7 +120,7 @@ function closeHandle(handle) {
 }
 
 function executeDb(cmd) {
-  console.log(cmd);
+  //console.log(cmd);
   getHandle().run(cmd);
 }
 

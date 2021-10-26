@@ -1,5 +1,6 @@
 
 
+
 # Lightning Jet, or simply Jet
 Tool that helps Lighting (LND) node operators to keep their node up to speed with rebalancing, fees, stuck htlcs, etc.
 
@@ -44,10 +45,12 @@ jet htlc-history
 jet rebalance dplus neski 500000 --ppm 550
 ```
 ## Config file
-A list of properties located under `./api/config.json`. 
+A list of config properties under `./api/config.json`. 
 |||
 |--|--|
-|macaroonPath|Macaroon path to enable LND API calls.|
-|tlsCertPath|Path to the tls cert to enable LND API calls.|
-|maxPpm|Maximum fee rate pay for rebalance.|
-|maxRebalanceTime|Timeout rebalance after N nimutes.|
+|`macaroonPath`|Macaroon path to enable LND API calls.|
+|`tlsCertPath`|Path to the tls cert to enable LND API calls.|
+|`rebalancer.maxPpm`|Maximum fee rate pay for manual rebalance.|
+|`rebalancer.maxAutoPpm`|Maximum fee rate pay for automated rebalance.|
+|`rebalancer.maxTime`|Timeout rebalance after N nimutes.|
+|`rebalancer.maxInstances`|Maximum rebalance instances launched by the auto rebalancer.|

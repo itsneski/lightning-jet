@@ -13,6 +13,7 @@ const {listPeersFormattedSync} = require('./api/utils');
 const {withCommas} = require('./lnd-api/utils');
 const {listFeesSync} = require('./lnd-api/utils');
 const {listPeersSync} = require('./lnd-api/utils');
+const {updateChannelSync} = require('./lnd-api/update-channel');
 const {listChannels} = require('./api/list-channels');
 const {htlcHistoryFormatted} = require('./api/htlc-history');
 const {htlcAnalyzer} = require('./api/htlc-analyzer');
@@ -210,7 +211,7 @@ cap
   .argument('[secs]', 'Refresh delay in seconds')
   .action((args, options, logger) => {
     return new Promise(async (resolve, reject) => {
-      const delay = args.secs || constants.monitorRefresh;  // in seconds
+      const delay = args.secs || constants.monitor.refresh;  // in seconds
       runMonitorLoop();
       setInterval(runMonitorLoop, delay * 1000);
     })
@@ -222,6 +223,18 @@ cap
   .action((args, options, logger) => {
     return new Promise(async (resolve, reject) => {
       sendMessage(args.node, args.message);
+    })
+  })
+
+  .command('update-channel', 'Updates fees on a channel')
+  .help('Requires admin.macaroon in api/config.json')
+  .argument('<chan>', 'Channel id')
+  .option('--base [base]', 'Base fee in msats')
+  .option('--ppm [ppm]', 'Ppm in sats per million')
+  .action((args, options, logger) => {
+    return new Promise(async (resolve, reject) => {
+      updateChannelSync(lndClient, {chan: args.chan, base: options.base, ppm: options.ppm});
+      console.log('updated');
     })
   })
 
@@ -244,7 +257,7 @@ function runMonitorLoop() {
   }
 
   // rebalance history
-  const maxHistoryLines = constants.maxRebalanceHistoryLines;
+  const maxHistoryLines = constants.monitor.rebalanceHistoryLines;
   let history = rebalanceHistoryFormattedSync(mins * 60);
   if (history.length > 0) {
     console.log(`\nrebalances over the past ${mins} mins (${maxHistoryLines} max lines):`);

@@ -52,22 +52,23 @@ const MIN_PPMS_TRIES = 4; // min ppm occurances before attempting to exclude a n
                           // the greater the number, the more chances nodes get
                           // to prove they are not expensive before being excluded
 
-module.exports = ({from, to, amount, ppm = config.maxPpm || 750, mins, avoidArr = config.avoid || []}) => {
+module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || 750, mins, avoidArr = config.avoid || []}) => {
   if (!from || !to || !amount) {
     throw new Error('from, to and amount are mandatory arguments');
   }
 
+  var peerMap = listPeersMapSync(lndClient);
+
   const OUT = from;
   const IN = to;
   const AMOUNT = amount;
-  var outId;
-  var inId;
 
-  var peerMap = listPeersMapSync(lndClient);
+  var tagsMap = {};
+  Object.keys(tags).forEach(t => tagsMap[tags[t]] = t);
 
-  // test arguments against parsed tags
-  outId = findId(OUT);
-  inId = findId(IN);
+  // find ids
+  var outId = findId(OUT);
+  var inId = findId(IN);
 
   if (!outId) {
     throw new Error('couldnt find pub id for ' + OUT);
@@ -75,6 +76,10 @@ module.exports = ({from, to, amount, ppm = config.maxPpm || 750, mins, avoidArr 
   if (!inId) {
     throw new Error('couldnt find pub id for ' + IN);
   }
+
+  // find names
+  var outName = peerMap[outId].name;
+  var inName = peerMap[inId].name;
 
   // check that the exit node's fee isn't higher than ppm
   let fee = getNodeFeeSync(lndClient, inId);
@@ -89,6 +94,7 @@ module.exports = ({from, to, amount, ppm = config.maxPpm || 750, mins, avoidArr 
     throw new Error(`couldnt find fee for ${inId}`);
   }
 
+  var maxFee = Math.round(AMOUNT * ppm / 1000000);
   var ppm_per_hop = Math.min(PPM_PET_HOP, Math.round(.75 * ppm));
   var avoidNodes = {};
 
@@ -122,18 +128,15 @@ module.exports = ({from, to, amount, ppm = config.maxPpm || 750, mins, avoidArr 
     }
   })
 
-  const maxRuntime = mins || config.maxRebalanceTime || constants.maxRebalanceTime;
+  const maxRuntime = mins || config.rebalancer.maxTime || constants.rebalancer.maxTime;
   const startTime = Date.now();
 
-  let fromStr = 'from: ' + OUT;
-  fromStr += (tags[OUT]) ? ', ' + tags[OUT] : '';
-  let toStr = 'to: ' + IN;
-  toStr += (tags[IN]) ? ', ' + tags[IN] : '';
   console.log('\n----------------------------------------')
-  console.log(fromStr);
-  console.log(toStr);
+  console.log(`from: ${outName}, ${outId}`);
+  console.log(`to: ${inName}, ${inId}`);
   console.log('amount:', numberWithCommas(AMOUNT));
   console.log('max ppm:', ppm);
+  console.log('max fee:', maxFee);
   console.log('ppm per hop:', ppm_per_hop);
   console.log('time left:', maxRuntime, 'mins');
   console.log('repetitions:', REPS);
@@ -150,11 +153,14 @@ module.exports = ({from, to, amount, ppm = config.maxPpm || 750, mins, avoidArr 
       break;
     }
 
-    let command = 'bos rebalance --no-color --out "' + OUT + '" --in "' + IN + '" --amount ' + (AMOUNT - amountRebalanced) + ' --max-fee-rate ' + ppm + ' --minutes ' + timeLeft + avoid;
+    let remainingAmount = AMOUNT - amountRebalanced;
+    maxFee = Math.round(remainingAmount * ppm / 1000000);
+
+    let command = `bos rebalance --no-color --out "${OUT}" --in "${IN}" --amount ${remainingAmount} --max-fee-rate ${ppm} --max-fee ${maxFee} --minutes ${timeLeft}${avoid}`;
     console.log('\n-------------------------------------------');
-    console.log('* rebalancing from', OUT, 'to', IN);
+    console.log(`* rebalancing from ${outName} to ${inName}`);
     if (amountRebalanced > 0) console.log('* targeted amount:', numberWithCommas(AMOUNT));
-    console.log('* remaining amount:', numberWithCommas(AMOUNT - amountRebalanced));
+    console.log('* remaining amount:', numberWithCommas(remainingAmount));
     console.log('* time left:', timeLeft, 'mins');
     console.log('* running iteration:', rep + 1 + '/' + REPS)
     console.log('* command:', command);

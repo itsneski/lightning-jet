@@ -37,6 +37,7 @@ module.exports = {
     let formatted = [];
     let info = getInfoSync(lndClient);
 
+    let sum = 0;
     Object.keys(sumMap).forEach(k => {
       Object.keys(sumMap[k]).forEach(l => {
         if (!channelMap[k]) {
@@ -53,12 +54,14 @@ module.exports = {
           avg: Math.round(sumMap[k][l].sum / sumMap[k][l].count),
           count: sumMap[k][l].count
         })
+        sum += sumMap[k][l].sum;
       })
     })
     formatted.sort(function(a, b) {
       return b.sats - a.sats;
     })
     formatted.forEach(f => {
+      f.p = Math.round(100 * f.sats / sum);
       f.sats = withCommas(f.sats);
       f.avg = withCommas(f.avg);
     })
