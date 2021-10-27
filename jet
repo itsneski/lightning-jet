@@ -89,7 +89,7 @@ cap
     })
   })
 
-  .command('peers', 'Lists peers classified into inbound, outbound and balanced based on routing')
+  .command('peers', 'Lists peers classified into inbound, outbound and balanced based on routing history')
   .action((args, options, logger) => {
     return new Promise(async (resolve, reject) => {
       let peers = listPeersFormattedSync();
