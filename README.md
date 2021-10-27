@@ -40,17 +40,21 @@ jet --help
 #### Examples:
 ```shell
 jet peers
+```
+
+```shell
 jet fees
 jet htlc-history
-jet rebalance dplus neski 500000 --ppm 550
+jet rebalance dplus neski 500000 --ppm 550 --mins 30
 ```
 ## Config file
 A list of config properties under `./api/config.json`. 
 |||
 |--|--|
-|`macaroonPath`|Macaroon path to enable LND API calls.|
+|`macaroonPath`|Macaroon path to enable LND API calls. Most calls will work with `readonly.macaroon` with the exception of `jet update-channel` that requires `admin.macaroon`.|
 |`tlsCertPath`|Path to the tls cert to enable LND API calls.|
-|`rebalancer.maxPpm`|Maximum fee rate pay for manual rebalance.|
-|`rebalancer.maxAutoPpm`|Maximum fee rate pay for automated rebalance.|
-|`rebalancer.maxTime`|Timeout rebalance after N nimutes.|
-|`rebalancer.maxInstances`|Maximum rebalance instances launched by the auto rebalancer.|
+|`avoid`|A list of nodes to avoid during manual and automated rebalances. `jet rebalance` avoid expensive nodes automatically. the `avoid` setting can help speed things up by providing a static list of nodes to avoid.|
+|`rebalancer.maxPpm`|Maximum fee rate to pay for manual rebalances.|
+|`rebalancer.maxAutoPpm`|Maximum fee rate to pay for automated rebalances. This setting is typically kept lower than `maxPpm` for manual rebalances since automated rebalances can spend more time looking for a cheaper route than manual rebalances.|
+|`rebalancer.maxTime`|Timeout rebalance after N minutes. This setting can be overriden by `jet rebalance --mins` parameter for manual rebalances.|
+|`rebalancer.maxInstances`|Maximum rebalance instances launched by the auto rebalancer. Keep this setting lower in case your node gets overloaded (e.g. monitor by `top` command).|
