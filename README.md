@@ -1,9 +1,10 @@
 
 # Lightning Jet 🚀⚡️, or simply Jet
-Tool that helps Lighting (LND) node operators to keep their node up to speed with rebalancing, fees, stuck htlcs, etc.
+General-purpose automated rebalancer for LND Lightning nodes. Helps get an insight into peers' classification based on routing history, missed routing opportunities, and stuck htlcs.
 
 ## Prerequisites
 - Install [BalanceOfSatoshi](https://github.com/alexbosworth/balanceofsatoshis) along with its prerequisites (Node).
+- Check out the [BalanceOfSatoshi install page for Umbrel](https://plebnet.wiki/wiki/Umbrel_-_Installing_BoS) on [Plebnet](https://plebnet.wiki/).
 
 ## Installation
 ```bash
@@ -29,7 +30,9 @@ Next execute the updated `.profile` for you current terminal session. The path w
 Test your path by running `jet`. If you get help promt then your path is set correctly. Double check the `PATH` in `.profile` in case you get an error.
 
 ## Post-Installation
-- Kick off htlc logger: `jet start htlc-logger`
+```shell
+jet start daddy
+```
 
 ## How to run
 
@@ -47,7 +50,7 @@ jet help
 |`jet rebalance dplus neski 500000 --ppm 550 --mins 30`|Circular rebalance from dplus to neski for 5mil sats with 550 max ppm and max runtime of 30 mins.|
 
 ## Config file
-A list of config properties under `./api/config.json`:
+A list of config settings under `./api/config.json`:
 |||
 |--|--|
 |`macaroonPath`|Macaroon path to enable LND API calls. Most calls will work with `readonly.macaroon` with the exception of `jet update-channel` that requires `admin.macaroon`.|

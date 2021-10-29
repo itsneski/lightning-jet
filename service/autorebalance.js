@@ -1,7 +1,7 @@
 // jet start rebalancer
 
-const {execSync} = require('child_process');
 const date = require('date-and-time');
+const {execSync} = require('child_process');
 const {listActiveRebalancesSync} = require('../api/utils');
 const {listRebalancesSync} = require('../db/utils');
 
@@ -54,15 +54,18 @@ Object.keys(tags).forEach(tag => tagsMap[tags[tag]] = tag);
 const round = n => Math.round(n);
 
 const MINS = 120; // 2h
+const loopInterval = 5; // in mins
+
 const max_per_peer = 5;
 const max_ppm = config.rebalancer.maxAutoPpm || constants.rebalancer.maxAutoPpm;
 const min_to_rebalance = 50000;
 const maxStuckHtlcs = 3;
+
 var channels;
 var classified;
 
 console.log('max ppm:', max_ppm);
-console.log('max ppm from config:', config.rebalancer.maxAutoPpm);
+console.log('loop interval:', loopInterval, 'mins');
 
 
 classify();
@@ -73,8 +76,7 @@ if (!dryRunOn) {
 }
 runLoop();
 if (!dryRunOn) {
-  setInterval(runLoop, 10 * 60 * 1000);  // 10 mins
-  setInterval(bosReconnect, 60 * 60 * 1000);  // every hour
+  setInterval(runLoop, loopInterval * 60 * 1000);
 }
 
 function printHtlcHistory() {
@@ -91,15 +93,6 @@ function printHtlcHistory() {
 function classify() {
   console.log('classifying peers...');
   classified = classifyPeersSync(lndClient);
-}
-
-function bosReconnect() {
-  try {
-    console.log('bos reconnect...');
-    exec('bos reconnect');
-  } catch (error) {
-    console.error('error running bos reconnect:', error.toString());
-  }
 }
 
 var commands;

@@ -58,6 +58,7 @@ module.exports = {
     allPeers.sort(function(a, b) {
       return a.in - b.in;
     })
+    allPeers.forEach(p => delete p.p);  // no need
     allPeers.forEach(p => { p.in = withCommas(p.in); p.out = withCommas(p.out); });
 
     let inPeers = [];
@@ -97,6 +98,7 @@ module.exports = {
     balancedPeers.sort(function(a, b) {
       return a.out - b.out;
     })
+    balancedPeers.forEach(p => delete p.p);  // no need
     balancedPeers.forEach(p => { p.in = withCommas(p.in); p.out = withCommas(p.out); });
 
     let skippedPeers = [];
@@ -106,6 +108,7 @@ module.exports = {
     skippedPeers.sort(function(a, b) {
       return a.out - b.out;
     })
+    skippedPeers.forEach(p => delete p.p);  // no need
     skippedPeers.forEach(p => { p.in = withCommas(p.in); p.out = withCommas(p.out); });
 
     return {
@@ -120,7 +123,6 @@ module.exports = {
       let s = (inbound) ? { name: p.name, in: p.in, out: p.out } : { name: p.name, out: p.out, in: p.in };
       if (pp && pp.p) s.p = pp.p; else s.p = 0;
       if (!p.active) s.name = '💀 ' + s.name;
-      if (s.p === 0) delete s.p;  // no need to show 0
       return s;
     }
   },

@@ -45,7 +45,7 @@ class Rebalancer extends Service {
 }
 
 class HtlcLogger extends Service {
-  static name = 'htlc-logger';
+  static name = 'logger';
   constructor() {
     super();
     this.name = HtlcLogger.name;
@@ -54,16 +54,38 @@ class HtlcLogger extends Service {
   }
 }
 
+// main daemon service; responsible for starting up all other services
+// and for keeping them alive. also responsible for doing periodic
+// bos reconnect.
+class Launcher extends Service {
+  static name = 'daddy';
+  constructor() {
+    super();
+    this.name = Launcher.name;
+    this.proc = 'launcher.js';
+    this.log = '/tmp/launcher.log';
+  }
+}
+
 const serviceNames = [
   Rebalancer.name,
-  HtlcLogger.name
+  HtlcLogger.name,
+  Launcher.name
 ]
 
 var services = {};
 services[Rebalancer.name] = new Rebalancer();
 services[HtlcLogger.name] = new HtlcLogger();
+services[Launcher.name] = new Launcher();
+
+/*export Rebalancer = services[Rebalancer.name];
+export HtlcLogger = services[HtlcLogger.name];
+export Launcher = services[Launcher.name];*/
 
 module.exports = {
+  Rebalancer: services[Rebalancer.name],
+  HtlcLogger: services[HtlcLogger.name],
+  Launcher: services[Launcher.name],
   getServiceNames: function() { 
     return serviceNames;
   },
@@ -72,6 +94,11 @@ module.exports = {
   },
   getHtlcLoggerService: function() {
     return services[HtlcLogger.name];
+  },
+  isRunning: function(name) {
+    if (!name) return console.error('missing service');
+    if (!services[name]) return console.error('unknown service:', name);
+    return services[name].isRunning();
   },
   stopService: function(name) {
     if (!name) return console.error('missing service');

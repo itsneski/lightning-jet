@@ -113,6 +113,7 @@ module.exports = {
       let map;
       if (peers[c.remote_pubkey].name.indexOf('LNBIG.com') >= 0) {  // find a better way
         map = outbound;
+        c.p = c.p || 0; // must have p for outbound channels otherwise the sorting will be screwed up
       } else if (c.capacity <= 1000000) {  // should we even have tiny nodes?
         // skip tiny nodes
         map = skipped;
@@ -128,6 +129,7 @@ module.exports = {
           name: peers[c.remote_pubkey].name,
           lifetime: c.lifetime
         }
+        if (c.p != undefined) map[c.chan_id].p = c.p;
       }
     })
 
