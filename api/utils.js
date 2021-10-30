@@ -159,7 +159,7 @@ module.exports = {
     }
     return formatted;
   },
-  stuckHtlcsFormattedSync() {
+  pendingHtlcsFormattedSync() {
     let htlcs = stuckHtlcsSync(lndClient);
     let peers = listPeersMapSync(lndClient);
     let info = getInfoSync(lndClient);

@@ -7,6 +7,7 @@ const {HtlcLogger} = require('./utils');
 
 const loopInterval = 5;  // mins
 const bosReconnectInterval = 60;  // mins
+const cleanDbInterval = 24; // hours
 
 function bosReconnect() {
   try {
@@ -15,6 +16,11 @@ function bosReconnect() {
   } catch (error) {
     console.error('error running bos reconnect:', error.toString());
   }
+}
+
+// get rid of useless records from the db
+function cleanDb() {
+
 }
 
 function runLoop() {
@@ -36,3 +42,4 @@ function runLoop() {
 runLoop();
 setInterval(runLoop, loopInterval * 60 * 1000);
 setInterval(bosReconnect, bosReconnectInterval * 60 * 1000);
+setInterval(cleanDb, cleanDbInterval * 60 * 60 * 1000);

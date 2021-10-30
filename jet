@@ -7,7 +7,7 @@ const {version} = importLazy('./package');
 const lndClient = require('./api/connect');
 const {listActiveRebalancesFormattedSync} = require('./api/utils');
 const {rebalanceHistoryFormattedSync} = require('./api/utils');
-const {stuckHtlcsFormattedSync} = require('./api/utils');
+const {pendingHtlcsFormattedSync} = require('./api/utils');
 const {listForcedClosingFormattedSync} = require('./api/utils');
 const {listPeersFormattedSync} = require('./api/utils');
 const {withCommas} = require('./lnd-api/utils');
@@ -17,6 +17,9 @@ const {updateChannelSync} = require('./lnd-api/update-channel');
 const {listChannels} = require('./api/list-channels');
 const {htlcHistoryFormatted} = require('./api/htlc-history');
 const {htlcAnalyzer} = require('./api/htlc-analyzer');
+
+const {execSync} = require('child_process');
+const {statSync} = require('fs');
 const date = require('date-and-time');
 
 const {getServiceNames} = require('./service/utils');
@@ -198,9 +201,12 @@ cap
   .action((args, options, logger) => {
     return new Promise(async (resolve, reject) => {
       let chans = listChannels();
-      console.log('active channels:');
-      console.table(chans.active);
-      if (chans.pending.length > 0) {
+      if (!chans) return console.log('no channels found, likely due to an error');
+      if (chans.active && chans.active.length > 0) {
+        console.log('active channels:');
+        console.table(chans.active);
+      }
+      if (chans.pending && chans.pending.length > 0) {
         console.log('forced closing channels:');
         console.table(chans.pending);
       }
@@ -241,6 +247,8 @@ cap
 cap.parse(process.argv);
 
 
+var channelDbFile;
+
 function runMonitorLoop() {
   const mins = 120;
   console.clear();
@@ -264,10 +272,10 @@ function runMonitorLoop() {
     console.table(history.slice(0, maxHistoryLines));
   }
 
-  // stuck htlcs
-  let htlcs = stuckHtlcsFormattedSync();
+  // pending htlcs
+  let htlcs = pendingHtlcsFormattedSync();
   if (htlcs && htlcs.length > 0) {
-    console.log('\nstuck htlcs:');
+    console.log('\pending htlcs:');
     console.table(htlcs);
   }
 
@@ -276,5 +284,29 @@ function runMonitorLoop() {
   if (closed && closed.length > 0) {
     console.log('\nforced closing channels:');
     console.table(closed);  
+  }
+
+  // channel.db size
+  if (!channelDbFile) {
+    let cmd = 'find ~ -name channel.db';
+    try {
+      channelDbFile = execSync(cmd).toString().trim();
+    } catch(error) {}
+  }
+  if (channelDbFile) {
+    try {
+      let stats = statSync(channelDbFile);
+      let size = Math.round(stats.size / Math.pow(10, 6));  // in mbs
+      let str = (size >= 1000) ? withCommas(size) + ' gb' : size + ' mb';
+      console.log();
+      console.log('channel.db size:', str);
+      if (size > 5000) {
+        console.log(constants.colorRed, 'urgent: channel.db size exceeds 5gb, you must prune ASAP');
+        console.log('https://plebnet.wiki/wiki/Compacting_Channel_DB');
+      } else if (size > 2000) {
+        console.log(constants.colorYellow, 'warning: channel.db size exceeds 2gb, consider pruning');
+        console.log('https://plebnet.wiki/wiki/Compacting_Channel_DB');
+      }
+    } catch(error) {}
   }
 }
