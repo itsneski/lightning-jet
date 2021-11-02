@@ -25,7 +25,10 @@ const colorYellow = constants.colorYellow;
 
 var max_commands = config.rebalancer.maxInstances || constants.rebalancer.maxInstances;
 
-// process arguments
+// process arguments; this is only applicable when the rebalancer is
+// invoked directly via 'node service/autorebalance.js'. this is done
+// when testing changes prior to git push, so make sure to specify
+// --dryrun. 
 if (process.argv && process.argv.length > 2) {
   let args = process.argv.slice(2);
   for(i = 0; i < args.length; i++) {
@@ -53,19 +56,19 @@ Object.keys(tags).forEach(tag => tagsMap[tags[tag]] = tag);
 
 const round = n => Math.round(n);
 
-const MINS = 120; // 2h
-const loopInterval = 5; // in mins
+const rebalanceHistoryDepth = 120; // mins
+const loopInterval = 5; // mins
 
 const max_per_peer = 5;
+const min_to_rebalance = 50000; // sats
 const max_ppm = config.rebalancer.maxAutoPpm || constants.rebalancer.maxAutoPpm;
-const min_to_rebalance = 50000;
-const maxStuckHtlcs = 3;
+const maxPendingHtlcs = config.rebalancer.maxPendingHtlcs || constants.rebalancer.maxPendingHtlcs;
+
+console.log('max ppm:', max_ppm);
+console.log('max pending htlcs:', maxPendingHtlcs);
 
 var channels;
 var classified;
-
-console.log('max ppm:', max_ppm);
-console.log('loop interval:', loopInterval, 'mins');
 
 
 classify();
@@ -211,7 +214,7 @@ function autoRebalance(inboundId, balanced, firstRound) {
 
 function executeCommands() {
   console.log('\nexecuting commands...');
-  let history = listRebalancesSync(MINS * 60);  // hardcoded???
+  let history = listRebalancesSync(rebalanceHistoryDepth * 60);
   let htlcs = stuckHtlcsSync(lndClient);
   var running = initRunning();
   if (commands.length === 0) return console.log(colorRed, 'no new commands to run');
@@ -257,7 +260,7 @@ function executeCommands() {
         if (h.peer === fromId) countHtlcs = h.htlcs.length;
       })
       console.log(`stuck htlcs for ${fromName}:`, countHtlcs);
-      if (countHtlcs >= maxStuckHtlcs) {
+      if (countHtlcs >= maxPendingHtlcs) {
         console.log(colorRed, 'too many stuck htlcs, skip rebalance');
         continue;
       }

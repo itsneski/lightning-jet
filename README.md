@@ -60,3 +60,4 @@ A list of config settings under `./api/config.json`:
 |`rebalancer.maxAutoPpm`|Maximum fee rate to pay for automated rebalances. This setting is typically kept lower than `maxPpm` since automated rebalances can spend more time looking for a cheaper route than manual rebalances.|
 |`rebalancer.maxTime`|Timeout rebalance after N minutes. This setting can be overriden by `jet rebalance --mins` parameter for manual rebalances.|
 |`rebalancer.maxInstances`|Maximum rebalance instances that can be launched by the auto rebalancer. Keep this setting lower in case your node gets overloaded (e.g. monitor by `top` command).|
+|`rebalancer.maxPendingHtlcs`|Maximum number of pending htlcs that a peer can have for citcular rebalance. Rebalance will be skipped otherwise.|

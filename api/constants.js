@@ -12,10 +12,11 @@ exports.monitor = {
 
 // rebalancer
 exports.rebalancer = {
-  maxTime: 10,  // max time for rebalancer to run in minutes
+  maxTime: 30,  // max time for rebalancer to run in minutes
   maxPpm: 650,  // for manual rebalance
   maxAutoPpm: 500, // for automated rebalance
-  maxInstances: 10 // max rebalancer instances
+  maxInstances: 10, // max rebalancer instances
+  maxPendingHtlcs: 4
 }
 
 // lnd api

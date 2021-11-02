@@ -14,10 +14,11 @@ const data =
   "tlsCertPath": "/home/umbrel/umbrel/lnd/tls.cert",\n\
   "debugMode": false,\n\
   "rebalancer": {\n\
-    "maxTime": 10,\n\
+    "maxTime": 30,\n\
     "maxPpm": 650,\n\
     "maxAutoPpm": 500,\n\
-    "maxInstances": 10\n\
+    "maxInstances": 10,\n\
+    "maxPendingHtlcs": 4\n\
   }\n\
 }\n';
 

@@ -26,6 +26,8 @@ const tags = require('./tags');
 const {getNodesInfoSync} = require('../lnd-api/utils');
 const {recordRebalance} = require('../db/utils');
 const {recordRebalanceFailure} = require('../db/utils');
+const {recordRebalanceAvoid} = require('../db/utils');
+const {listRebalanceAvoidSync} = require('../db/utils');
 const {listPeersMapSync} = require('../lnd-api/utils');
 const {getNodeFeeSync} = require('../lnd-api/utils');
 const constants = require('./constants');
@@ -106,7 +108,17 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || 750, mins
   var feesSpent = 0;
   var skippedHops = {};
 
-  // construct avoid string
+  const maxRuntime = mins || config.rebalancer.maxTime || constants.rebalancer.maxTime;
+  const startTime = Date.now();
+
+  // it takes time for the rebalancer to properly explore routes. the less time
+  // its given, the less is the opportunity to find the cheapest route.
+  // the rebalancer needs to be more aggressive when it comes
+  // to skipping routes when it is given less than N minutes. the threshold
+  // is a guess atm, but one hour seems reasonable.
+  const aggresiveMode = maxRuntime < 60;
+
+  // construct avoid string based on argument
   var avoid = "";
   var nodeInfo = {};
   if (avoidArr) {
@@ -114,6 +126,20 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || 750, mins
       avoidNodes[n] = true;
     })
   }
+  // construct avoid string based on db avoid records
+  // the depth of avoid lookup is a guess atm, but having
+  // it be at least an hour makes sense. the longer rebalance
+  // runs, the more work it does to determine expensive node,
+  // the greater the depth of history.
+  let avoidDepth = Math.max(60, 5 * maxRuntime);
+  let dbAvoid = listRebalanceAvoidSync(outId, inId, ppm, avoidDepth);
+  console.log(`dbAvoid: ${dbAvoid && dbAvoid.length} node(s), depth: ${avoidDepth} mins, ${dbAvoid}`);
+  if (dbAvoid) {
+    dbAvoid.forEach(n => {
+      avoidNodes[n] = true;
+    })
+  }
+
   let info = getNodesInfoSync(lndClient, Object.keys(avoidNodes));
   if (info) {
     info.forEach(n => {
@@ -128,9 +154,6 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || 750, mins
     }
   })
 
-  const maxRuntime = mins || config.rebalancer.maxTime || constants.rebalancer.maxTime;
-  const startTime = Date.now();
-
   console.log('\n----------------------------------------')
   console.log(`from: ${outName}, ${outId}`);
   console.log(`to: ${inName}, ${inId}`);
@@ -139,7 +162,7 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || 750, mins
   console.log('max fee:', maxFee);
   console.log('ppm per hop:', ppm_per_hop);
   console.log('time left:', maxRuntime, 'mins');
-  console.log('repetitions:', REPS);
+  if (aggresiveMode) console.log('aggressive mode: on');
   if (config.debugMode) console.log('debug mode: enabled');
   console.log('----------------------------------------\n')
 
@@ -162,7 +185,6 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || 750, mins
     if (amountRebalanced > 0) console.log('* targeted amount:', numberWithCommas(AMOUNT));
     console.log('* remaining amount:', numberWithCommas(remainingAmount));
     console.log('* time left:', timeLeft, 'mins');
-    console.log('* running iteration:', rep + 1 + '/' + REPS)
     console.log('* command:', command);
 
     let stderr;
@@ -241,25 +263,40 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || 750, mins
               if (max.ppm > ppm_per_hop) {
                 let entry = nodeStats[max.id];
                 console.log('identified corresponding nodeStats entry:', nodeToString(entry));
-                // see if the node is a repeat offender
-                // basically give the node a few chances to show that it's
-                // not an expensive node before excluding it
-                if (entry.ppms.length >= MIN_PPMS_TRIES && arrAvg(entry.ppms) > ppm_per_hop) {
-                  console.log('the node was part of', entry.ppms.length, 'routes with an average ppm of', Math.round(arrAvg(entry.ppms)));
+
+                // in addressive more just skip the node, as opposed to
+                // giving the node more chances to prove that it's not
+                // expensive
+                if (aggresiveMode) {
+                  console.log('aggressive mode: on');
                   console.log('excluding node:', max.id);
                   avoidNodes[max.id] = true;
                   avoid += ' --avoid ' + max.id;
+                  // record in the db
+                  recordRebalanceAvoid(outId, inId, ppm, max.id);
                 } else {
-                  // give the node a few more tries, but don't exclude it
-                  if (isSkippedHop(max.id, nodes[maxIndex + 1].id)) {
-                    lastMessage = 'hop already skipped';
-                    console.log('hop from', max.name, 'to', nodes[maxIndex + 1].name, 'already skipped, exiting');
-                    rep = REPS;
+                  // see if the node is a repeat offender
+                  // basically give the node a few chances to show that it's
+                  // not an expensive node before excluding it
+                  if (entry.ppms.length >= MIN_PPMS_TRIES && arrAvg(entry.ppms) > ppm_per_hop) {
+                    console.log('the node was part of', entry.ppms.length, 'routes with an average ppm of', Math.round(arrAvg(entry.ppms)));
+                    console.log('excluding node:', max.id);
+                    avoidNodes[max.id] = true;
+                    avoid += ' --avoid ' + max.id;
+                    // record in the db
+                    recordRebalanceAvoid(outId, inId, ppm, max.id);
                   } else {
-                    lastMessage = 'skipping the hop';
-                    skipHop(max.id, nodes[maxIndex + 1].id);
-                    console.log('skipping the hop from', max.name, 'to', nodes[maxIndex + 1].name);
-                    avoid += ' --avoid "FEE_RATE>' + computeFeeRate(max.ppm) + '/' + nodes[maxIndex + 1].id + '"';
+                    // give the node a few more tries, but don't exclude it
+                    if (isSkippedHop(max.id, nodes[maxIndex + 1].id)) {
+                      lastMessage = 'hop already skipped';
+                      console.log('hop from', max.name, 'to', nodes[maxIndex + 1].name, 'already skipped, exiting');
+                      rep = REPS;
+                    } else {
+                      lastMessage = 'skipping the hop';
+                      skipHop(max.id, nodes[maxIndex + 1].id);
+                      console.log('skipping the hop from', max.name, 'to', nodes[maxIndex + 1].name);
+                      avoid += ' --avoid "FEE_RATE>' + computeFeeRate(max.ppm) + '/' + nodes[maxIndex + 1].id + '"';
+                    }
                   }
                 }
               } else {  // max.ppm <= ppm_per_hop
