@@ -250,7 +250,7 @@ cap.parse(process.argv);
 var channelDbFile;
 
 function runMonitorLoop() {
-  const mins = 120;
+  const hours = 4;
   console.clear();
   // active rebalances
   console.log(date.format(new Date, 'MM/DD hh:mm:ss'));
@@ -266,9 +266,9 @@ function runMonitorLoop() {
 
   // rebalance history
   const maxHistoryLines = constants.monitor.rebalanceHistoryLines;
-  let history = rebalanceHistoryFormattedSync(mins * 60);
+  let history = rebalanceHistoryFormattedSync(hours * 60 * 60).filter(r => r.status === 'success');
   if (history.length > 0) {
-    console.log(`\nrebalances over the past ${mins} mins (${maxHistoryLines} max lines):`);
+    console.log(`\nsuccessful rebalances over the past ${hours} hour(s) (${maxHistoryLines} max lines):`);
     console.table(history.slice(0, maxHistoryLines));
   }
 

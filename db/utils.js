@@ -180,19 +180,10 @@ module.exports = {
     }
   },
   listRebalancesSync(secs = -1) {
-    let list;
-    module.exports.listRebalances(function(res) {
-      list = res;
-    }, secs)
-    while(list === undefined) {
-      require('deasync').runLoopOnce();
-    }
-    return list;
-  },
-  listRebalances(cb, secs = -1) {
     let db = getHandle();
+    let list = [];
+    let res;
     db.serialize(function() {
-      let list = [];
       let q = 'SELECT rowid AS id, * FROM ' + REBALANCE_HISTORY_TABLE;
       if (secs > 0) {
         let epoch = Date.now();
@@ -210,10 +201,14 @@ module.exports = {
           extra: row.extra
         })
       }, function(err) {
-        return cb(list);
+        res = list;
       })
     })
+    while(res === undefined) {
+      require('deasync').runLoopOnce();
+    }
     closeHandle(db);
+    return res;
   },
   enableTestMode() {
     console.log('test mode enabled');
@@ -256,7 +251,7 @@ function createTables() {
     createFailedHtlcTable(db);
     createRebalanceAvoidTable(db);
   })
-  //closeHandle(db);
+  closeHandle(db);
 }
 
 function createFailedHtlcTable(db) {
