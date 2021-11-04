@@ -43,7 +43,7 @@ jet help
 #### Examples:
 |||
 |--|--|
-|`jet peers`|Lists peers classified into inbound, outbound and balanced based on htlc history. Notable columns: `p` - % of [inbound or outbound] routing by the peer out of total [inbound or outbound] across all peers; `ppm` - peer's current ppm rate.|
+|`jet peers`|Lists peers classified into inbound, outbound and balanced based on htlc history. Notable columns: `p` - % of [inbound or outbound] routing by the peer out of total [inbound or outbound] across all peers; `ppm` - peer's current ppm rate; `margin` - rebalance ppm margin, rebalance will be profitable as long as its ppm is below the margin.|
 |`jet monitor`|Lists ongoing rebalances, rebalance history, and stuck htlcs.|
 |`jet htlc-analyzer`|Analyzes failed htlcs and lists peers sorted based on missed routing opportunities. Missed routing opportunities are typically due to [outbound] peers not having sufficient liquidity and / or having low fees. Prerequisites: make sure to kick off `jet start htlc-logger` and varify that the logger service is running by `jet status`.|
 |`jet htlc-history`|Lists peers classified into inbound, outbound and balanced based on htlc history. Notable columns: `%` of inbound or outbound routing by a peer out of total [inbound or outbound] across all peers; `d%` of [inbound or outbound] routing by a peer out of total routing [inbound & outbound] by the peer.|

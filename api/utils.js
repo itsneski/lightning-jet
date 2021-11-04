@@ -17,6 +17,11 @@ const findProc = require('find-process');
 const date = require('date-and-time');
 
 module.exports = {
+  // rebalance margin for circular rebalance; rebalance will be profitable as long as
+  // its ppm is below the margin
+  rebalanceMargin(localFee, remoteFee) {
+    return Math.round(localFee.base/1000 + localFee.rate - (remoteFee.base/1000 + remoteFee.rate));
+  },
   // is process running
   isRunningSync(proc, self = false) {
     let res;
@@ -78,7 +83,9 @@ module.exports = {
     peers.forEach(p => {
       if (OUT_PEERS[p.id]) {
         let peer = convertPeer(p, OUT_PEERS[p.id]);
-        peer.ppm = parseInt(feeMap[p.id].local.rate);
+        let fee = feeMap[p.id];
+        peer.ppm = parseInt(fee.local.rate);
+        peer.margin = module.exports.rebalanceMargin(fee.local, fee.remote);
         outPeers.push(peer);
       }
     })

@@ -15,6 +15,7 @@ const {listPeersMapSync} = require('../lnd-api/utils');
 const {stuckHtlcsSync} = require('../lnd-api/utils');
 const {removeEmojis} = require('../lnd-api/utils');
 const {isRunningSync} = require('../api/utils');
+const {rebalanceMargin} = require('../api/utils');
 const {withCommas} = require('../lnd-api/utils');
 const tags = require('../api/tags');
 
@@ -101,12 +102,17 @@ function printHtlcHistory() {
 }
 
 function classify() {
-  console.log('classifying peers...');
-  classified = classifyPeersSync(lndClient);
+  try {
+    console.log('classifying peers...');
+    classified = classifyPeersSync(lndClient);
+  } catch(error) {
+    console.error('classify:', error);
+  }
 }
 
 var commands;
 var peers;
+var feesMap;
 
 function runLoop() {
   try {
@@ -114,7 +120,10 @@ function runLoop() {
     channels = listChannelsMapSync(lndClient);
     commands = [];    // reset
     commandMap = {};  // reset
+    feesMap = {};     // reset
     peers = listPeersMapSync(lndClient);
+    let fees = listFeesSync(lndClient);
+    fees.forEach(f => feesMap[f.id] = f);
     classified.inbound.forEach(c => { // first round
       autoRebalance(c.peer, false, true);
     })
@@ -291,6 +300,31 @@ function executeCommands() {
 
       if (countForPeer(c.from) >= peerMax) {
         console.log(colorYellow, 'reached max commands for', fromName, peerMax);
+        continue;
+      }
+
+      // calculate the max_ppm based on rebalance margin
+      // in order for circular rebalance to be profitable, the rebalance
+      // fees should be lower than profitability margin
+      let maxPpm = max_ppm;
+      let fee = feesMap[c.to];
+      let margin = rebalanceMargin(fee.local, fee.remote);
+      console.log('rebalace margin:', margin);
+      if (margin < 0) {
+        console.log(colorRed, 'negative margin, revisit your fees:', fee.local);
+        console.log('assuming default max_ppm:', maxPpm);
+      } else if (margin < fee.remote.base/1000 + fee.remote.rate) {
+        console.log(colorRed, 'rebalance margin is below remote peer\'s fees, revisit your fees:', fee.local);
+        console.log('assuming default max_ppm:', maxPpm);
+      } else {
+        console.log('setting max_ppm according to the margin', margin);
+        maxPpm = margin;
+      }
+
+      // check if the max fee is above the peer's rate, otherwise it makes no
+      // sense to run circular rebalance
+      if (fee.remote.base/1000 + fee.remote.rate > maxPpm) {
+        console.log(colorRed, 'remote peer\'s fee exceeds max ppm, skipping');
         continue;
       }
 
