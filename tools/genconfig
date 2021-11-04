@@ -18,7 +18,9 @@ const data =
     "maxPpm": 650,\n\
     "maxAutoPpm": 500,\n\
     "maxInstances": 10,\n\
-    "maxPendingHtlcs": 4\n\
+    "maxPendingHtlcs": 4,\n\
+    "exclude": [\n\
+    ]\n\
   }\n\
 }\n';
 

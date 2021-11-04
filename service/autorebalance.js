@@ -67,6 +67,13 @@ const maxPendingHtlcs = config.rebalancer.maxPendingHtlcs || constants.rebalance
 console.log('max ppm:', max_ppm);
 console.log('max pending htlcs:', maxPendingHtlcs);
 
+// check for nodes to exclude
+let exclude = {};
+if (config.rebalancer.exclude) {
+  config.rebalancer.exclude.forEach(n => exclude[n] = true);
+}
+if (Object.keys(exclude).length > 0) console.log('exclude:', Object.keys(exclude));
+
 var channels;
 var classified;
 
@@ -169,6 +176,8 @@ function autoRebalance(inboundId, balanced, firstRound) {
   if (balanced || firstRound) {
     classified.outbound.forEach(c => {
       if (c.peer === inboundId) return;
+      if (exclude[c.peer]) return console.log(colorYellow, 'excluding', peers[c.peer].name, c.peer);
+
       let ch = channels[c.peer];
       if (c.name.indexOf('LNBIG.com') === 0) {  // special case???
         if (ch.local_balance < 2500000) {
@@ -193,6 +202,7 @@ function autoRebalance(inboundId, balanced, firstRound) {
   if (balanced || !firstRound) {
     classified.balanced.forEach(c => {
       if (c.peer === inboundId) return;
+      if (exclude[c.peer]) return console.log(colorYellow, 'excluding', peers[c.peer].name, c.peer);
 
       let ch = channels[c.peer];
       let name = getNodeName(c.peer);

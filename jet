@@ -275,7 +275,7 @@ function runMonitorLoop() {
   // pending htlcs
   let htlcs = pendingHtlcsFormattedSync();
   if (htlcs && htlcs.length > 0) {
-    console.log('\pending htlcs:');
+    console.log('\npending htlcs:');
     console.table(htlcs);
   }
 

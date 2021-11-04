@@ -48,6 +48,7 @@ jet help
 |`jet htlc-analyzer`|Analyzes failed htlcs and lists peers sorted based on missed routing opportunities. Missed routing opportunities are typically due to [outbound] peers not having sufficient liquidity and / or having low fees. Prerequisites: make sure to kick off `jet start htlc-logger` and varify that the logger service is running by `jet status`.|
 |`jet htlc-history`|Lists peers classified into inbound, outbound and balanced based on htlc history. Notable columns: `%` of inbound or outbound routing by a peer out of total [inbound or outbound] across all peers; `d%` of [inbound or outbound] routing by a peer out of total routing [inbound & outbound] by the peer.|
 |`jet rebalance dplus neski 500000 --ppm 550 --mins 30`|Circular rebalance from dplus to neski for 5mil sats with 550 max ppm and max runtime of 30 mins.|
+|`jet update-channel 769123776873431041 --base 1 --ppm 375`|Sets the base fee to 1 msat and ppm to 375 sats per million for a channel with id of 769123776873431041.|
 
 ## Config file
 A list of config settings under `./api/config.json`:
@@ -61,3 +62,4 @@ A list of config settings under `./api/config.json`:
 |`rebalancer.maxTime`|Timeout rebalance after N minutes. This setting can be overriden by `jet rebalance --mins` parameter for manual rebalances.|
 |`rebalancer.maxInstances`|Maximum rebalance instances that can be launched by the auto rebalancer. Keep this setting lower in case your node gets overloaded (e.g. monitor by `top` command).|
 |`rebalancer.maxPendingHtlcs`|Maximum number of pending htlcs that a peer can have for citcular rebalance. Rebalance will be skipped otherwise.|
+|`rebalancer.exclude`|A list of nodes to exclude from auto rebalancing. E.g.`exclude = ["035e4ff418fc8b5554c5d9eea66396c227bd429a3251c8cbc711002ba215bfc226"]`|
