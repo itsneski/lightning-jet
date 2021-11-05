@@ -313,7 +313,7 @@ function executeCommands() {
       let fee = feesMap[c.to];
       let margin = rebalanceMargin(fee.local, fee.remote);
       console.log('fees for', toName, 'local', fee.local, 'remote', fee.remote);
-      console.log('rebalace margin:', margin);
+      console.log('rebalance margin:', margin);
       if (margin < 0) {
         console.log(colorRed, 'negative margin, revisit your fees:', fee.local);
         console.log('assuming default max_ppm:', maxPpm);
@@ -332,17 +332,17 @@ function executeCommands() {
             console.log(colorYellow, 'keeping default ppm of', max_ppm, 'since its greater than the recommended buffer');
           } else {
             console.log(colorYellow, 'setting max_ppm to include the buffer', remote + buffer);
-            maxPpm = remote + buffer;
+            maxPpm = Math.floor(remote + buffer);
           }
         } else {
           console.log('setting max_ppm to the local fee', local, 'sats');
-          maxPpm = local;
+          maxPpm = Math.floor(local);
         }
       }
 
       // execute
-      let e = 'nohup jet rebalance ' + c.from + ' ' + c.to + ' ' + c.amount + ' --ppm ' + max_ppm + ' >> /tmp/rebalance_' + normalizeName(c.from) + '_' + normalizeName(c.to) + '.log 2>&1 & disown';
-      //console.log(e);
+      let e = 'nohup jet rebalance ' + c.from + ' ' + c.to + ' ' + c.amount + ' --ppm ' + maxPpm + ' >> /tmp/rebalance_' + normalizeName(c.from) + '_' + normalizeName(c.to) + '.log 2>&1 & disown';
+      console.log(e);
       if (!dryRunOn) exec(e);
       count++;
       addRunning(c);
