@@ -24,6 +24,8 @@ const colorRed = constants.colorRed;
 const colorGreen = constants.colorGreen;
 const colorYellow = constants.colorYellow;
 
+const stringify = obj => JSON.stringify(obj, null, 2);
+
 var max_commands = config.rebalancer.maxInstances || constants.rebalancer.maxInstances;
 
 // process arguments; this is only applicable when the rebalancer is
@@ -265,7 +267,7 @@ function executeCommands() {
       }
 
       let fromName = getNodeName(c.from);
-      let toName = getNodeName(c.from);
+      let toName = getNodeName(c.to);
 
       // determine max commands for the node based on rebalance history
       // and stuck htlcs
@@ -304,28 +306,38 @@ function executeCommands() {
       }
 
       // calculate the max_ppm based on rebalance margin
-      // in order for circular rebalance to be profitable, the rebalance
-      // fees should be lower than profitability margin
+      // aim for the the rebalance fees to be lower than rebalance margin
+      // jet does not enforce strict profitability rules atm, it'll rather
+      // advise on issues with fees 
       let maxPpm = max_ppm;
       let fee = feesMap[c.to];
       let margin = rebalanceMargin(fee.local, fee.remote);
+      console.log('fees for', toName, 'local', fee.local, 'remote', fee.remote);
       console.log('rebalace margin:', margin);
       if (margin < 0) {
         console.log(colorRed, 'negative margin, revisit your fees:', fee.local);
         console.log('assuming default max_ppm:', maxPpm);
-      } else if (margin < fee.remote.base/1000 + fee.remote.rate) {
-        console.log(colorRed, 'rebalance margin is below remote peer\'s fees, revisit your fees:', fee.local);
-        console.log('assuming default max_ppm:', maxPpm);
       } else {
-        console.log('setting max_ppm according to the margin', margin);
-        maxPpm = margin;
-      }
+        // see if there is enough of a buffer to rebalance
+        let local = fee.local.base/1000 + fee.local.rate;
+        let remote = fee.remote.base/1000 + fee.remote.rate;
 
-      // check if the max fee is above the peer's rate, otherwise it makes no
-      // sense to run circular rebalance
-      if (fee.remote.base/1000 + fee.remote.rate > maxPpm) {
-        console.log(colorRed, 'remote peer\'s fee exceeds max ppm, skipping');
-        continue;
+        // we need some buffer for rebalance to go through. perhaps take an
+        // average of past rebalances
+        const buffer = constants.rebalancer.buffer; 
+
+        if (local < remote + buffer) {
+          console.log(colorRed, 'not enough of a buffer between local and remote, should be at least', buffer, 'sats, revisit your fees');
+          if (max_ppm >= remote + buffer) {
+            console.log(colorYellow, 'keeping default ppm of', max_ppm, 'since its greater than the recommended buffer');
+          } else {
+            console.log(colorYellow, 'setting max_ppm to include the buffer', remote + buffer);
+            maxPpm = remote + buffer;
+          }
+        } else {
+          console.log('setting max_ppm to the local fee', local, 'sats');
+          maxPpm = local;
+        }
       }
 
       // execute

@@ -17,6 +17,7 @@ const {updateChannelSync} = require('./lnd-api/update-channel');
 const {listChannels} = require('./api/list-channels');
 const {htlcHistoryFormatted} = require('./api/htlc-history');
 const {htlcAnalyzer} = require('./api/htlc-analyzer');
+const {classifyPeersSync} = require('./lnd-api/utils');
 
 const {execSync} = require('child_process');
 const {statSync} = require('fs');
@@ -115,6 +116,10 @@ cap
   .action((args, options, logger) => {
     return new Promise(async (resolve, reject) => {
       let fees = listFeesSync(lndClient);
+      let feeMap = {};
+      fees.forEach(f => feeMap[f.id] = f);
+      let classified = classifyPeersSync(lndClient);
+      //console.log(classified);
       //console.log(fees);
       let formatted = [];
       fees.forEach(f => {
@@ -131,6 +136,23 @@ cap
         return b.rm_rate - a.rm_rate;
       })
       console.table(formatted);
+      
+      // analyze the fees for outbound channels and report on issues
+      if (classified.outbound.length > 0) {
+        classified.outbound.forEach(c => {
+          let local = Math.round(feeMap[c.peer].local.base/1000 + feeMap[c.peer].local.rate);
+          let remote = Math.round(feeMap[c.peer].remote.base/1000 + feeMap[c.peer].remote.rate);
+          const buffer = constants.rebalancer.buffer;
+          let margin = local - remote;
+          if (margin < 0) {
+            console.log('\nanalyzing fees for', c.name + '. local', feeMap[c.peer].local, 'remote', feeMap[c.peer].remote);
+            console.log(constants.colorRed, 'negative rebalance margin, consider increasing ppm to', remote + buffer);
+          } else if (local < remote + buffer) {
+            console.log('\nanalyzing fees for', c.name + '. local', feeMap[c.peer].local, 'remote', feeMap[c.peer].remote);
+            console.log(constants.colorRed, 'not enough of a buffer between local and remote, consider increasing ppm to', remote + buffer);
+          }
+        })
+      }
     })
   })
 
