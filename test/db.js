@@ -3,6 +3,28 @@ dbUtils.enableTestMode();
 
 const timeout = 2 * 1000; // msec
 
+console.log('doesnotexist:', dbUtils.getPropSync('doesnotexist'));
+dbUtils.setPropSync('botChatId', '1234');
+console.log('botChatId:', dbUtils.getPropAndDateSync('botChatId'));
+console.log('botChatId:', dbUtils.getPropSync('botChatId'));
+dbUtils.setPropSync('botChatId', '4321');
+console.log('botChatId:', dbUtils.getPropAndDateSync('botChatId'));
+console.log('botChatId:', dbUtils.getPropSync('botChatId'));
+
+return;
+
+dbUtils.recordTelegramMessageSync('hey there');
+dbUtils.recordTelegramMessageSync('another hey there');
+let list = dbUtils.fetchTelegramMessageSync();
+console.log('telegram messages:', list);
+let ids = [];
+list.forEach(it => ids.push(it.id));
+dbUtils.deleteTelegramMessages(ids);
+console.log('deleted telegram messages');
+setTimeout(() => {
+  console.log('telegram messages:', dbUtils.fetchTelegramMessageSync());  
+}, timeout);
+
 dbUtils.recordRebalanceAvoid('node_a', 'node_b', 750, 'avoid_a');
 dbUtils.recordRebalanceAvoid('node_a', 'node_b', 750, 'avoid_b');
 setTimeout(() => {

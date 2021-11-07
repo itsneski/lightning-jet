@@ -310,6 +310,7 @@ module.exports = {
       let fees = [];
       results.forEach(r => {
         let fee = {
+          chan: r.channel_id,
           id: r.peer,
           name: peers[r.peer].name,
         }

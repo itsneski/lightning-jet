@@ -50,6 +50,15 @@ jet help
 |`jet rebalance dplus neski 500000 --ppm 550 --mins 30`|Circular rebalance from dplus to neski for 5mil sats with 550 max ppm and max runtime of 30 mins.|
 |`jet update-channel 769123776873431041 --base 1 --ppm 375`|Sets the base fee to 1 msat and ppm to 375 sats per million for a channel with id of 769123776873431041.|
 
+## Telegram bot
+Lightning Jet supports a telegram bot that will notify you about important events such as change in fees for your remote peers.
+
+To create a bot initiate a converation with [BotFarther](https://core.telegram.org/bots#3-how-do-i-create-a-bot) on your Telegram app. Select bot name (e.g. jet bot) and bot username (e.g. jet_bot).
+
+Copy the telegram token from the Telegram app chat with BotFather (right under 'Use this token to access the HTTP API:' text). `nano ./api/config.json` to add telegramToken setting with the above value (see config file example below).
+
+`jet start telegram` to kick off the service. Make sure there are no errors. Then open a chat with the bot you just created in your Telegram app and type `/start`. This will kick off the communication between the Telegram bot with Jet. You only need to do this step once.
+
 ## Config file
 A list of config settings under `./api/config.json`:
 |||
@@ -57,9 +66,33 @@ A list of config settings under `./api/config.json`:
 |`macaroonPath`|Macaroon path to enable LND API calls. Most calls will work with `readonly.macaroon` with the exception of `jet update-channel` that requires `admin.macaroon`.|
 |`tlsCertPath`|Path to the tls cert to enable LND API calls.|
 |`avoid`|A list of nodes to avoid during manual and automated rebalances. `jet rebalance` avoids expensive nodes automatically. the `avoid` setting can help speed things up by providing a static list of nodes to avoid.|
+|`telegramToken`|The telegram bot token.|
 |`rebalancer.maxPpm`|Maximum fee rate to pay for manual rebalances.|
 |`rebalancer.maxAutoPpm`|Maximum fee rate to pay for automated rebalances. This setting is typically kept lower than `maxPpm` since automated rebalances can spend more time looking for a cheaper route than manual rebalances.|
 |`rebalancer.maxTime`|Timeout rebalance after N minutes. This setting can be overriden by `jet rebalance --mins` parameter for manual rebalances.|
 |`rebalancer.maxInstances`|Maximum rebalance instances that can be launched by the auto rebalancer. Keep this setting lower in case your node gets overloaded (e.g. monitor by `top` command).|
 |`rebalancer.maxPendingHtlcs`|Maximum number of pending htlcs that a peer can have for citcular rebalance. Rebalance will be skipped otherwise.|
 |`rebalancer.exclude`|A list of nodes to exclude from auto rebalancing. E.g.`exclude = ["035e4ff418fc8b5554c5d9eea66396c227bd429a3251c8cbc711002ba215bfc226"]`|
+
+### Example:
+
+```json
+{
+  "avoid": [
+    "03d2e20bc19d995098ba357157a9cfbfbfdff4b78fce5ec713128e988e0115d776",
+    "03f80288f858251aed6f70142fab79dede5427a0ff4b618707bd0a616527a8cec7",
+  ],
+  "macaroonPath": "/home/umbrel/umbrel/lnd/data/chain/bitcoin/mainnet/readonly.macaroon",
+  "tlsCertPath": "/home/umbrel/umbrel/lnd/tls.cert",
+  "debugMode": false,
+  "telegramToken": "123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11",
+  "rebalancer": {
+    "maxTime": 30,
+    "maxPpm": 650,
+    "maxAutoPpm": 500,
+    "maxInstances": 10,
+    "exclude": [
+    ]
+  }
+}
+```

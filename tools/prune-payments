@@ -1,0 +1,21 @@
+#!/usr/bin/env node
+
+const constants = require('../api/constants');
+
+const readline = require('readline').createInterface({
+  input: process.stdin,
+  output: process.stdout
+})
+console.log(constants.colorYellow, 'This will erase all the payments in the bolt database.');
+readline.question('Are you sure? (y/n) ', answer => {
+
+  if (answer.toLowerCase() === 'n') process.exit();
+
+  const lndClient = require('../api/connect');
+  console.log('Pruning payments, this may take a while');
+  lndClient.deleteAllPayments({}, (err, response) => {
+    if (err) throw new Error(err);
+    console.log('done');
+  })
+  readline.close();
+})

@@ -9,8 +9,7 @@ class Service {
   }
   restart() {
     if (this.isRunning()) this.stop();
-    this.start();
-    console.log('restarted');
+    return this.start();
   }
   isRunning() {
     return isServiceRunning(this.proc);
@@ -67,33 +66,48 @@ class Launcher extends Service {
   }
 }
 
+// telegram bot
+class TelegramBot extends Service {
+  static name = 'telegram';
+  constructor() {
+    super();
+    this.name = TelegramBot.name;
+    this.proc = 'telegram.js';
+    this.log = '/tmp/telegram.log';
+  }
+
+  // override to provide additional info
+  start() {
+    try {
+      const {validateBot} = require('../api/telegram');
+      validateBot();
+      super.start();
+    } catch(error) {
+      return error.message;
+    }
+  }
+}
+
 const serviceNames = [
   Rebalancer.name,
   HtlcLogger.name,
-  Launcher.name
+  Launcher.name,
+  TelegramBot.name
 ]
 
 var services = {};
 services[Rebalancer.name] = new Rebalancer();
 services[HtlcLogger.name] = new HtlcLogger();
 services[Launcher.name] = new Launcher();
-
-/*export Rebalancer = services[Rebalancer.name];
-export HtlcLogger = services[HtlcLogger.name];
-export Launcher = services[Launcher.name];*/
+services[TelegramBot.name] = new TelegramBot();
 
 module.exports = {
   Rebalancer: services[Rebalancer.name],
   HtlcLogger: services[HtlcLogger.name],
   Launcher: services[Launcher.name],
+  TelegramBot: services[TelegramBot.name],
   getServiceNames: function() { 
     return serviceNames;
-  },
-  getRebalancerService: function() {
-    return services[Rebalancer.name];
-  },
-  getHtlcLoggerService: function() {
-    return services[HtlcLogger.name];
   },
   isRunning: function(name) {
     if (!name) return console.error('missing service');

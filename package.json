@@ -15,6 +15,7 @@
     "deasync": "0.1.23",
     "find-process": "^1.4.5",
     "import-lazy": "^4.0.0",
+    "node-telegram-bot-api": "^0.54.0",
     "run-parallel": "1.2.0",
     "sqlite3": "^4.2.0"
   },
@@ -37,7 +38,7 @@
     "url": "https://github.com/itsneski/lightning-jet.git"
   },
   "scripts": {
-    "postinstall" : "./tools/genconfig"
+    "postinstall": "./tools/genconfig"
   },
   "version": "1.0.0"
 }

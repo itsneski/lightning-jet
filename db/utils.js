@@ -11,6 +11,8 @@ const testDbFile = '/tmp/jet_test.db';
 const REBALANCE_HISTORY_TABLE = 'rebalance_history';
 const FAILED_HTLC_TABLE = 'failed_htlc';
 const REBALANCE_AVOID_TABLE = 'rebalance_avoid';
+const NAMEVAL_TABLE = 'nameval';
+const TELEGRAM_MESSAGES_TABLE = 'telegram_messages';
 
 var testMode = false;
 
@@ -27,6 +29,102 @@ const uniqueArr = arr => arr.filter(function(elem, pos) {
 })
 
 module.exports = {
+  deleteTelegramMessages(ids) {
+    let db = getHandle();
+    try {
+      // now delete those message from the db
+      db.serialize(function() {
+        let cmd = 'DELETE FROM ' + TELEGRAM_MESSAGES_TABLE + ' WHERE rowid IN (' + ids.join(',') + ')';
+        executeDb(db, cmd);
+      })
+    } catch(error) {
+      console.error('deleteTelegramMessages:', error.message);
+    } finally {
+      closeHandle(db);
+    }
+  },
+  fetchTelegramMessageSync() {
+    let db = getHandle();
+    try {
+      let done;
+      let messages = [];
+      db.serialize(function() {
+        let q = 'SELECT rowid, * FROM ' + TELEGRAM_MESSAGES_TABLE;
+        db.each(q, function(err, row) {
+          messages.push({id:row.rowid, message:row.message});
+        }, function(error) {
+          if (error) throw new Error(error.message);
+          done = true;
+        })
+      })
+      while(done === undefined) {
+        require('deasync').runLoopOnce();
+      }
+      return messages;
+    } catch(error) {
+      console.error('fetchTelegramMessageSync:', error.message);
+    } finally {
+      closeHandle(db);
+    }
+  },
+  recordTelegramMessageSync(msg) {
+    let db = getHandle();
+    try {
+      db.serialize(function() {
+        let values = constructInsertString([Date.now(), msg]);
+        let cmd = 'INSERT INTO ' + TELEGRAM_MESSAGES_TABLE + ' VALUES (' + values + ')';
+        executeDbSync(db, cmd);
+      })
+    } catch(error) {
+      console.error('recordTelegramMessage:', error.message);
+    } finally {
+      closeHandle(db);
+    }
+  },
+  getPropSync(name) {
+    let data = module.exports.getPropAndDateSync(name);
+    return data && data.val;
+  },
+  getPropAndDateSync(name) {
+    let db = getHandle();
+    let done;
+    let data;
+    try {
+      db.serialize(function() {
+        let q = 'SELECT date, val FROM ' + NAMEVAL_TABLE + ' WHERE name="' + name + '"';
+        db.each(q, function(err, row) {
+          data = row;
+        }, function(error) {
+          if (error) throw new Error(error.message);
+          done = true;
+        })
+      })
+      while(done === undefined) {
+        require('deasync').runLoopOnce();
+      }
+      return data;
+    } catch(error) {
+      console.error('setProp:', error.message);
+    } finally {
+      closeHandle(db);
+    }
+  },
+  setPropSync(name, val) {
+    let db = getHandle();
+    try {
+      db.serialize(function() {
+        let values = constructInsertString([Date.now(), name, val]);
+        let cmd = 'INSERT OR IGNORE INTO ' + NAMEVAL_TABLE + ' VALUES (' + values + ')';
+        executeDbSync(db, cmd);
+        cmd = 'UPDATE ' + NAMEVAL_TABLE + ' SET date="' + Date.now() + '", val="' + val + '" WHERE name="' + name + '"';
+        executeDbSync(db, cmd);
+      })
+    } catch(error) {
+      console.error('setProp:', error.message);
+    } finally {
+      closeHandle(db);
+    }
+  },
   listRebalanceAvoidSync(from, to, maxPpm, mins = 60) {
     if (!from || !to || !maxPpm) throw new Error('from, to, and maxPpm are mandatory');
     let db = getHandle();
@@ -250,8 +348,19 @@ function createTables() {
     createRebalanceHistoryTable(db);
     createFailedHtlcTable(db);
     createRebalanceAvoidTable(db);
+    createNamevalTable(db);
+    createTelegramMessagesTable(db);
   })
   closeHandle(db);
+}
+
+
+function createTelegramMessagesTable(db) {
+  executeDbSync(db, "CREATE TABLE IF NOT EXISTS " + TELEGRAM_MESSAGES_TABLE + " (date INTEGER NOT NULL, message TEXT NOT NULL)");
+}
+
+function createNamevalTable(db) {
+  executeDbSync(db, "CREATE TABLE IF NOT EXISTS " + NAMEVAL_TABLE + " (date INTEGER NOT NULL, name TEXT NOT NULL UNIQUE, val TEXT)");
 }
 
 function createFailedHtlcTable(db) {

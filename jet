@@ -43,7 +43,8 @@ cap
   .help(`Services: ${serviceNames.join(', ')}`)
   .action((args, options, logger) => {
     return new Promise(async (resolve, reject) => {
-      startService(args.service);
+      let msg = startService(args.service);
+      if (msg) console.log(msg);
     })
   })
 
@@ -139,6 +140,7 @@ cap
   .command('analyze-fees', 'Analyzes fees')
   .action((args, options, logger) => {
     return new Promise(async (resolve, reject) => {
+      const {sendMessage} = require('./api/telegram');
       let fees = listFeesSync(lndClient);
       let feeMap = {};
       fees.forEach(f => feeMap[f.id] = f);
@@ -154,7 +156,7 @@ cap
           const buffer = constants.rebalancer.buffer;
           let margin = local - remote;
           if (margin < 0) {
-            console.log('\nnoticed an issue with [outbound]', c.name + '. local', feeMap[c.peer].local, 'remote', feeMap[c.peer].remote);
+            console.log('\n', 'noticed an issue with [outbound]', c.name + '. local ',  feeMap[c.peer].local, 'remote', feeMap[c.peer].remote);
             console.log(constants.colorRed, 'negative rebalance margin, consider increasing ppm to', remote + buffer);
             count++;
           } else if (local < remote + buffer) {
