@@ -54,7 +54,7 @@ const MIN_PPMS_TRIES = 4; // min ppm occurances before attempting to exclude a n
                           // the greater the number, the more chances nodes get
                           // to prove they are not expensive before being excluded
 
-module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || 750, mins, avoidArr = config.avoid || []}) => {
+module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants.rebalancer.maxPpm, mins, avoidArr = config.avoid || []}) => {
   if (!from || !to || !amount) {
     throw new Error('from, to and amount are mandatory arguments');
   }

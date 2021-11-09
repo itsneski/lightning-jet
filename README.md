@@ -51,11 +51,11 @@ jet help
 |`jet update-channel 769123776873431041 --base 1 --ppm 375`|Sets the base fee to 1 msat and ppm to 375 sats per million for a channel with id of 769123776873431041.|
 
 ## Telegram bot
-Lightning Jet supports a telegram bot that will notify you about important events such as change in fees for your remote peers.
+Lightning Jet telegram bot (jet bot) that will notify you about important events such as change in fees for your remote peers.
 
-To create a bot initiate a converation with [BotFarther](https://core.telegram.org/bots#3-how-do-i-create-a-bot) on your Telegram app. Select bot name (e.g. jet bot) and bot username (e.g. jet_bot).
+To create jet bot: initiate a converation with [BotFarther](https://core.telegram.org/bots#3-how-do-i-create-a-bot) on your Telegram app. Select bot's name (e.g. JET bot) and bot's username (e.g. jet_bot).
 
-Copy the telegram token from the Telegram app chat with BotFather (right under 'Use this token to access the HTTP API:' text). `nano ./api/config.json` to add telegramToken setting with the above value (see config file example below).
+Copy the telegram token from the Telegram app chat with BotFather (right under 'Use this token to access the HTTP API:'). `nano ./api/config.json` to add the `telegramToken` setting with the above value (see config file example below).
 
 `jet start telegram` to kick off the service. Make sure there are no errors. Then open a chat with the bot you just created in your Telegram app and type `/start`. This will kick off the communication between the Telegram bot with Jet. You only need to do this step once.
 
