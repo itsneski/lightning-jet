@@ -176,8 +176,8 @@ cap
             count++;
           } else if (local > maxPpm) {
             console.log('\nnoticed a potential issue with [outbound]', c.name + '. current fees: local',  feeMap[c.peer].local, 'remote', feeMap[c.peer].remote);
-            console.log(colorYellow, 'you current local fee exceeds the max ppm of ' + maxPpm + '. this means that rebalances may be more expensive than your set max');
-            console.log('this may not be an issue if your channel with peer is liquid and there is a good chance of you recuperating the cost of rebalancing')
+            console.log(constants.colorYellow, 'current local fee exceeds the max ppm of ' + maxPpm + '. this means that rebalances may be more expensive than your set max');
+            console.log('this may not be an issue if the peer\'s channel is liquid and there is a good chance that you will recuperating the cost of rebalancing');
             count++;
           }
         })
