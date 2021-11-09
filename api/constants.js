@@ -17,7 +17,7 @@ exports.rebalancer = {
   maxAutoPpm: 500, // for automated rebalance
   maxInstances: 10, // max rebalancer instances
   maxPendingHtlcs: 4,
-  buffer: 150 // sats
+  buffer: 200 // sats
 }
 
 // lnd api

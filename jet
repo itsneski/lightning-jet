@@ -157,7 +157,6 @@ cap
       classified.outbound.forEach(c => {
         let local = Math.round(feeMap[c.peer].local.base/1000 + feeMap[c.peer].local.rate);
         let remote = Math.round(feeMap[c.peer].remote.base/1000 + feeMap[c.peer].remote.rate);
-        let margin = local - remote;
 
         let xx = Math.floor(local / maxPpm);
         if (xx >= 10) {
@@ -181,16 +180,16 @@ cap
           console.log('\nnoticed an issue with [outbound]', c.name + '. current fees: local',  feeMap[c.peer].local, 'remote', feeMap[c.peer].remote);
           let msg;
           if (local < remote) {
-            msg = 'negative rebalance margin of ' + margin + ' sats. this means that rebalances into this peer are not profitable';
+            msg = 'negative rebalance margin of ' + (local - remote) + ' sats. this means that rebalances into this peer are not profitable';
             console.log(constants.colorRed, msg);
           } else {  // remote < local < remote + buffer
-            msg = 'not enough of a buffer between local and remote fees: ' + (remote - local) + ' vs ' + buffer + ' recommended. this means that rebalances have less of a chance to go through';
+            msg = 'not enough of a buffer between local and remote fees: ' + (local - remote) + ' vs ' + buffer + ' recommended. this means that rebalances have less of a chance to go through';
             console.log(constants.colorRed, msg);
           }
 
           let xx = Math.floor((remote + buffer) / maxPpm);
           if (xx >= 10) {
-            msg = 'peer\'s remote fee is too high at the moment, it exceeds your max ppm by more than ' + xx + 'x. consider waiting until the peer adjusts their fees to something more reasonable'
+            msg = 'peer\'s remote fee is too high at the moment, it exceeds your max ppm by more than ' + xx + 'x. consider waiting until the peer adjusts their fees to something more reasonable. in the meantime, rebalances will automatically be placed on hold';
             console.log(constants.colorRed, msg);
             count++;
             return; // skip to the next iteration
