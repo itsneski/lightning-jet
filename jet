@@ -142,10 +142,13 @@ cap
   .action((args, options, logger) => {
     return new Promise(async (resolve, reject) => {
       const {sendMessage} = require('./api/telegram');
-      let fees = listFeesSync(lndClient);
+      let classified = classifyPeersSync(lndClient);
+      let chans = [];
+      classified.outbound.forEach(c => chans.push({chan: c.id, peer: c.peer}));
+      let fees = listFeesSync(lndClient, chans);
       let feeMap = {};
       fees.forEach(f => feeMap[f.id] = f);
-      let classified = classifyPeersSync(lndClient);
+
       const maxPpm = config.rebalancer.maxAutoPpm || constants.rebalancer.maxAutoPpm;
       const buffer = constants.rebalancer.buffer;
 

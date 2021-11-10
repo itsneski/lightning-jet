@@ -46,6 +46,7 @@ jet help
 |`jet peers`|Lists peers classified into inbound, outbound and balanced based on htlc history. Notable columns: `p` - % of [inbound or outbound] routing by the peer out of total [inbound or outbound] across all peers; `ppm` - peer's current ppm rate; `margin` - rebalance ppm margin, rebalance will be profitable as long as its ppm is below the margin.|
 |`jet monitor`|Lists ongoing rebalances, rebalance history, and stuck htlcs.|
 |`jet htlc-analyzer`|Analyzes failed htlcs and lists peers sorted based on missed routing opportunities. Missed routing opportunities are typically due to [outbound] peers not having sufficient liquidity and / or having low fees. Prerequisites: make sure to kick off `jet start htlc-logger` and varify that the logger service is running by `jet status`.|
+|`jet analyze-fees`|Analyzes fees for [outbound] peers and provides recommendation on whether to increase or decrease fees based on routing history.|
 |`jet htlc-history`|Lists peers classified into inbound, outbound and balanced based on htlc history. Notable columns: `%` of inbound or outbound routing by a peer out of total [inbound or outbound] across all peers; `d%` of [inbound or outbound] routing by a peer out of total routing [inbound & outbound] by the peer.|
 |`jet rebalance dplus neski 500000 --ppm 550 --mins 30`|Circular rebalance from dplus to neski for 5mil sats with 550 max ppm and max runtime of 30 mins.|
 |`jet update-channel 769123776873431041 --base 1 --ppm 375`|Sets the base fee to 1 msat and ppm to 375 sats per million for a channel with id of 769123776873431041.|
@@ -53,7 +54,7 @@ jet help
 ## Telegram bot
 Lightning Jet telegram bot (jet bot) that will notify you about important events such as change in fees for your remote peers.
 
-To create jet bot: initiate a converation with [BotFarther](https://core.telegram.org/bots#3-how-do-i-create-a-bot) on your Telegram app. Select bot's name (e.g. JET bot) and bot's username (e.g. jet_bot).
+To create jet bot: initiate a conversation with [BotFather](https://core.telegram.org/bots#3-how-do-i-create-a-bot) on your Telegram app. Select bot's name (e.g. JET bot) and bot's username (e.g. jet_bot).
 
 Copy the telegram token from the Telegram app chat with BotFather (right under 'Use this token to access the HTTP API:'). `nano ./api/config.json` to add the `telegramToken` setting with the above value (see config file example below).
 

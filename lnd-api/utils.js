@@ -267,9 +267,9 @@ module.exports = {
     })
     return fee && fee.remote;
   },
-  listFeesSync: function(lndClient) {
+  listFeesSync: function(lndClient, chans) {
     let fees;
-    module.exports.listFees(lndClient, function(result) {
+    module.exports.listFees(lndClient, chans, function(result) {
       if (!result) {
         throw new Error('null result');
       }
@@ -280,13 +280,16 @@ module.exports = {
     }
     return fees;
   },
-  listFees: function(lndClient, callback) {
+  listFees: function(lndClient, chans, callback) {
     let info = module.exports.getInfoSync(lndClient);
-    let channels = module.exports.listChannelsSync(lndClient);
     let peers = module.exports.listPeersMapSync(lndClient);
     //console.log(peers);
-    let ids = [];
-    channels.forEach(c => ids.push({peer: c.remote_pubkey, chan: c.chan_id}));
+    let ids = chans;
+    if (!ids) {
+      ids = [];
+      let channels = module.exports.listChannelsSync(lndClient);
+      channels.forEach(c => ids.push({peer: c.remote_pubkey, chan: c.chan_id}));
+    }
     let calls = [];
     ids.forEach(id => {
       calls.push(function(cb) {
