@@ -141,7 +141,9 @@ cap
   .command('analyze-fees', 'Analyzes fees')
   .action((args, options, logger) => {
     return new Promise(async (resolve, reject) => {
-      const {sendMessage} = require('./api/telegram');
+      console.log('analyzing fees for [outbound] peers');
+
+      const {analyzeFees} = require('./api/utils');
       let classified = classifyPeersSync(lndClient);
       let chans = [];
       classified.outbound.forEach(c => chans.push({chan: c.id, peer: c.peer}));
@@ -149,63 +151,18 @@ cap
       let feeMap = {};
       fees.forEach(f => feeMap[f.id] = f);
 
-      const maxPpm = config.rebalancer.maxAutoPpm || constants.rebalancer.maxAutoPpm;
-      const buffer = constants.rebalancer.buffer;
-
-      if (classified.outbound.length === 0) return console.log('no outbound peers found');
-
-      // analyze the fees for outbound channels and report on issues
-      console.log('analyzing fees for outbound peers');
       let count = 0;
       classified.outbound.forEach(c => {
-        let local = Math.round(feeMap[c.peer].local.base/1000 + feeMap[c.peer].local.rate);
-        let remote = Math.round(feeMap[c.peer].remote.base/1000 + feeMap[c.peer].remote.rate);
-
-        let xx = Math.floor(local / maxPpm);
-        if (xx >= 10) {
-          // local fee exceeds max ppm by more than 10x, that's not normal
-          // warn the operator so that they are aware and can take corrective
-          // action
-          console.log(constants.colorRed, '\nURGENT: noticed a potential issue with [outbound]', c.name + '. current fees: local',  feeMap[c.peer].local, 'remote', feeMap[c.peer].remote);
-          console.log(constants.colorRed, 'current local fee exceeds the max ppm of ' + maxPpm + ' by more than ' + xx + 'x. this means that rebalances will be significantly more expensive than your set max');
-          console.log('revisit your fees ASAP to ensure that you are not draining your liquidity');
-          count++;
-          return; // skip to the next iteration. the problem is urgent enough to not overload
-                  // the operator with extra info
-        }
-        if (xx >= 2) {
-          console.log('\nnoticed a potential issue with [outbound]', c.name + '. current fees: local', feeMap[c.peer].local, 'remote', feeMap[c.peer].remote);
-          console.log(constants.colorYellow, 'peer\'s local fee exceeds the max ppm of ' + maxPpm + ' by more than ' + xx + 'x. this means that rebalances will likely be more expensive than your set max');
-          console.log('revisit your fees to ensure that you are not draining your liquidity');
-          count++;
-        }
-        if (local < remote + buffer) {
-          console.log('\nnoticed an issue with [outbound]', c.name + '. current fees: local',  feeMap[c.peer].local, 'remote', feeMap[c.peer].remote);
-          let msg;
-          if (local < remote) {
-            msg = 'negative rebalance margin of ' + (local - remote) + ' sats. this means that rebalances into this peer are not profitable';
-            console.log(constants.colorRed, msg);
-          } else {  // remote < local < remote + buffer
-            msg = 'not enough of a buffer between local and remote fees: ' + (local - remote) + ' vs ' + buffer + ' recommended. this means that rebalances have less of a chance to go through';
-            console.log(constants.colorRed, msg);
-          }
-
-          let xx = Math.floor((remote + buffer) / maxPpm);
-          if (xx >= 10) {
-            msg = 'peer\'s remote fee is too high at the moment, it exceeds your max ppm by more than ' + xx + 'x. consider waiting until the peer adjusts their fees to something more reasonable. in the meantime, rebalances will automatically be placed on hold';
-            console.log(constants.colorRed, msg);
-            count++;
-            return; // skip to the next iteration
-          } 
-          if (xx >= 2) {
-            msg = 'peer\'s remote fee is quite high, it exceeds the max ppm by more than ' + xx + 'x. consider setting peer\'s ppm to ' + (remote + buffer) + ', but proceed with caution. an alternative is to wait until the peer adjusts their fees';
-            console.log(msg);
-          } else {
-            msg = 'to resolve this, consider increasing peer\'s ppm to ' + (remote + buffer);
-            console.log(msg);
-          }
-          count++;
-        }
+        console.log();  // newline
+        let msgs = analyzeFees(c.name, c.peer, feeMap[c.peer].local, feeMap[c.peer].remote);
+        msgs.forEach(m => {
+          let color;
+          if (m.importance === constants.feeAnalysis.urgent) color = constants.colorRed;
+          if (m.importance === constants.feeAnalysis.warning) color = constants.colorYellow;
+          if (color) console.log(color, m.message);
+          else console.log(m.message)
+        })
+        count += msgs.length;
       })
       if (count === 0) console.log('no issues to report');
     })

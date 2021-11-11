@@ -41,16 +41,16 @@ function monitorFees() {
       if (!p) return console.log('new channel', f.chan, 'with ', f.name);
       // compare the stats
       if (f.remote.base != p.remote.base) {
-        let msg = util.format('channel %s with %s: base fee changed from %d to %d', f.chan, f.name, f.remote.base, p.remote.base);
+        let msg = util.format('channel %s with %s: base fee changed from %d to %d', f.chan, f.name, p.remote.base, f.remote.base);
         console.log(msg);
         // format for telegram
-        msg = util.format('channel %s with <b>%s</b>: base fee changed from %d to %d', f.chan, f.name, f.remote.base, p.remote.base);
+        msg = util.format('channel %s with <b>%s</b>: base fee changed from %d to %d', f.chan, f.name, p.remote.base, f.remote.base);
         sendMessageFormatted(msg);
       }
       if (f.remote.rate != p.remote.rate) {
-        let msg = util.format('channel %s with %s: ppm fee changed from %d to %d', f.chan, f.name, f.remote.rate, p.remote.rate);
+        let msg = util.format('channel %s with %s: ppm fee changed from %d to %d', f.chan, f.name, p.remote.rate, f.remote.rate);
         console.log(msg);
-        msg = util.format('channel %s with <b>%s</b>: ppm fee changed from %d to %d', f.chan, f.name, f.remote.rate, p.remote.rate);
+        msg = util.format('channel %s with <b>%s</b>: ppm fee changed from %d to %d', f.chan, f.name, p.remote.rate, f.remote.rate);
         sendMessageFormatted(msg);
       }
     })

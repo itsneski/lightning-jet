@@ -312,31 +312,35 @@ function executeCommands() {
       let maxPpm = max_ppm;
       let fee = feesMap[c.to];
       let margin = rebalanceMargin(fee.local, fee.remote);
+      let enforceMaxPpm = config.rebalancer.enforceMaxPpm;
       console.log('fees for', toName, 'local', fee.local, 'remote', fee.remote);
       console.log('rebalance margin:', margin);
-      if (margin < 0) {
-        console.log(colorRed, 'negative margin, revisit your fees:', fee.local);
-        console.log('assuming default max_ppm:', maxPpm);
-      } else {
-        // see if there is enough of a buffer to rebalance
-        let local = fee.local.base/1000 + fee.local.rate;
-        let remote = fee.remote.base/1000 + fee.remote.rate;
-
-        // we need some buffer for rebalance to go through. perhaps take an
-        // average of past rebalances
-        const buffer = constants.rebalancer.buffer; 
-
-        if (local < remote + buffer) {
-          console.log(colorRed, 'not enough of a buffer between local and remote, should be at least', buffer, 'sats, revisit your fees');
-          if (max_ppm >= remote + buffer) {
-            console.log(colorYellow, 'keeping default ppm of', max_ppm, 'since its greater than the recommended buffer');
-          } else {
-            console.log(colorYellow, 'setting max_ppm to include the buffer', remote + buffer);
-            maxPpm = Math.floor(remote + buffer);
-          }
+      if (enforceMaxPpm) console.log('enforceMaxPpm: on, assuming default max ppm of', maxPpm);
+      if (!enforceMaxPpm) {
+        if (margin < 0) {
+          console.log(colorRed, 'negative margin, revisit your fees:', fee.local);
+          console.log('assuming default max_ppm:', maxPpm);
         } else {
-          console.log('setting max_ppm to the local fee', local, 'sats');
-          maxPpm = Math.floor(local);
+          // see if there is enough of a buffer to rebalance
+          let local = fee.local.base/1000 + fee.local.rate;
+          let remote = fee.remote.base/1000 + fee.remote.rate;
+
+          // we need some buffer for rebalance to go through. perhaps take an
+          // average of past rebalances
+          const buffer = constants.rebalancer.buffer; 
+
+          if (local < remote + buffer) {
+            console.log(colorRed, 'not enough of a buffer between local and remote, should be at least', buffer, 'sats, revisit your fees');
+            if (max_ppm >= remote + buffer) {
+              console.log(colorYellow, 'keeping default ppm of', max_ppm, 'since its greater than the recommended buffer');
+            } else {
+              console.log(colorYellow, 'setting max_ppm to include the buffer', remote + buffer);
+              maxPpm = Math.floor(remote + buffer);
+            }
+          } else {
+            console.log('setting max_ppm to the local fee', local, 'sats');
+            maxPpm = Math.floor(local);
+          }
         }
       }
 

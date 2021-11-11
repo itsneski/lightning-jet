@@ -24,3 +24,10 @@ exports.rebalancer = {
 exports.lnd = {
   timeLockDelta: 40
 }
+
+// fee analysis
+exports.feeAnalysis = {
+  normal: 'normal',
+  warning: 'warning',
+  urgent: 'urgent'
+}
