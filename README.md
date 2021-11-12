@@ -92,6 +92,7 @@ A list of config settings under `./api/config.json`:
     "maxPpm": 650,
     "maxAutoPpm": 500,
     "maxInstances": 10,
+    "enforceMaxPpm": false,
     "exclude": [
     ]
   }
