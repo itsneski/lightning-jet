@@ -2,7 +2,6 @@
 
 const config = require('./config');
 const constants = require('./constants');
-const {getPropSync} = require('../db/utils');
 const {recordTelegramMessageSync} = require('../db/utils');
 
 module.exports = {

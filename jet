@@ -23,6 +23,7 @@ const {execSync} = require('child_process');
 const {statSync} = require('fs');
 const date = require('date-and-time');
 
+const serviceUtils = require('./service/utils');
 const {getServiceNames} = require('./service/utils');
 const {stopService} = require('./service/utils');
 const {startService} = require('./service/utils');
@@ -31,8 +32,6 @@ const {printStatus} = require('./service/utils');
 const constants = require('./api/constants');
 const config = require('./api/config');
 const serviceNames = getServiceNames();
-
-const {sendMessage} = require('./api/send-message');
 
 const rebalanceApi = require('./api/rebalance');
 
@@ -263,6 +262,7 @@ cap
   .argument('<message>', 'Message to send')
   .action((args, options, logger) => {
     return new Promise(async (resolve, reject) => {
+      const {sendMessage} = require('./api/send-message');
       sendMessage(args.node, args.message);
     })
   })
@@ -287,6 +287,7 @@ var channelDbFile;
 function runMonitorLoop() {
   const hours = 4;
   console.clear();
+
   // active rebalances
   console.log(date.format(new Date, 'MM/DD hh:mm:ss'));
   let list = listActiveRebalancesFormattedSync();
@@ -321,6 +322,25 @@ function runMonitorLoop() {
     console.table(closed);  
   }
 
+  // check that the auto rebalancer isnt stuck
+  let last = readLastLineSync(serviceUtils.Rebalancer.log);
+  if (last && last.toLowerCase().indexOf('error') >= 0) {
+    console.error(constants.colorRed, '\ndetected an error in the rebalancer log file:', last);
+    console.log('it is possible that the rebalancer is stuck. consider restarting: jet restart rebalancer');
+
+    // notify via telegram
+    const interval = 2; // hours
+    const prop = 'telegramNotifiedRebalancerError';
+    const {getPropAndDateSync} = require('./db/utils');
+    const {setPropSync} = require('./db/utils');
+    let val = getPropAndDateSync('telegramNotifiedRebalancerError');
+    if (!val || (Date.now() - val.date) > interval * 60 * 60 * 1000) {
+      const {sendMessage} = require('./api/telegram');
+      sendMessage('detected an error in the rebalancer log file. the rebalancer may be stuck. consider restarting: jet restart rebalancer');
+      setPropSync(prop, last);
+    }
+  }
+
   // channel.db size
   if (!channelDbFile) {
     let cmd = 'find ~ -name channel.db';
@@ -344,4 +364,26 @@ function runMonitorLoop() {
       }
     } catch(error) {}
   }
+}
+
+function readLastLineSync(file) {
+  let lastLine;
+  let done;
+  const fs = require('fs');
+  const readline = require('readline');
+  const readInterface = readline.createInterface({
+    input: fs.createReadStream(file),
+    console: false
+  })
+
+  readInterface.on("line", function(line){
+    lastLine = line;
+  }).on("close", function() {
+    done = true;
+  })
+
+  while(done === undefined) {
+    require('deasync').runLoopOnce();
+  }
+  return lastLine;
 }

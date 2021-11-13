@@ -109,6 +109,8 @@ function classify() {
     classified = classifyPeersSync(lndClient);
   } catch(error) {
     console.error('classify:', error);
+  } finally {
+    console.log('finished classifying');
   }
 }
 

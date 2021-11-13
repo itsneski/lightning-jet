@@ -1,11 +1,13 @@
 const {exec} = require('child_process');
 const {execSync} = require('child_process');
 const findProc = require('find-process');
+const {sendMessage} = require('../api/telegram');
 
 class Service {
   stop() {
     if (!this.isRunning()) return console.log('already stopped');
     stopServiceExec(this.proc);
+    sendMessage('stopped ' + this.name);
   }
   restart() {
     if (this.isRunning()) this.stop();
@@ -24,8 +26,9 @@ class Service {
   start() {
     if (this.isRunning()) return console.log('already running');
     if (!this.exists()) return 'service does not exist';
-    let cmd = 'node ' + this.path() + ' > ' + this.log +' 2>&1 &';
+    let cmd = 'node ' + this.path() + ' >> ' + this.log +' 2>&1 &';
     execute(cmd);
+    sendMessage('started ' + this.name);
     return 'started';
   }
   path() {
