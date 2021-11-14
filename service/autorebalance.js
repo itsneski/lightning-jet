@@ -318,8 +318,9 @@ function executeCommands() {
       let enforceMaxPpm = config.rebalancer.enforceMaxPpm;
       console.log('fees for', toName, 'local', fee.local, 'remote', fee.remote);
       console.log('rebalance margin:', margin);
-      if (enforceMaxPpm) console.log('enforceMaxPpm: on, assuming default max ppm of', maxPpm);
-      if (!enforceMaxPpm) {
+      if (enforceMaxPpm) {
+        console.log('enforceMaxPpm: on, assuming default max ppm of', maxPpm);
+      } else {
         if (margin < 0) {
           console.log(colorRed, 'negative margin, revisit your fees:', fee.local);
           console.log('assuming default max_ppm:', maxPpm);
@@ -341,10 +342,20 @@ function executeCommands() {
               maxPpm = Math.floor(remote + buffer);
             }
           } else {
-            console.log('setting max_ppm to the local fee', local, 'sats');
-            maxPpm = Math.floor(local);
+            let xx = Math.floor(local / max_ppm);
+            if (xx >= 10) {
+              console.error('local fee exceeds the max ppm by more than ' + xx + 'x. keeping the existing max ppm');
+            } else {
+              console.log('overriding max_ppm by the local fee', local, 'sats');
+              maxPpm = Math.floor(local);
+            }
           }
         }
+      }
+
+      if (maxPpm < fee.remote.rate) {
+        console.error('remote ppm of ' + fee.remote.rate + ' exceeds the max ppm of ' + maxPpm + '. this means that rebalances can\'t go through. skipping');
+        continue;
       }
 
       // execute

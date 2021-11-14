@@ -32,6 +32,7 @@ module.exports = {
     const enforceMaxPpm = (global.testEnforceMaxPpm === undefined) ? config.rebalancer.enforceMaxPpm : global.testEnforceMaxPpm;
     const buffer = constants.rebalancer.buffer;
 
+    let optimalMaxPpm;
     let array = [];
 
     let intro = 'evaluating [outbound] ' + peerName + '. current fees: local { base: ' + localFee.base + ', ppm: ' + localFee.rate + '} remote { base: ' + remoteFee.base + ', ppm: ' + remoteFee.rate + ' }. max ppm: ' + maxPpm + ', max ppm is ';
@@ -59,7 +60,7 @@ module.exports = {
       }
       if (optimal < remote) {
         array.push({
-          importance: warning,
+          importance: urgent,
           message: 'remote fee exceeds the optimal max ppm of ' + optimal + ', the rebalancer will pause. keep on monitoring peer\'s fees.'
         })
         return array; // serious enough to exit
