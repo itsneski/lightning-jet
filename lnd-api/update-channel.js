@@ -28,8 +28,9 @@ module.exports = {
     let nodeInfo = getInfoSync(lndClient);
 
     // there is a weird bug in https://api.lightning.community/#updatechannelpolicy
-    // if i don't pass base fee, it'll zero it out. to workaround, pass the current
-    // base fee (if non specified) so that the current wont be overriden
+    // if i don't pass the base fee, it'll zero it out. to workaround, the code
+    // will fetch & pass the current base fee (if none specified). this is so that
+    // the base fee wont be zeroed out.
     let reqBase = req.base;
     if (!reqBase) {
       if (nodeInfo.identity_pubkey === chan.node1_pub) reqBase = chan.node1_policy.fee_base_msat;

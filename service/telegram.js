@@ -1,3 +1,5 @@
+// https://www.npmjs.com/package/node-telegram-bot-api
+
 const config = require('../api/config');
 const TelegramBot = require('node-telegram-bot-api');
 const {getPropSync} = require('../db/utils');

@@ -94,7 +94,7 @@ if (!dryRunOn) {
 
 function printHtlcHistory() {
   try {
-    console.log(date.format(new Date, 'MM/DD hh:mm'));
+    console.log(date.format(new Date, 'MM/DD hh:mm A'));
     console.log('generating htlc history...');
     execSync('date +"%m/%d %H:%M" >> /tmp/htlchistory.log');
     exec('node htlc-history.js --d 7 >> /tmp/htlchistory.log & disown');
@@ -121,6 +121,7 @@ var feesMap;
 function runLoop() {
   try {
     console.log('\n--------------------------------');
+    console.log(date.format(new Date, 'MM/DD hh:mm A'));
     channels = listChannelsMapSync(lndClient);
     commands = [];    // reset
     commandMap = {};  // reset

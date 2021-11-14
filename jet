@@ -137,12 +137,17 @@ cap
     })
   })
 
-  .command('analyze-fees', 'Analyzes fees')
+  .command('analyze-fees', 'Analyzes peer fees')
+  .option('--profit [profit]', 'Profit margin in % to evaluate fees against')
+  .help('Each peers\' channel local and remote fees will be evaluated against the profitability margin')
   .action((args, options, logger) => {
     return new Promise(async (resolve, reject) => {
-      console.log('analyzing fees for [outbound] peers');
+      if (options.profit < 0 || options.profit > 100) return console.error('profit has to be between 0 and 100');
+      let msg = 'analyzing fees for [outbound] peers';
+      msg += (options.profit) ? ' based on profit of ' + options.profit + '%' : '. no profit requirements specified'
+      console.log(msg);
 
-      const {analyzeFees} = require('./api/utils');
+      const {printFeeAnalysis} = require('./api/analyze-fees');
       let classified = classifyPeersSync(lndClient);
       let chans = [];
       classified.outbound.forEach(c => chans.push({chan: c.id, peer: c.peer}));
@@ -153,15 +158,8 @@ cap
       let count = 0;
       classified.outbound.forEach(c => {
         console.log();  // newline
-        let msgs = analyzeFees(c.name, c.peer, feeMap[c.peer].local, feeMap[c.peer].remote);
-        msgs.forEach(m => {
-          let color;
-          if (m.importance === constants.feeAnalysis.urgent) color = constants.colorRed;
-          if (m.importance === constants.feeAnalysis.warning) color = constants.colorYellow;
-          if (color) console.log(color, m.message);
-          else console.log(m.message)
-        })
-        count += msgs.length;
+        let num = printFeeAnalysis(c.name, c.peer, feeMap[c.peer].local, feeMap[c.peer].remote, options.profit);
+        count += num;
       })
       if (count === 0) console.log('no issues to report');
     })

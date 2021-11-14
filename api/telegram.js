@@ -1,5 +1,3 @@
-// https://www.npmjs.com/package/node-telegram-bot-api
-
 const config = require('./config');
 const constants = require('./constants');
 const {recordTelegramMessageSync} = require('../db/utils');
