@@ -7,7 +7,7 @@ const pThreshold = 2;
 
 module.exports = {
   withCommas: function(s) {
-    return s.toString().replace(/\B(?<!\.\d*)(?=(\d{3})+(?!\d))/g, ",");
+    return (s) ? s.toString().replace(/\B(?<!\.\d*)(?=(\d{3})+(?!\d))/g, ",") : s;
   },
   stuckHtlcsSync: function(lndClient) {
     let data;
