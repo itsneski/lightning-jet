@@ -320,6 +320,17 @@ function runMonitorLoop() {
     console.table(closed);  
   }
 
+  console.log('\nservices:');
+  printStatus();
+  // warn about daddy, as it has to be on all the time. telegram needs to be first
+  // configured, so add an extra warning in the monitor
+  if (!serviceUtils.Launcher.isRunning()) {
+    console.error(constants.colorYellow, 'daddy service is not running, this means that other services won\'t be auto-restarted in case of an error. jet start daddy');
+  }
+  if (!serviceUtils.TelegramBot.isRunning()) {
+    console.error(constants.colorYellow, 'telegram bot service is not running, you won\'t get notified about important events.', constants.telegramBotHelpPage);
+  }
+
   // check that the auto rebalancer isnt stuck
   let last = readLastLineSync(serviceUtils.Rebalancer.log);
   if (last && last.toLowerCase().indexOf('error') >= 0) {
