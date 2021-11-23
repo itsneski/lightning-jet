@@ -78,7 +78,7 @@ function runLoopExec() {
       msg += ' heartbeat hasnt yet been generated, skipping the check';
       console.log(constants.colorYellow, msg);
     } else if (Date.now() - hb > 2 * rbInterval * 1000) {
-      msg += ' detected a long gap since last heartbeat, its likely that the service is down. attempting to restart';
+      msg += ' detected a big time gap since last heartbeat, its likely that the service is down. attempting to restart';
       console.error(constants.colorRed, '\n' + msg);
 
       // notify via telegram
@@ -103,7 +103,7 @@ function runLoopExec() {
       msg += ' heartbeat has not yet been generated, skipping the check';
       console.log(constants.colorYellow, msg);
     } else if (Date.now() - hbFees > 2 * feeInterval * 1000) {
-      msg += ' detected a long gap since the last fees heartbeat, its likely that the service is down. attempting to restart';
+      msg += ' detected a big time gap since the last fees heartbeat, its likely that the service is down. attempting to restart';
       console.error(constants.colorRed, msg);
 
       // notify via telegram
@@ -114,7 +114,7 @@ function runLoopExec() {
       console.log(`restarting ${TelegramBot.name} ...`);
       restartService(TelegramBot.name);
     } else if (Date.now() - hbPoll > 2 * pollInterval * 1000) {
-      msg += ' detected a long gap since the last poll heartbeat, its likely that the service is down. attempting to restart';
+      msg += ' detected a big time gap since the last poll heartbeat, its likely that the service is down. attempting to restart';
       console.error(constants.colorRed, msg);
 
       // notify via telegram

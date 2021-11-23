@@ -33,6 +33,9 @@ const {printStatus} = require('./service/utils');
 const constants = require('./api/constants');
 const config = require('./api/config');
 const serviceNames = getServiceNames();
+// service names, plus all for restart
+var serviceNamesPlus = serviceNames.slice();
+serviceNamesPlus.push('all');
 
 const rebalanceApi = require('./api/rebalance');
 
@@ -59,7 +62,7 @@ cap
   })
 
   .command('restart', 'Restarts a service')
-  .argument('<service>', 'Services', serviceNames)
+  .argument('<service>', 'Services; use \'all\' to restart all services', serviceNamesPlus)
   .help(`Services: ${serviceNames.join(', ')}`)
   .action((args, options, logger) => {
     return new Promise(async (resolve, reject) => {

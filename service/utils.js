@@ -144,8 +144,22 @@ module.exports = {
   },
   restartService: function(name) {
     if (!name) return 'missing service';
-    if (!services[name]) return 'unknown service: ' + name;
-    return services[name].restart();
+    const daddy = module.exports.Launcher;
+    if (name === 'all') {
+      // stop all services
+      Object.values(services).forEach(s => {
+        if (s.name !== daddy.name) s.stop();
+      })
+      daddy.stop();
+      // start all services
+      Object.values(services).forEach(s => {
+        if (s.name !== daddy.name) s.start();
+      })
+      daddy.start();
+    } else {
+      if (!services[name]) return 'unknown service: ' + name;
+      return services[name].restart();
+    }
   },
   printStatus: function() {
     let status = [];
