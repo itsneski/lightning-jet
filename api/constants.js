@@ -32,3 +32,14 @@ exports.feeAnalysis = {
   warning: 'warning',
   urgent: 'urgent'
 }
+
+// services
+exports.services = {
+  rebalancer: {
+    loopInterval: 5 * 60  // seconds
+  },
+  telegram: {
+    feeInterval: 10 * 60,
+    pollInterval: 30
+  }
+}

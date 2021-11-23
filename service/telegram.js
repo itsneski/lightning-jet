@@ -1,6 +1,7 @@
 // https://www.npmjs.com/package/node-telegram-bot-api
 
 const config = require('../api/config');
+const constants = require('../api/constants');
 const TelegramBot = require('node-telegram-bot-api');
 const {getPropSync} = require('../db/utils');
 const {getPropAndDateSync} = require('../db/utils');
@@ -9,11 +10,12 @@ const {fetchTelegramMessageSync} = require('../db/utils');
 const {deleteTelegramMessages} = require('../db/utils');
 const lndClient = require('../api/connect');
 const {listFeesSync} = require('../lnd-api/utils');
+const serviceUtils = require('./utils');
 const util = require('util');
-const date = require('date-and-time')
+const date = require('date-and-time');
 
-const pollInterval = 30;  // seconds
-const feeInterval = 10;   // mins
+const pollInterval = constants.services.telegram.pollInterval;
+const feeInterval = constants.services.telegram.feeInterval;
 
 const encode = s => Buffer.from(s).toString('base64');
 const decode = s => Buffer.from(s, 'base64').toString();
@@ -22,53 +24,58 @@ const formatDate = d => date.format(new Date(d), 'MM/DD hh:mm A')
 initBot();
 
 monitorFees();
-setInterval(monitorFees, feeInterval * 60 * 1000);
+setInterval(monitorFees, feeInterval * 1000);
 
-// monitor fee changes
 function monitorFees() {
   try {
-    let fees = listFeesSync(lndClient);
-    let prev = getPropAndDateSync('fees');
-    setPropSync('fees', encode(JSON.stringify(fees, null, 2)));
-    if (!prev) return;
-
-    let prevFees = JSON.parse(decode(prev.val));
-    console.log('\nidentified existing fees recorded on', formatDate(prev.date));
-    let prevMap = {};
-    prevFees.forEach(f => prevMap[f.chan] = f);
-    let feeMap = {};
-    fees.forEach(f => feeMap[f.chan] = f);
-    fees.forEach(f => {
-      let p = prevMap[f.chan];
-      if (!p) return console.log('new channel', f.chan, 'with ', f.name);
-      // compare the stats
-      if (f.remote.base != p.remote.base) {
-        let msg = util.format('channel %s with %s: base fee changed from %d to %d', f.chan, f.name, p.remote.base, f.remote.base);
-        console.log(msg);
-        // format for telegram
-        msg = util.format('channel %s with <b>%s</b>: base fee changed from %d to %d', f.chan, f.name, p.remote.base, f.remote.base);
-        sendMessageFormatted(msg);
-      }
-      if (f.remote.rate != p.remote.rate) {
-        let msg = util.format('channel %s with %s: ppm fee changed from %d to %d', f.chan, f.name, p.remote.rate, f.remote.rate);
-        console.log(msg);
-        msg = util.format('channel %s with <b>%s</b>: ppm fee changed from %d to %d', f.chan, f.name, p.remote.rate, f.remote.rate);
-        sendMessageFormatted(msg);
-      }
-    })
-    // see if any of the channels closed
-    prevFees.forEach(f => {
-      let p = feeMap[f.chan];
-      if (!p) {
-        let msg = util.format('channel %s with %s: could not find the fee, the channel was likely closed', f.chan, f.name);
-        console.log(msg);
-        msg = util.format('channel %s with <b>%s</b>: could not find the fee, the channel was likely closed', f.chan, f.name);
-        sendMessageFormatted(msg);
-      }
-    })
+    monitorFeesExec();
   } catch(error) {
-    console.error('monitorFees:', error.message);
+    console.error('monitorFees:', error.toString());
   }
+}
+
+// monitor fee updates
+function monitorFeesExec() {
+  serviceUtils.TelegramBot.recordHeartbeat('fees');
+  let fees = listFeesSync(lndClient);
+  let prev = getPropAndDateSync('fees');
+  setPropSync('fees', encode(JSON.stringify(fees, null, 2)));
+  if (!prev) return;
+
+  let prevFees = JSON.parse(decode(prev.val));
+  console.log('\nidentified existing fees recorded on', formatDate(prev.date));
+  let prevMap = {};
+  prevFees.forEach(f => prevMap[f.chan] = f);
+  let feeMap = {};
+  fees.forEach(f => feeMap[f.chan] = f);
+  fees.forEach(f => {
+    let p = prevMap[f.chan];
+    if (!p) return console.log('new channel', f.chan, 'with ', f.name);
+    // compare the stats
+    if (f.remote.base != p.remote.base) {
+      let msg = util.format('channel %s with %s: base fee changed from %d to %d', f.chan, f.name, p.remote.base, f.remote.base);
+      console.log(msg);
+      // format for telegram
+      msg = util.format('channel %s with <b>%s</b>: base fee changed from %d to %d', f.chan, f.name, p.remote.base, f.remote.base);
+      sendMessageFormatted(msg);
+    }
+    if (f.remote.rate != p.remote.rate) {
+      let msg = util.format('channel %s with %s: ppm fee changed from %d to %d', f.chan, f.name, p.remote.rate, f.remote.rate);
+      console.log(msg);
+      msg = util.format('channel %s with <b>%s</b>: ppm fee changed from %d to %d', f.chan, f.name, p.remote.rate, f.remote.rate);
+      sendMessageFormatted(msg);
+    }
+  })
+  // see if any of the channels closed
+  prevFees.forEach(f => {
+    let p = feeMap[f.chan];
+    if (!p) {
+      let msg = util.format('channel %s with %s: could not find the fee, the channel was likely closed', f.chan, f.name);
+      console.log(msg);
+      msg = util.format('channel %s with <b>%s</b>: could not find the fee, the channel was likely closed', f.chan, f.name);
+      sendMessageFormatted(msg);
+    }
+  })
 }
 
 if (global.bot) {
@@ -77,6 +84,7 @@ if (global.bot) {
 
 // poll messages from the db
 function pollMessages() {
+  serviceUtils.TelegramBot.recordHeartbeat('poll');
   let list = fetchTelegramMessageSync();
   if (!list || list.length === 0) return;
   console.log('processing', list.length, 'messages');

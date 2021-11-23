@@ -17,6 +17,7 @@ const {removeEmojis} = require('../lnd-api/utils');
 const {isRunningSync} = require('../api/utils');
 const {rebalanceMargin} = require('../api/utils');
 const {withCommas} = require('../lnd-api/utils');
+const serviceUtils = require('./utils');
 const tags = require('../api/tags');
 
 const constants = require('../api/constants');
@@ -60,7 +61,7 @@ Object.keys(tags).forEach(tag => tagsMap[tags[tag]] = tag);
 const round = n => Math.round(n);
 
 const rebalanceHistoryDepth = 120; // mins
-const loopInterval = 5; // mins
+const loopInterval = constants.services.rebalancer.loopInterval;
 
 const max_per_peer = 5;
 const min_to_rebalance = 50000; // sats
@@ -102,7 +103,7 @@ if (!dryRunOn) {
 }
 runLoop();
 if (!dryRunOn) {
-  setInterval(runLoop, loopInterval * 60 * 1000);
+  setInterval(runLoop, loopInterval * 1000);
 }
 
 function printHtlcHistory() {
@@ -133,6 +134,7 @@ var feesMap;
 
 function runLoop() {
   try {
+    serviceUtils.Rebalancer.recordHeartbeat();
     console.log('\n--------------------------------');
     console.log(date.format(new Date, 'MM/DD hh:mm A'));
     channels = listChannelsMapSync(lndClient);

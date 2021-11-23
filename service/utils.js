@@ -3,6 +3,8 @@ const {exec} = require('child_process');
 const {execSync} = require('child_process');
 const findProc = require('find-process');
 const {sendMessage} = require('../api/telegram');
+const {setPropSync} = require('../db/utils');
+const {getPropAndDateSync} = require('../db/utils');
 
 class Service {
   stop() {
@@ -41,6 +43,17 @@ class Service {
   }
   isConfigured() {
     return true;  // services can overrides this if configuration is required
+  }
+  recordHeartbeat(sub) {
+    let prop = 'service.' + this.name + '.heartbeat';
+    if (sub) prop += '.' + sub;
+    setPropSync(prop, Date.now());
+  }
+  lastHeartbeat(sub) {
+    let prop = 'service.' + this.name + '.heartbeat';
+    if (sub) prop += '.' + sub;
+    let val = getPropAndDateSync(prop);
+    return val && val.date;
   }
 }
 

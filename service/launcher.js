@@ -39,7 +39,7 @@ function runLoop() {
 
 function runLoopExec() {
   console.log();
-  console.log(date.format(new Date, 'MM/DD hh:mm'));
+  console.log(date.format(new Date, 'MM/DD hh:mm A'));
 
   // htlc logger
   if (isRunning(HtlcLogger.name)) {
@@ -65,41 +65,66 @@ function runLoopExec() {
       console.log(`starting ${TelegramBot.name} ...`);
       startService(TelegramBot.name);
     } else {
-      console.error('the telegram bot is not yet configured, can\'t start the service.', constants.telegramBotHelpPage);
+      console.error('the telegram bot is not yet configured, cant start the service.', constants.telegramBotHelpPage);
     }
   }
 
   // check that the auto rebalancer isnt stuck
-  let last = readLastLineSync(Rebalancer.log);
-  if (last && last.toLowerCase().indexOf('error') >= 0) {
-    console.error(constants.colorRed, '\ndetected an error in the rebalancer log file:', last);
-    console.log('it is likely that the rebalancer is stuck, restarting.');
+  if (isRunning(Rebalancer.name)) {
+    let hb = Rebalancer.lastHeartbeat();
+    const rbInterval = constants.services.rebalancer.loopInterval;
+    let msg = Rebalancer.name + ':';
+    if (!hb) {
+      msg += ' heartbeat hasnt yet been generated, skipping the check';
+      console.log(constants.colorYellow, msg);
+    } else if (Date.now() - hb > 2 * rbInterval * 1000) {
+      msg += ' detected a long gap since last heartbeat, its likely that the service is down. attempting to restart';
+      console.error(constants.colorRed, '\n' + msg);
 
-    // notify via telegram
-    const {sendMessage} = require('../api/telegram');
-    const msg = 'detected an error in the rebalancer log file. the rebalancer may be stuck. attempted to restart';
-    sendMessage(msg);
+      // notify via telegram
+      const {sendMessage} = require('../api/telegram');
+      sendMessage(msg);
 
-    // restarting rebalancer
-    console.log(`restarting ${Rebalancer.name} ...`);
-    restartService(Rebalancer.name);
+      // restarting rebalancer
+      console.log(`restarting ${Rebalancer.name} ...`);
+      restartService(Rebalancer.name);
+    }
   }
 
   // check that the telegram service isnt stuck
-  let last = readLastLineSync(TelegramBot.log);
-  if (last && last.toLowerCase().indexOf('error') >= 0) {
-    console.error(constants.colorRed, '\ndetected an error in the telegram service log file:', last);
-    console.log('it is likely that the telegram service is stuck, restarting.');
+  if (isRunning(TelegramBot.name)) {
+    let hbFees = TelegramBot.lastHeartbeat('fees');
+    let hbPoll = TelegramBot.lastHeartbeat('poll');
+    const feeInterval = constants.services.telegram.feeInterval;
+    const pollInterval = constants.services.telegram.pollInterval;
 
-    // notify via telegram even though the service may be down
-    // this way the user will know what happened once the telegram is up
-    const {sendMessage} = require('../api/telegram');
-    const msg = 'detected an error in the telegram service log file. the rebalancer may be stuck. attempted to restart';
-    sendMessage(msg);
+    let msg = TelegramBot.name + ':';
+    if (!hbFees || !hbPoll) {
+      msg += ' heartbeat has not yet been generated, skipping the check';
+      console.log(constants.colorYellow, msg);
+    } else if (Date.now() - hbFees > 2 * feeInterval * 1000) {
+      msg += ' detected a long gap since the last fees heartbeat, its likely that the service is down. attempting to restart';
+      console.error(constants.colorRed, msg);
 
-    // restarting rebalancer
-    console.log(`restarting ${TelegramBot.name} ...`);
-    restartService(TelegramBot.name);
+      // notify via telegram
+      const {sendMessage} = require('../api/telegram');
+      sendMessage(msg);
+
+      // restarting telegram
+      console.log(`restarting ${TelegramBot.name} ...`);
+      restartService(TelegramBot.name);
+    } else if (Date.now() - hbPoll > 2 * pollInterval * 1000) {
+      msg += ' detected a long gap since the last poll heartbeat, its likely that the service is down. attempting to restart';
+      console.error(constants.colorRed, msg);
+
+      // notify via telegram
+      const {sendMessage} = require('../api/telegram');
+      sendMessage(msg);
+
+      // restarting telegram
+      console.log(`restarting ${TelegramBot.name} ...`);
+      restartService(TelegramBot.name);
+    }
   }
 }
 
