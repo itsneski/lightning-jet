@@ -70,12 +70,25 @@ const maxPendingHtlcs = config.rebalancer.maxPendingHtlcs || constants.rebalance
 console.log('max ppm:', max_ppm);
 console.log('max pending htlcs:', maxPendingHtlcs);
 
-// check for nodes to exclude
+// check for nodes to exclude; nodes can be excluded 
 let exclude = {};
 if (config.rebalancer.exclude) {
-  config.rebalancer.exclude.forEach(n => exclude[n] = true);
+  config.rebalancer.exclude.forEach(n => {
+    let id = n;
+    let type = 'outbound';  // default
+    let ind = n.indexOf(':');
+    if (n.indexOf(':') >= 0) {
+      id = n.substring(0, ind);
+      type = n.substring(ind + 1);
+    }
+    if (['all', 'inbound', 'outbound'].includes(type)) {
+      exclude[id] = type;
+    } else {
+      console.error(colorRed, 'unknow exclude for ' + id + ': ' + type + ', skipping');
+    }
+  })
 }
-if (Object.keys(exclude).length > 0) console.log('exclude:', Object.keys(exclude));
+if (Object.keys(exclude).length > 0) console.log('exclude:', exclude);
 
 var channels;
 var classified;
@@ -157,6 +170,11 @@ function autoRebalance(inboundId, balanced, firstRound) {
   let inboundName = getNodeName(inboundId);
   if (!inboundName) throw new Error('couldnt identify node name');
 
+  let type = exclude[inboundId];
+  if (type && ['all', 'inbound'].includes(type)) {
+    return console.log(colorYellow, '\nexcluding [inbound] ' + inboundName + ', ' + inboundId + ' based on exclude settings');
+  }
+
   console.log(`\n${((balanced) ? '[balanced]' : '[inbound]')} ${inboundName}, id: ${inboundId}`);
 
   // check balances
@@ -170,7 +188,7 @@ function autoRebalance(inboundId, balanced, firstRound) {
 
   // min capacity to rebalance, 30% seems reasonable???
   if (remoteChannel.local_balance < .3 * remoteChannel.capacity) {
-    return console.log(colorYellow, 'insufficient local balance');
+    return console.log(colorYellow, 'insufficient local balance to rebalance');
   }
 
   // base amount to rebalance
@@ -178,7 +196,7 @@ function autoRebalance(inboundId, balanced, firstRound) {
   if (balanced) {
     // take it easy on a balanced channel, at least 60% capacity
     if (remoteChannel.local_balance < .6 * remoteChannel.capacity) {
-      return console.log(colorYellow, 'insufficient local balance');
+      return console.log(colorYellow, 'insufficient local balance to rebalance');
     }
     // recalculate the base, take it a bit easy on a balanced channel
     let delta = Math.round(remoteChannel.local_balance - .5 * remoteChannel.capacity);
@@ -190,7 +208,11 @@ function autoRebalance(inboundId, balanced, firstRound) {
   if (balanced || firstRound) {
     classified.outbound.forEach(c => {
       if (c.peer === inboundId) return;
-      if (exclude[c.peer]) return console.log(colorYellow, 'excluding', peers[c.peer].name, c.peer);
+
+      let type = exclude[c.peer];
+      if (type && ['all', 'outbound'].includes(type)) {
+        return console.log(colorYellow, 'excluding [outbound] ' + peers[c.peer].name + ', ' + c.peer + ' based on exclude settings');
+      }
 
       let ch = channels[c.peer];
       if (c.name.indexOf('LNBIG.com') === 0) {  // special case???
@@ -216,7 +238,11 @@ function autoRebalance(inboundId, balanced, firstRound) {
   if (balanced || !firstRound) {
     classified.balanced.forEach(c => {
       if (c.peer === inboundId) return;
-      if (exclude[c.peer]) return console.log(colorYellow, 'excluding', peers[c.peer].name, c.peer);
+
+      let type = exclude[c.peer];
+      if (type && ['all', 'outbound'].includes(type)) {
+        return console.log(colorYellow, 'excluding [outbound] ' + peers[c.peer].name + ', ' + c.peer + ' based on exclude settings');
+      }
 
       let ch = channels[c.peer];
       let name = getNodeName(c.peer);
