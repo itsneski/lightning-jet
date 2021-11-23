@@ -442,7 +442,7 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
 
     // helper function
     function canAvoidNode(id) {
-      return !avoidNodes[id] && id !== OUT && id !== IN && id !== tags[OUT] && id !== tags[IN];
+      return !avoidNodes[id] && id !== outId && id !== inId && id !== OUT && id !== IN && id !== tags[OUT] && id !== tags[IN];
     }
   } // for
 
