@@ -219,7 +219,7 @@ module.exports = {
       return b.date - a.date;
     })
     formatted.forEach(f => {
-      f.date = date.format(new Date(f.date), 'MM/DD hh:mm');
+      f.date = date.format(new Date(f.date), 'MM/DD hh:mm A');
     })
     return formatted;
   },
