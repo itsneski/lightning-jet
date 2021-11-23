@@ -3,10 +3,13 @@ const config = require('../api/config');
 const constants = require('../api/constants');
 const {exec} = require('child_process');
 const {isRunning} = require('./utils');
+const {isConfigured} = require('./utils');
 const {startService} = require('./utils');
+const {restartService} = require('./utils');
 const {Rebalancer} = require('./utils');
 const {HtlcLogger} = require('./utils');
 const {TelegramBot} = require('./utils');
+const {readLastLineSync} = require('../api/utils');
 
 const loopInterval = 5;  // mins
 const bosReconnectInterval = 60;  // mins
@@ -27,6 +30,14 @@ function cleanDb() {
 }
 
 function runLoop() {
+  try {
+    runLoopExec();
+  } catch(error) {
+    console.error('runLoop:', error.toString());
+  }
+}
+
+function runLoopExec() {
   console.log();
   console.log(date.format(new Date, 'MM/DD hh:mm'));
 
@@ -50,12 +61,45 @@ function runLoop() {
   if (isRunning(TelegramBot.name)) {
     console.log(`${TelegramBot.name} is already running`)
   } else {
-    if (config.telegramToken) {
+    if (isConfigured(TelegramBot.name)) {
       console.log(`starting ${TelegramBot.name} ...`);
       startService(TelegramBot.name);
     } else {
       console.error('the telegram bot is not yet configured, can\'t start the service.', constants.telegramBotHelpPage);
     }
+  }
+
+  // check that the auto rebalancer isnt stuck
+  let last = readLastLineSync(Rebalancer.log);
+  if (last && last.toLowerCase().indexOf('error') >= 0) {
+    console.error(constants.colorRed, '\ndetected an error in the rebalancer log file:', last);
+    console.log('it is likely that the rebalancer is stuck, restarting.');
+
+    // notify via telegram
+    const {sendMessage} = require('../api/telegram');
+    const msg = 'detected an error in the rebalancer log file. the rebalancer may be stuck. attempted to restart';
+    sendMessage(msg);
+
+    // restarting rebalancer
+    console.log(`restarting ${Rebalancer.name} ...`);
+    restartService(Rebalancer.name);
+  }
+
+  // check that the telegram service isnt stuck
+  let last = readLastLineSync(TelegramBot.log);
+  if (last && last.toLowerCase().indexOf('error') >= 0) {
+    console.error(constants.colorRed, '\ndetected an error in the telegram service log file:', last);
+    console.log('it is likely that the telegram service is stuck, restarting.');
+
+    // notify via telegram even though the service may be down
+    // this way the user will know what happened once the telegram is up
+    const {sendMessage} = require('../api/telegram');
+    const msg = 'detected an error in the telegram service log file. the rebalancer may be stuck. attempted to restart';
+    sendMessage(msg);
+
+    // restarting rebalancer
+    console.log(`restarting ${TelegramBot.name} ...`);
+    restartService(TelegramBot.name);
   }
 }
 

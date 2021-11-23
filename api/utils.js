@@ -18,6 +18,19 @@ const findProc = require('find-process');
 const date = require('date-and-time');
 
 module.exports = {
+  // make sure that telegram isn't getting swamped with messages
+  // ensures that a message is getting more often than once in
+  // a time period specified in interval (secods) 
+  sendTelegramMessageTimed(msg, category, interval) {
+    const {getPropAndDateSync} = require('../db/utils');
+    const {setPropSync} = require('../db/utils');
+    let val = getPropAndDateSync(category);
+    if (!val || (Date.now() - val.date) > interval * 1000) {
+      const {sendMessage} = require('./telegram');
+      sendMessage(msg);
+      setPropSync(category, msg);
+    }
+  },
   // rebalance margin for circular rebalance; rebalance will be profitable as long as
   // its ppm is below the margin
   rebalanceMargin(localFee, remoteFee) {
@@ -259,5 +272,26 @@ module.exports = {
       list.push(item);
     })
     return list;
+  },
+  readLastLineSync: function(file) {
+    let lastLine;
+    let done;
+    const fs = require('fs');
+    const readline = require('readline');
+    const readInterface = readline.createInterface({
+      input: fs.createReadStream(file),
+      console: false
+    })
+
+    readInterface.on("line", function(line){
+      lastLine = line;
+    }).on("close", function() {
+      done = true;
+    })
+
+    while(done === undefined) {
+      require('deasync').runLoopOnce();
+    }
+    return lastLine;
   }
 }

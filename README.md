@@ -1,9 +1,12 @@
+
 # Lightning Jet 🚀⚡️, or simply Jet
 General-purpose automated rebalancer for LND Lightning nodes. Helps get an insight into peers' classification based on routing history, missed routing opportunities, and stuck htlcs.
 
+Join [Lightning Jet telegram chat](https://t.me/lnjet).
+
 ## Prerequisites
-- Install [BalanceOfSatoshi](https://github.com/alexbosworth/balanceofsatoshis) along with its prerequisites (Node).
-- Check out the [BalanceOfSatoshi install page for Umbrel](https://plebnet.wiki/wiki/Umbrel_-_Installing_BoS) on [Plebnet](https://plebnet.wiki/).
+- Install [BalanceOfSatoshis](https://github.com/alexbosworth/balanceofsatoshis) along with its prerequisites (Node).
+- Check out the [BalanceOfSatoshis install page for Umbrel](https://plebnet.wiki/wiki/Umbrel_-_Installing_BoS) on [Plebnet](https://plebnet.wiki/).
 
 ## Installation
 ```bash
@@ -43,7 +46,7 @@ jet help
 |||
 |--|--|
 |`jet peers`|Lists peers classified into inbound, outbound, and balanced based on htlc history. Notable columns: `p` - % of [inbound or outbound] routing by the peer out of a total [inbound or outbound] across all peers; `ppm` - peer's current ppm rate; `margin` - rebalance will be profitable as long as its ppm is below the margin.|
-|`jet monitor`|Lists ongoing rebalances, rebalance history, and stuck htlcs.|
+|`jet monitor`|Lists ongoing rebalances, rebalance history, and stuck htlcs. Monitors and warns about the state of BOLD Database (channel.db), e.g., jet will warn when the channel.db grows over a threshold.|
 |`jet htlc-analyzer`|Analyzes failed htlcs and lists peers sorted based on missed routing opportunities. Missed routing opportunities are typically due to [outbound] peers not having sufficient liquidity and/or having low fees. Prerequisites: make sure to kick off `jet start htlc-logger` and verify that the logger service is running by `jet status`.|
 |`jet analyze-fees`|Analyzes fees for [outbound] peers and recommends whether to increase or decrease fees based on routing history.|
 |`jet htlc-history`|Lists peers classified into inbound, outbound, and balanced based on htlc history. Notable columns: `%` of inbound or outbound routing by a peer out of total [inbound or outbound] across all peers; `d%` of [inbound or outbound] routing by a peer out of total routing [inbound & outbound] by the peer.|

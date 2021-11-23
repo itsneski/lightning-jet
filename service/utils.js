@@ -1,3 +1,4 @@
+const config = require('../api/config');
 const {exec} = require('child_process');
 const {execSync} = require('child_process');
 const findProc = require('find-process');
@@ -26,6 +27,10 @@ class Service {
   start() {
     if (this.isRunning()) return console.log('already running');
     if (!this.exists()) return 'service does not exist';
+    if (!this.isConfigured()) {
+      if (this.help) return 'service is not configured, can\'t start it. ' + this.help;
+      else return 'service is not configured';
+    }
     let cmd = 'node ' + this.path() + ' >> ' + this.log +' 2>&1 &';
     execute(cmd);
     sendMessage('started ' + this.name);
@@ -33,6 +38,9 @@ class Service {
   }
   path() {
     return __dirname + '/' + this.proc;
+  }
+  isConfigured() {
+    return true;  // services can overrides this if configuration is required
   }
 }
 
@@ -77,17 +85,11 @@ class TelegramBot extends Service {
     this.name = TelegramBot.name;
     this.proc = 'telegram.js';
     this.log = '/tmp/telegram.log';
+    this.help = 'https://github.com/itsneski/lightning-jet#telegram-bot';
   }
 
-  // override to provide additional info
-  start() {
-    try {
-      const {validateBot} = require('../api/telegram');
-      validateBot();
-      super.start();
-    } catch(error) {
-      return error.message;
-    }
+  isConfigured() {
+    return config.telegramToken;
   }
 }
 
@@ -138,6 +140,11 @@ module.exports = {
       status.push({service: s.name, status: s.status(), log: s.log});
     })
     console.table(status);
+  },
+  isConfigured: function(name) {
+    if (!name) return 'missing service';
+    if (!services[name]) return 'unknown service: ' + name;
+    return services[name].isConfigured();
   }
 }
 

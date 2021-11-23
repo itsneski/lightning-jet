@@ -10,6 +10,7 @@ const {rebalanceHistoryFormattedSync} = require('./api/utils');
 const {pendingHtlcsFormattedSync} = require('./api/utils');
 const {listForcedClosingFormattedSync} = require('./api/utils');
 const {listPeersFormattedSync} = require('./api/utils');
+const {readLastLineSync} = require('./api/utils');
 const {withCommas} = require('./lnd-api/utils');
 const {listFeesSync} = require('./lnd-api/utils');
 const {listPeersSync} = require('./lnd-api/utils');
@@ -338,16 +339,10 @@ function runMonitorLoop() {
     console.log('it is possible that the rebalancer is stuck. consider restarting: jet restart rebalancer');
 
     // notify via telegram
-    const interval = 2; // hours
-    const prop = 'telegramNotifiedRebalancerError';
-    const {getPropAndDateSync} = require('./db/utils');
-    const {setPropSync} = require('./db/utils');
-    let val = getPropAndDateSync('telegramNotifiedRebalancerError');
-    if (!val || (Date.now() - val.date) > interval * 60 * 60 * 1000) {
-      const {sendMessage} = require('./api/telegram');
-      sendMessage('detected an error in the rebalancer log file. the rebalancer may be stuck. consider restarting: jet restart rebalancer');
-      setPropSync(prop, last);
-    }
+    const {sendTelegramMessageTimed} = require('./api/utils');
+    const interval = 5; // minutes
+    const msg = 'detected an error in the rebalancer log file. the rebalancer may be stuck. consider restarting: jet restart rebalancer';
+    sendTelegramMessageTimed(msg, 'telegramNotifiedRebalancerError', interval * 60);
   }
 
   // channel.db size
@@ -373,26 +368,4 @@ function runMonitorLoop() {
       }
     } catch(error) {}
   }
-}
-
-function readLastLineSync(file) {
-  let lastLine;
-  let done;
-  const fs = require('fs');
-  const readline = require('readline');
-  const readInterface = readline.createInterface({
-    input: fs.createReadStream(file),
-    console: false
-  })
-
-  readInterface.on("line", function(line){
-    lastLine = line;
-  }).on("close", function() {
-    done = true;
-  })
-
-  while(done === undefined) {
-    require('deasync').runLoopOnce();
-  }
-  return lastLine;
 }
