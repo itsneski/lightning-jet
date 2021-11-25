@@ -134,38 +134,43 @@ var feesMap;
 
 function runLoop() {
   try {
-    serviceUtils.Rebalancer.recordHeartbeat();
-    console.log('\n--------------------------------');
-    console.log(date.format(new Date, 'MM/DD hh:mm A'));
-    channels = listChannelsMapSync(lndClient);
-    commands = [];    // reset
-    commandMap = {};  // reset
-    feesMap = {};     // reset
-    peers = listPeersMapSync(lndClient);
-    let fees = listFeesSync(lndClient);
-    fees.forEach(f => feesMap[f.id] = f);
-    classified.inbound.forEach(c => { // first round
-      autoRebalance(c.peer, false, true);
-    })
-    classified.inbound.forEach(c => { // second round
-      autoRebalance(c.peer, false, false);
-    })
-    // sort balanced channels by available capacity
-    classified.balanced.forEach(entry => {
-      let ch = channels[entry.peer];
-      entry.availableCapacity = ch.local_balance - Math.round(.5 * ch.capacity);
-    })
-    let balanced = classified.balanced.filter(entry => entry.availableCapacity > 0);
-    balanced.sort(function(a, b) {
-      return b.availableCapacity - a.availableCapacity;
-    })
-    balanced.forEach(c => {
-      autoRebalance(c.peer, true);
-    })
-    executeCommands();
+    runLoopExec();
   } catch(error) {
-    console.error(colorRed, 'error running the loop:', error.toString());
+    console.error(colorRed, 'runLoop error:', error.toString());
+    console.error(error);
   }
+}
+
+function runLoopExec() {
+  serviceUtils.Rebalancer.recordHeartbeat();
+  console.log('\n--------------------------------');
+  console.log(date.format(new Date, 'MM/DD hh:mm A'));
+  channels = listChannelsMapSync(lndClient);
+  commands = [];    // reset
+  commandMap = {};  // reset
+  feesMap = {};     // reset
+  peers = listPeersMapSync(lndClient);
+  let fees = listFeesSync(lndClient);
+  fees.forEach(f => feesMap[f.id] = f);
+  classified.inbound.forEach(c => { // first round
+    autoRebalance(c.peer, false, true);
+  })
+  classified.inbound.forEach(c => { // second round
+    autoRebalance(c.peer, false, false);
+  })
+  // sort balanced channels by available capacity
+  classified.balanced.forEach(entry => {
+    let ch = channels[entry.peer];
+    entry.availableCapacity = ch.local_balance - Math.round(.5 * ch.capacity);
+  })
+  let balanced = classified.balanced.filter(entry => entry.availableCapacity > 0);
+  balanced.sort(function(a, b) {
+    return b.availableCapacity - a.availableCapacity;
+  })
+  balanced.forEach(c => {
+    autoRebalance(c.peer, true);
+  })
+  executeCommands();
 }
 
 function autoRebalance(inboundId, balanced, firstRound) {

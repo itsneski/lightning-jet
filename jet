@@ -195,18 +195,26 @@ cap
   .command('htlc-analyzer', 'Prints stats about failed htlcs')
   .argument('[node]', 'Pub id or an alias (full or partial) of [outbound] node for htlc analysis')
   .option('--days [days]', 'Depth of history in days. Can provide partial days, e.g., .5 days (12 hours)')
+  .option('--hours [hours]', 'Depth of history in hours.')
   .action((args, options, logger) => {
     return new Promise(async (resolve, reject) => {
       try {
+        const isInt = n => n % 1 === 0;
         let days = options.days || 1;
-        console.log('htlc analysis over the past', days, 'day(s)', (days * 24).toFixed(1), 'hour(s)');
+        days = (options.hours) ? options.hours / 24 : days;
+
+        let showDays = isInt(days) ? days : days.toFixed(2);
+        let showHours = isInt(days * 24) ? days * 24 : (days * 24).toFixed(1);
+        console.log('htlc analysis over the past', showDays, 'day(s) or', showHours, 'hour(s)');
+        console.log('terminology: missed routing opportunity are htlcs that an [outbound] peer would\'ve routed if it had enough [local] liquidity');
+
         if (args.node) {
           let formatted = htlcAnalyzerNode(args.node, days);
           if (formatted) {
             console.log('node: ' + formatted.stats.name + ', ' + formatted.stats.id);
             console.log('missed htlc count: ' + formatted.stats.count + ', total missed sats: ' + withCommas(formatted.stats.total) + ', avg htlc size in sats: ' + withCommas(formatted.stats.avg));
 
-            console.log('\ndetailed breakdown of missed htlcs per [inbound] peer:');
+            console.log('\ndetailed breakdown of missed htlcs for [inbound] peers:');
             console.log('-from: [inbound] peer that attempted to route sats');
             console.log('-sats: total missed sats for the peer');
             console.log('-count: # of missed htlcs');
@@ -221,21 +229,21 @@ cap
         } else {
           let formatted = htlcAnalyzer(days);
           if (formatted) {
-            console.log('\ndetailed breakdown of missed htlcs per [outbound] peer:');
-            console.log('-to: [outbound] peer that attempted to route the sats');
+            console.log('\ndetailed breakdown of missed htlcs for [outbound] peers:');
+            console.log('-to: [outbound] peer that attempted to route sats');
             console.log('-sats: total missed sats for the peer');
             console.log('-count: # of missed htlcs');
             console.log('-avg: average htlc size in sats');
-            console.log('-p: total missed sats of the peer as a % of the total across all peers');
+            console.log('-p: total missed sats for the peer as a % of the total across all peers');
             console.table(formatted.peers);
 
-            console.log('\ndetailed breakdown of missed htlcs per peer pair:');
+            console.log('\ndetailed breakdown of missed htlcs for peer pairs:');
             console.log('-from: [inbound] peer that attempted to route sats');
-            console.log('-to: [outbound] peer for the sats');
+            console.log('-to: [outbound] peer');
             console.log('-sats: total missed sats for the [outbound] peer');
             console.log('-avg: average htlc size in sats');
             console.log('-count: # of missed htlcs');
-            console.log('-p: total missed sats of the peer pair as a % of the total across all peers');
+            console.log('-p: total missed sats for the peer pair as a % of the total across all peers');
             console.table(formatted.list);
           } else {
             console.log('no missed htlcs found');            
