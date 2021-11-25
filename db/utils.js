@@ -13,6 +13,7 @@ const FAILED_HTLC_TABLE = 'failed_htlc';
 const REBALANCE_AVOID_TABLE = 'rebalance_avoid';
 const NAMEVAL_TABLE = 'nameval';
 const TELEGRAM_MESSAGES_TABLE = 'telegram_messages';
+const FEE_HISTORY_TABLE = 'fee_history';
 
 var testMode = false;
 
@@ -29,6 +30,66 @@ const uniqueArr = arr => arr.filter(function(elem, pos) {
 })
 
 module.exports = {
+  listFees(node, mins = 60) {
+    if (!node) return new Error('node is missing');
+    let db = getHandle();
+    let done;
+    let list = [];
+    db.serialize(function() {
+      let q = 'SELECT * FROM ' + FEE_HISTORY_TABLE;
+      q += ' WHERE node="' + node + '"';
+      q += ' AND date > ' + (Date.now() - mins * 60 * 1000);
+      if (testMode) console.log(q);
+      db.each(q, function(err, row) {
+        list.push(row);
+      }, function(err) {
+        done = true;
+      })
+    })
+    while(!done) {
+      require('deasync').runLoopOnce();
+    }
+    closeHandle(db);
+    return list;
+  },
+  recordFee({node, base, ppm}) {
+    if (!node) return new Error('node is missing');
+    if (!base && !ppm) return new Error('base or ppm needs to be specified');
+
+    if (doIt()) {
+      // retry in case of an error
+      console.log('recordFee: retrying due to an error');
+      doIt();
+    }
+
+    function doIt() {
+      let err;
+      let db = getHandle();
+      try {
+        db.serialize(function() {
+          let cols = '(date, node';
+          let vals = Date.now() + ',"' + node + '"';
+          if (base) {
+            cols += ',base';
+            vals += ',' + base;
+          }
+          if (ppm) {
+            cols += ',ppm';
+            vals += ',' + ppm;
+          }
+          cols += ')';
+          let cmd = 'INSERT INTO ' + FEE_HISTORY_TABLE + ' ' + cols + ' VALUES (' + vals + ')';
+          executeDbSync(db, cmd);
+        })
+      } catch(error) {
+        err = error;
+        console.error('recordFee:', error);
+      } finally {
+        closeHandle(db);
+      }
+      return err;
+    }
+  },
   deleteTelegramMessages(ids) {
     let db = getHandle();
     try {
@@ -49,7 +110,7 @@ module.exports = {
       let done;
       let messages = [];
       db.serialize(function() {
-        let q = 'SELECT rowid, * FROM ' + TELEGRAM_MESSAGES_TABLE;
+        let q = 'SELECT rowid, * FROM ' + TELEGRAM_MESSAGES_TABLE + ' ORDER BY date ASC';
         db.each(q, function(err, row) {
           messages.push({id:row.rowid, message:row.message});
         }, function(error) {
@@ -350,10 +411,14 @@ function createTables() {
     createRebalanceAvoidTable(db);
     createNamevalTable(db);
     createTelegramMessagesTable(db);
+    createFeeHistoryTable(db);
   })
   closeHandle(db);
 }
 
+function createFeeHistoryTable(db) {
+  executeDbSync(db, "CREATE TABLE IF NOT EXISTS " + FEE_HISTORY_TABLE + " (date INTEGER NOT NULL, node TEXT NOT NULL, base INTEGER, ppm INTEGER)");
+}
 
 function createTelegramMessagesTable(db) {
   executeDbSync(db, "CREATE TABLE IF NOT EXISTS " + TELEGRAM_MESSAGES_TABLE + " (date INTEGER NOT NULL, message TEXT NOT NULL)");

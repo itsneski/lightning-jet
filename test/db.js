@@ -3,18 +3,9 @@ dbUtils.enableTestMode();
 
 const timeout = 2 * 1000; // msec
 
-console.log('doesnotexist:', dbUtils.getPropSync('doesnotexist'));
-dbUtils.setPropSync('botChatId', '1234');
-console.log('botChatId:', dbUtils.getPropAndDateSync('botChatId'));
-console.log('botChatId:', dbUtils.getPropSync('botChatId'));
-dbUtils.setPropSync('botChatId', '4321');
-console.log('botChatId:', dbUtils.getPropAndDateSync('botChatId'));
-console.log('botChatId:', dbUtils.getPropSync('botChatId'));
-
-return;
-
 dbUtils.recordTelegramMessageSync('hey there');
 dbUtils.recordTelegramMessageSync('another hey there');
+dbUtils.recordTelegramMessageSync('and another');
 let list = dbUtils.fetchTelegramMessageSync();
 console.log('telegram messages:', list);
 let ids = [];
@@ -24,6 +15,22 @@ console.log('deleted telegram messages');
 setTimeout(() => {
   console.log('telegram messages:', dbUtils.fetchTelegramMessageSync());  
 }, timeout);
+
+return;
+
+const node = 'aaaaaaaa';
+dbUtils.recordFee({node:node, base:100});
+dbUtils.recordFee({node:node, ppm:999});
+dbUtils.recordFee({node:node, base:750, ppm:1999});
+console.log(dbUtils.listFees(node));
+
+console.log('doesnotexist:', dbUtils.getPropSync('doesnotexist'));
+dbUtils.setPropSync('botChatId', '1234');
+console.log('botChatId:', dbUtils.getPropAndDateSync('botChatId'));
+console.log('botChatId:', dbUtils.getPropSync('botChatId'));
+dbUtils.setPropSync('botChatId', '4321');
+console.log('botChatId:', dbUtils.getPropAndDateSync('botChatId'));
+console.log('botChatId:', dbUtils.getPropSync('botChatId'));
 
 dbUtils.recordRebalanceAvoid('node_a', 'node_b', 750, 'avoid_a');
 dbUtils.recordRebalanceAvoid('node_a', 'node_b', 750, 'avoid_b');

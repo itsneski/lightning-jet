@@ -6,6 +6,7 @@ const TelegramBot = require('node-telegram-bot-api');
 const {getPropSync} = require('../db/utils');
 const {getPropAndDateSync} = require('../db/utils');
 const {setPropSync} = require('../db/utils');
+const {recordFee} = require('../db/utils');
 const {fetchTelegramMessageSync} = require('../db/utils');
 const {deleteTelegramMessages} = require('../db/utils');
 const lndClient = require('../api/connect');
@@ -52,7 +53,9 @@ function monitorFeesExec() {
     let p = prevMap[f.chan];
     if (!p) return console.log('new channel', f.chan, 'with ', f.name);
     // compare the stats
+    let newFee = {};
     if (f.remote.base != p.remote.base) {
+      newFee.base = f.remote.base;
       let msg = util.format('channel %s with %s: base fee changed from %d to %d', f.chan, f.name, p.remote.base, f.remote.base);
       console.log(msg);
       // format for telegram
@@ -60,10 +63,15 @@ function monitorFeesExec() {
       sendMessageFormatted(msg);
     }
     if (f.remote.rate != p.remote.rate) {
+      newFee.ppm = p.remote.rate;
       let msg = util.format('channel %s with %s: ppm fee changed from %d to %d', f.chan, f.name, p.remote.rate, f.remote.rate);
       console.log(msg);
       msg = util.format('channel %s with <b>%s</b>: ppm fee changed from %d to %d', f.chan, f.name, p.remote.rate, f.remote.rate);
       sendMessageFormatted(msg);
+    }
+    if (newFee.base || newFee.ppm) {
+      // record in the db
+      recordFee({node:f.peer, base:newFee.base, ppm:newFee.ppm});
     }
   })
   // see if any of the channels closed
