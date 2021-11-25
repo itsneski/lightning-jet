@@ -18,6 +18,7 @@ const {updateChannelSync} = require('./lnd-api/update-channel');
 const {listChannels} = require('./api/list-channels');
 const {htlcHistoryFormatted} = require('./api/htlc-history');
 const {htlcAnalyzer} = require('./api/htlc-analyzer');
+const {htlcAnalyzerNode} = require('./api/htlc-analyzer');
 const {classifyPeersSync} = require('./lnd-api/utils');
 
 const {execSync} = require('child_process');
@@ -192,13 +193,57 @@ cap
   })
 
   .command('htlc-analyzer', 'Prints stats about failed htlcs')
-  .argument('[days]', 'Depth of history in days')
+  .argument('[node]', 'Pub id or an alias (full or partial) of [outbound] node for htlc analysis')
+  .option('--days [days]', 'Depth of history in days. Can provide partial days, e.g., .5 days (12 hours)')
   .action((args, options, logger) => {
     return new Promise(async (resolve, reject) => {
-      let days = args.days || 1;
-      let formatted = htlcAnalyzer(days);
-      console.log('htlc analysis over the past', days, 'day(s)');
-      console.table(formatted);
+      try {
+        let days = options.days || 1;
+        console.log('htlc analysis over the past', days, 'day(s)', (days * 24).toFixed(1), 'hour(s)');
+        if (args.node) {
+          let formatted = htlcAnalyzerNode(args.node, days);
+          if (formatted) {
+            console.log('node: ' + formatted.stats.name + ', ' + formatted.stats.id);
+            console.log('missed htlc count: ' + formatted.stats.count + ', total missed sats: ' + withCommas(formatted.stats.total) + ', avg htlc size in sats: ' + withCommas(formatted.stats.avg));
+
+            console.log('\ndetailed breakdown of missed htlcs per [inbound] peer:');
+            console.log('-from: [inbound] peer that attempted to route sats');
+            console.log('-sats: total missed sats for the peer');
+            console.log('-count: # of missed htlcs');
+            console.log('-avg: average htlc size in sats');
+            console.table(formatted.peers);
+
+            console.log('\ndetailed list of missed htlcs:');
+            console.table(formatted.list);
+          } else {
+            console.log('no missed htlcs found');
+          }
+        } else {
+          let formatted = htlcAnalyzer(days);
+          if (formatted) {
+            console.log('\ndetailed breakdown of missed htlcs per [outbound] peer:');
+            console.log('-to: [outbound] peer that attempted to route the sats');
+            console.log('-sats: total missed sats for the peer');
+            console.log('-count: # of missed htlcs');
+            console.log('-avg: average htlc size in sats');
+            console.log('-p: total missed sats of the peer as a % of the total across all peers');
+            console.table(formatted.peers);
+
+            console.log('\ndetailed breakdown of missed htlcs per peer pair:');
+            console.log('-from: [inbound] peer that attempted to route sats');
+            console.log('-to: [outbound] peer for the sats');
+            console.log('-sats: total missed sats for the [outbound] peer');
+            console.log('-avg: average htlc size in sats');
+            console.log('-count: # of missed htlcs');
+            console.log('-p: total missed sats of the peer pair as a % of the total across all peers');
+            console.table(formatted.list);
+          } else {
+            console.log('no missed htlcs found');            
+          }
+        }
+      } catch(error) {
+        console.error(error.toString());
+      }
     })
   })
 

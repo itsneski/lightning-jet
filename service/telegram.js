@@ -71,7 +71,7 @@ function monitorFeesExec() {
     }
     if (newFee.base || newFee.ppm) {
       // record in the db
-      recordFee({node:f.peer, base:newFee.base, ppm:newFee.ppm});
+      recordFee({node:f.id, chan:f.chan, base:newFee.base, ppm:newFee.ppm});
     }
   })
   // see if any of the channels closed

@@ -30,7 +30,8 @@ exports.lnd = {
 exports.feeAnalysis = {
   normal: 'normal',
   warning: 'warning',
-  urgent: 'urgent'
+  urgent: 'urgent',
+  success: 'success'
 }
 
 // services

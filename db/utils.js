@@ -30,8 +30,8 @@ const uniqueArr = arr => arr.filter(function(elem, pos) {
 })
 
 module.exports = {
-  listFees(node, mins = 60) {
-    if (!node) return new Error('node is missing');
+  listFeesSync(node, mins = 60) {
+    if (!node) throw new Error('node is missing');
     let db = getHandle();
     let done;
     let list = [];
@@ -39,6 +39,7 @@ module.exports = {
       let q = 'SELECT * FROM ' + FEE_HISTORY_TABLE;
       q += ' WHERE node="' + node + '"';
       q += ' AND date > ' + (Date.now() - mins * 60 * 1000);
+      q += ' ORDER BY date ASC';
       if (testMode) console.log(q);
       db.each(q, function(err, row) {
         list.push(row);
@@ -52,9 +53,10 @@ module.exports = {
     closeHandle(db);
     return list;
   },
-  recordFee({node, base, ppm}) {
-    if (!node) return new Error('node is missing');
-    if (!base && !ppm) return new Error('base or ppm needs to be specified');
+  recordFee({node, chan, base, ppm}) {
+    if (!node) throw new Error('node is missing');
+    if (!chan) throw new Error('chan is missing');
+    if (!base && !ppm) throw new Error('base or ppm needs to be specified');
 
     if (doIt()) {
       // retry in case of an error
@@ -67,8 +69,8 @@ module.exports = {
       let db = getHandle();
       try {
         db.serialize(function() {
-          let cols = '(date, node';
-          let vals = Date.now() + ',"' + node + '"';
+          let cols = '(date,node,chan';
+          let vals = Date.now() + ',"' + node + '","' + chan + '"';
           if (base) {
             cols += ',base';
             vals += ',' + base;
@@ -236,15 +238,30 @@ module.exports = {
       return err;
     }
   },
-  listHtlcsSync(days = -1) {
+  listHtlcsSync({fromChan, toChan, days}) {
     let db = getHandle();
     let htlcs;
     let list = [];
     db.serialize(function() {
+      let init;
       let q = 'SELECT * FROM ' + FAILED_HTLC_TABLE;
-      if (days > 0) {
-        q += ' WHERE date > ' + (Date.now() - Math.round(days * 24 * 60 * 60 * 1000));
+      if (fromChan) {
+        if (init) q += ' AND'
+        else { q += ' WHERE'; init = true; }
+        q += ' from_chan = ' + fromChan;
+        init = true;
       }
+      if (toChan) {
+        if (init) q += ' AND'
+        else { q += ' WHERE'; init = true; }
+        q += ' to_chan = ' + toChan;
+      }
+      if (days) {
+        if (init) q += ' AND'
+        else { q += ' WHERE'; init = true; }
+        q += ' date > ' + (Date.now() - Math.round(days * 24 * 60 * 60 * 1000));
+      }
+      if (testMode) console.log(q);
       db.each(q, function(err, row) {
         list.push(row);
       }, function(err) {
@@ -257,7 +274,7 @@ module.exports = {
     closeHandle(db);
     return htlcs;
   },
-  recordHtlc(htlc) {
+  recordHtlc(htlc, sync) {
     if (doIt()) {
       // retry in case of an error
       console.log('recordHtlc: retrying due to an error');
@@ -277,7 +294,7 @@ module.exports = {
             JSON.stringify(htlc)
           ]);
           let cmd = 'INSERT INTO ' + FAILED_HTLC_TABLE + ' VALUES (' + values + ')';
-          executeDb(db, cmd);
+          if (sync) executeDbSync(db, cmd); else executeDb(db, cmd);
         })
       } catch(error) {
         err = error;
@@ -417,7 +434,7 @@ function createTables() {
 }
 
 function createFeeHistoryTable(db) {
-  executeDbSync(db, "CREATE TABLE IF NOT EXISTS " + FEE_HISTORY_TABLE + " (date INTEGER NOT NULL, node TEXT NOT NULL, base INTEGER, ppm INTEGER)");
+  executeDbSync(db, "CREATE TABLE IF NOT EXISTS " + FEE_HISTORY_TABLE + " (date INTEGER NOT NULL, node TEXT NOT NULL, chan TEXT NOT NULL, base INTEGER, ppm INTEGER)");
 }
 
 function createTelegramMessagesTable(db) {
