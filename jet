@@ -294,8 +294,14 @@ cap
         console.log('active channels:');
         console.table(chans.active);
       }
+      if (chans.updates && chans.updates.length > 0) {
+        console.log('\ntop channels based on updates:');
+        console.log('-updates: number of channel state updates');
+        console.log('-p: channel updates as a % out of the total across all channels');
+        console.table(chans.updates);
+      }
       if (chans.pending && chans.pending.length > 0) {
-        console.log('forced closing channels:');
+        console.log('\nforced closing channels:');
         console.table(chans.pending);
       }
     })
@@ -341,7 +347,7 @@ function runMonitorLoop() {
   console.clear();
 
   // active rebalances
-  console.log(date.format(new Date, 'MM/DD hh:mm:ss'));
+  console.log(date.format(new Date, 'MM/DD hh:mm:ss A'));
   let list = listActiveRebalancesFormattedSync();
   if (list) {
     list.forEach(l => l.amount = withCommas(l.amount));

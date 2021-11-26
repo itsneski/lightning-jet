@@ -12,6 +12,8 @@ module.exports = {
     let peerMap = listPeersMapSync(lndClient);
     let channels = listChannelsSync(lndClient);
     let activeChannels = [];
+    let topUpdates = [];
+    let sum = 0;
     channels.forEach(c => {
       let name = peerMap[c.remote_pubkey].name;
       if (!c.active) name = '💀 ' + name;
@@ -21,10 +23,17 @@ module.exports = {
         id: c.remote_pubkey,
         active: c.active
       })
+      topUpdates.push({
+        chan: c.chan_id,
+        peer: name || c.remote_pubkey,
+        updates: parseInt(c.num_updates)
+      })
+      sum += parseInt(c.num_updates);
     })
-    activeChannels.sort(function(a, b) {
-      return a.peer.localeCompare(b.peer);
-    })
+    activeChannels.sort((a, b) => a.peer.localeCompare(b.peer));
+    topUpdates.sort((a, b) => b.updates - a.updates);
+    topUpdates = topUpdates.slice(0, 10); // top 10
+    topUpdates.forEach(u => { u.p = Math.round(100 * u.updates / sum) });
 
     // get pending channels
     let pending = listPendingChannelsSync(lndClient);
@@ -63,6 +72,7 @@ module.exports = {
 
     return {
       active: activeChannels,
+      updates: topUpdates,
       pending: pendingChannels
     }
   }
