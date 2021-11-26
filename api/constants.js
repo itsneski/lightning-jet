@@ -44,3 +44,19 @@ exports.services = {
     pollInterval: 30
   }
 }
+
+// channel db
+exports.channeldb = {
+  sizeThreshold: {  // in gb
+    normal: 0,
+    warning: 2, // >2
+    serious: 5,
+    urgent: 7
+  },
+  telegramNotify: {
+    category: 'telegram.notify.channeldb',
+    warning: 24 * 60 * 60,  // 24 hours
+    serious: 4 * 60 * 60,   // 4 hours
+    urgent: 5 * 60 // 5 mins
+  }
+}

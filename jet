@@ -21,7 +21,6 @@ const {htlcAnalyzer} = require('./api/htlc-analyzer');
 const {htlcAnalyzerNode} = require('./api/htlc-analyzer');
 const {classifyPeersSync} = require('./lnd-api/utils');
 
-const {execSync} = require('child_process');
 const {statSync} = require('fs');
 const date = require('date-and-time');
 
@@ -337,8 +336,6 @@ cap
 cap.parse(process.argv);
 
 
-var channelDbFile;
-
 function runMonitorLoop() {
   const hours = 4;
   console.clear();
@@ -401,27 +398,12 @@ function runMonitorLoop() {
     sendTelegramMessageTimed(msg, 'telegramNotifiedRebalancerError', interval * 60);
   }
 
-  // channel.db size
-  if (!channelDbFile) {
-    let cmd = 'find ~ -name channel.db';
-    try {
-      channelDbFile = execSync(cmd).toString().trim();
-    } catch(error) {}
-  }
-  if (channelDbFile) {
-    try {
-      let stats = statSync(channelDbFile);
-      let size = Math.round(stats.size / Math.pow(10, 6));  // in mbs
-      let str = (size >= 1000) ? withCommas(size) + ' gb' : size + ' mb';
-      console.log();
-      console.log('channel.db size:', str);
-      if (size > 5000) {
-        console.log(constants.colorRed, 'urgent: channel.db size exceeds 5gb, you must prune ASAP');
-        console.log('https://plebnet.wiki/wiki/Compacting_Channel_DB');
-      } else if (size > 2000) {
-        console.log(constants.colorYellow, 'warning: channel.db size exceeds 2gb, consider pruning');
-        console.log('https://plebnet.wiki/wiki/Compacting_Channel_DB');
-      }
-    } catch(error) {}
+  // check channel db size
+  try {
+    const {printCheckSize} = require('./api/channeldb');
+    console.log();
+    printCheckSize();
+  } catch(error) {
+    console.error(constants.colorRed, 'error checking channel.db size:', error.toString());
   }
 }

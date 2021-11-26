@@ -10,6 +10,7 @@ const {Rebalancer} = require('./utils');
 const {HtlcLogger} = require('./utils');
 const {TelegramBot} = require('./utils');
 const {readLastLineSync} = require('../api/utils');
+const {sendTelegramMessageTimed} = require('../api/utils');
 
 const loopInterval = 5;  // mins
 const bosReconnectInterval = 60;  // mins
@@ -125,6 +126,23 @@ function runLoopExec() {
       console.log(`restarting ${TelegramBot.name} ...`);
       restartService(TelegramBot.name);
     }
+  }
+
+  // check channel db size
+  const {checkSize} = require('../api/channeldb');
+  const priority = constants.channeldb.sizeThreshold;
+  const telegramNotify = constants.channeldb.telegramNotify;
+
+  let res = checkSize();
+  if (res.priority === priority.urgent) {
+    console.error(constants.colorRed, res.msg);
+    sendTelegramMessageTimed(res.msg, telegramNotify.category, telegramNotify.urgent);
+  } else if (res.priority === priority.serious) {
+    console.error(constants.colorYellow, res.msg);
+    sendTelegramMessageTimed(res.msg, telegramNotify.category, telegramNotify.serious);
+  } else if (res.priority === priority.warning) {
+    console.error(res.msg);
+    sendTelegramMessageTimed(res.msg, telegramNotify.category, telegramNotify.warning);
   }
 }
 
