@@ -2,16 +2,20 @@ const {statSync} = require('fs');
 const {execSync} = require('child_process');
 const {withCommas} = require('../lnd-api/utils');
 const constants = require('./constants');
-
-var channelDbFile;
+const config = require('./config');
 
 const priority = constants.channeldb.sizeThreshold;
 
 // channel.db size
-if (!channelDbFile) {
-  let cmd = 'find ~ -name channel.db';
+if (!global.channelDbFile) {
+  const conf = config.macaroonPath;
+  if (!conf) return console.error('macaroonPath is not defined in the config.json');
+  let i = conf.indexOf('lnd');
+  if (i <= 0) return console.error('couldnt local lnd in the macaroonPath');
+  let base = conf.substring(0, i + 3);
+  let cmd = 'find ' + base + ' -name channel.db';
   try {
-    channelDbFile = execSync(cmd).toString().trim();
+    global.channelDbFile = execSync(cmd).toString().trim();
   } catch(error) {
     console.error('error locating channel.db:', error.toString());
   }
@@ -31,10 +35,10 @@ module.exports = {
     }
   },
   checkSize() {
-    if (!channelDbFile) throw new Error('channel.db not found');
+    if (!global.channelDbFile) throw new Error('channel.db not found');
 
     try {
-      let stats = statSync(channelDbFile);
+      let stats = statSync(global.channelDbFile);
       let size = Math.round(stats.size / Math.pow(10, 6));  // in mbs
       let str = (size >= 1000) ? withCommas(size) + ' gb' : size + ' mb';
 
