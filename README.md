@@ -1,4 +1,5 @@
 
+
 # Lightning Jet 🚀⚡️, or simply Jet
 General-purpose automated rebalancer for LND Lightning nodes. Helps get an insight into peers' classification based on routing history, missed routing opportunities, and stuck htlcs.
 
@@ -30,6 +31,12 @@ Next, execute the updated `.profile` for your current terminal session. The path
 . ~/.profile
 ```
 Test your path by running `jet`. Your path is set correctly if you get a help prompt. Double-check the `PATH` in `.profile` in case you get an error.
+
+#### RaspiBlitz
+```bash
+find / -name readonly.macaroon 2> /dev/null
+chmod +r <path to readonly.macaroon>
+```
 
 ## Post-Installation
 ```shell
