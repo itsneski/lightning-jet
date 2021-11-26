@@ -13,7 +13,10 @@ readline.question('Are you sure? (y/n) ', answer => {
 
   const lndClient = require('../api/connect');
   console.log('Pruning payments, this may take a while');
-  lndClient.deleteAllPayments({}, (err, response) => {
+  lndClient.deleteAllPayments({
+    failed_payments_only:true,
+    failed_htlcs_only:true
+  }, (err, response) => {
     if (err) throw new Error(err);
     console.log('done');
   })
