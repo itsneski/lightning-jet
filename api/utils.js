@@ -198,16 +198,18 @@ module.exports = {
     })
     return formatted;
   },
-  rebalanceHistoryFormattedSync(secs = -1) {
+  rebalanceHistoryFormattedSync(secs = -1, filter) {
     let peers = listPeersMapSync(lndClient);
-    let list = listRebalancesSync(secs);
+    let status;
+    if (filter) status = (filter === 'success') ? 1 : 0;
+    let list = listRebalancesSync(secs, status);
 
     let formatted = [];
     list.forEach(l => {
       let item = {
         date: parseInt(l.date),
-        from: peers[l.from].name,
-        to: peers[l.to].name,
+        from: (peers[l.from]) ? peers[l.from].name : l.from,
+        to: (peers[l.to]) ? peers[l.to].name : l.to,
         amount: withCommas(l.amount),
       }
       if (l.rebalanced) item.rebalanced = withCommas(l.rebalanced);

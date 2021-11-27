@@ -256,12 +256,12 @@ cap
 
   .command('rebalance-history', 'Lists past rebalances')
   .argument('[mins]', 'Depth of history in minutes')
+  .option('--filter [filter]', 'Filter by success or failed', ['success', 'failed'])
   .action((args, options, logger) => {
     return new Promise(async (resolve, reject) => {
-      let mins = args.mins || 30;  // hardcoded???
-      let secs = (mins > 0) ? mins * 60 : -1;
-      let formatted = rebalanceHistoryFormattedSync(secs);
-      if (mins > 0) console.log('rebalances over the past', mins, 'minutes');
+      let secs = (args.mins) ? args.mins * 60 : -1;
+      let formatted = rebalanceHistoryFormattedSync(secs, options.filter);
+      if (args.mins) console.log('rebalances over the past', args.mins, 'minutes');
       console.table(formatted);
     })
   })

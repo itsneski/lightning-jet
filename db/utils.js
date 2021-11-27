@@ -355,7 +355,7 @@ module.exports = {
       return err;
     }
   },
-  listRebalancesSync(secs = -1) {
+  listRebalancesSync(secs = -1, status) {
     let db = getHandle();
     let list = [];
     let res;
@@ -364,6 +364,9 @@ module.exports = {
       if (secs > 0) {
         let epoch = Date.now();
         q += ' WHERE date > ' + (epoch - secs * 1000);
+        if (status !== undefined) q += ' AND status = ' + status;
+      } else if (status !== undefined) {
+        q += ' WHERE status = ' + status;
       }
       db.each(q, function(err, row) {
         list.push({
