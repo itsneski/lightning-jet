@@ -99,15 +99,24 @@ function pollMessages() {
   let chatId = getChatId();
   let ids = [];
   try {
+    let count = 0;
     list.forEach(m => {
       console.log('processing message:', m);
-      global.bot.sendMessage(chatId, m.message);
+      // make sure that messages are delivered sequentially
+      // the best way i found so far to do it is by adding a small
+      // interval between each message. just waiting for async promise
+      // did not solve the above.
+      setTimeout (() => { sendMessageImpl(m.message) }, count++ * 250);
       ids.push(m.id);
     })
   } catch(error) {
     console.error('pollMessages:', error.message);
   } finally {
     deleteTelegramMessages(ids);
+  }
+
+  function sendMessageImpl(m) {
+    global.bot.sendMessage(chatId, m);
   }
 }
 
