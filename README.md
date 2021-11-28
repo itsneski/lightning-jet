@@ -33,9 +33,21 @@ Next, execute the updated `.profile` for your current terminal session. The path
 Test your path by running `jet`. Your path is set correctly if you get a help prompt. Double-check the `PATH` in `.profile` in case you get an error.
 
 #### RaspiBlitz
+
+- Enable "LND Balance of Satoshis" within Services area of RaspiBlitz menu to install BOS
+- Following completion, Exit Menu to Terminal
+- Run command: `bos` (switches to bos user)
+- Install JET (following the above steps) 
+- Set the following in `config.json`:
+```
+"macaroonPath": "/home/bos/.lnd/data/chain/bitcoin/mainnet/readonly.macaroon"
+"tlsCertPath": "/home/bos/.lnd/tls.cert"
+```
+
+The following step may not be necessary in case you get read access to channel.db via a symlink.
+
 ```bash
-find / -name readonly.macaroon 2> /dev/null
-chmod +r <path to readonly.macaroon>
+chmod +r /home/bos/.lnd/data/chain/bitcoin/mainnet/readonly.macaroon
 ```
 
 ## Post-Installation
