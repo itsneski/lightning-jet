@@ -48,7 +48,7 @@ exports.services = {
 // channel db
 exports.channeldb = {
   sizeThreshold: {  // in gb
-    notfound -1,  // channel.db not found
+    notfound: -1,  // channel.db not found
     normal: 0,
     warning: 2, // >2
     serious: 5,
