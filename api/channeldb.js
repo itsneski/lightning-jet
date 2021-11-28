@@ -35,7 +35,10 @@ module.exports = {
     }
   },
   checkSize() {
-    if (!global.channelDbFile) throw new Error('channel.db not found');
+    if (!global.channelDbFile) {
+      let msg = 'channel.db (BOLT database) was not found. It is likely that Jet does not have read acccess to the file, or that the file is located in a different directory. Consider locating the file manually and checking its size. For more info: https://plebnet.wiki/wiki/Compacting_Channel_DB';
+      return { msg: msg, priority: priority.warning };
+    }
 
     try {
       let stats = statSync(global.channelDbFile);
