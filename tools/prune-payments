@@ -6,7 +6,7 @@ const readline = require('readline').createInterface({
   input: process.stdin,
   output: process.stdout
 })
-console.log(constants.colorYellow, 'This will erase all the payments in the bolt database.');
+console.log(constants.colorYellow, 'This will prune all the failed payments and failed htlcs from the bolt database.');
 readline.question('Are you sure? (y/n) ', answer => {
 
   if (answer.toLowerCase() === 'n') process.exit();
