@@ -1,22 +1,39 @@
 #!/usr/bin/env node
 
+// ./prune-payments [-all]
+// --all: remoted all payments, including successful ones
+
 const constants = require('../api/constants');
+
+var removeAll;
+if (process.argv && process.argv.length > 2) {
+  let args = process.argv.slice(2);
+  for(i = 0; i < args.length; i++) {
+    if (args[i].indexOf('--all') >= 0) {
+      var removeAll = true;
+    }
+  }
+}
 
 const readline = require('readline').createInterface({
   input: process.stdin,
   output: process.stdout
 })
-console.log(constants.colorYellow, 'This will prune all the failed payments and failed htlcs from the bolt database.');
-readline.question('Are you sure? (y/n) ', answer => {
 
+let req = {}
+if (removeAll) {
+  console.log(constants.colorYellow, 'This will prune all the payments, including successful payments from the bolt database.');
+} else {
+  req.failed_payments_only = true;
+  req.failed_htlcs_only = true;
+  console.log(constants.colorYellow, 'This will prune all the failed payments and failed htlcs from the bolt database.');
+}
+readline.question('Are you sure? (y/n) ', answer => {
   if (answer.toLowerCase() === 'n') process.exit();
 
   const lndClient = require('../api/connect');
   console.log('Pruning payments, this may take a while');
-  lndClient.deleteAllPayments({
-    failed_payments_only:true,
-    failed_htlcs_only:true
-  }, (err, response) => {
+  lndClient.deleteAllPayments(req, (err, response) => {
     if (err) throw new Error(err);
     console.log('done');
   })
