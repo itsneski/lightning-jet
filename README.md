@@ -1,5 +1,3 @@
-
-
 # Lightning Jet 🚀⚡️, or simply Jet
 General-purpose automated rebalancer for LND Lightning nodes. Helps get an insight into peers' classification based on routing history, missed routing opportunities, and stuck htlcs.
 
@@ -8,6 +6,7 @@ Join [Lightning Jet telegram chat](https://t.me/lnjet).
 ## Prerequisites
 - Install [BalanceOfSatoshis](https://github.com/alexbosworth/balanceofsatoshis) along with its prerequisites (Node).
 - Check out the [BalanceOfSatoshis install page for Umbrel](https://plebnet.wiki/wiki/Umbrel_-_Installing_BoS) on [Plebnet](https://plebnet.wiki/).
+- Make sure `npm` version is up to date (version 8.x.x+) by running `nmp -v`. Update `npm` in case of an old version (like 5.8.x). Re-run `npm -v` after the update to ensure that your path is picking it up. Note: you may have multiple `npm` copies present if your path isn't picking it up; double check it by `find / -name npm 2> /dev/null`.
 
 ## Installation
 ```bash
