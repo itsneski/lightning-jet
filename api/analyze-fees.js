@@ -5,14 +5,21 @@ const {listFeesSync} = require('../db/utils');
 module.exports = {
   printFeeAnalysis(peerName, peerId, localFee, remoteFee, profit = 0) {
     let msgs = module.exports.analyzeFees(peerName, peerId, localFee, remoteFee, profit);
+    const action = constants.feeAnalysis.action;
+    let status = [];
     msgs.forEach(m => {
       let color;
       if (m.importance === constants.feeAnalysis.urgent) color = constants.colorRed;
       if (m.importance === constants.feeAnalysis.warning) color = constants.colorYellow;
       if (m.importance === constants.feeAnalysis.success) color = constants.colorGreen;
       if (color) console.log(color, m.message);
-      else console.log(m.message)
+      else console.log(m.message);
+      // rebalancing status
+      if (m.action === action.pause) status.push('action: pause');
+      if (m.maxPpm) status.push('current max ppm: ' + m.maxPpm);
+      if (m.suggestedPpm) status.push('suggested max ppm: ' + m.suggestedPpm);
     })
+    if (global.testModeOn && status.length > 0) console.log('(' + status.join(', ') + ')');
     return msgs.length;
   },
   // analyzes peer fees and returns an array of messages with importance
@@ -30,6 +37,7 @@ module.exports = {
     const warning = constants.feeAnalysis.warning;
     const urgent = constants.feeAnalysis.urgent;
     const success = constants.feeAnalysis.success;
+    const action = constants.feeAnalysis.action;
 
     const maxPpm = global.testMaxPpm || config.rebalancer.maxAutoPpm || constants.rebalancer.maxAutoPpm;
     const enforceMaxPpm = (global.testEnforceMaxPpm === undefined) ? config.rebalancer.enforceMaxPpm : global.testEnforceMaxPpm;
@@ -39,7 +47,7 @@ module.exports = {
     let array = [];
 
     // get recent fee changes for the peer
-    const feeHistoryDepth = 240;  // minutes
+    const feeHistoryDepth = 360;  // 6h?
     let feeHistory = listFeesSync(peerId, feeHistoryDepth);
     let feeStats;
     if (feeHistory && feeHistory.length > 0) {
@@ -59,115 +67,107 @@ module.exports = {
     }
 
     // formulate intro
-    let intro = 'evaluating [outbound] ' + peerName;
-    addMessage(success, intro);
+    let status = { importance: normal, message: 'evaluating [outbound] ' + peerName };
+    array.push(status);
 
-    intro = 'current fees: local { base: ' + localFee.base + ', ppm: ' + localFee.rate + '} remote { base: ' + remoteFee.base + ', ppm: ' + remoteFee.rate + ' }. max ppm: ' + maxPpm + ' (max ppm is ';
-    intro += (enforceMaxPpm) ? 'being enforced)' : 'not being enforced)';
-    if (feeStats) intro += '\nthe peer changed their ppm ' + feeStats.count + ' times over the past ' + feeHistoryDepth/60 + ' hours, min: ' + feeStats.min + ', max: ' + feeStats.max;
+    let intro = 'current fees: local { base: ' + localFee.base + ', ppm: ' + localFee.rate + ' } remote { base: ' + remoteFee.base + ', ppm: ' + remoteFee.rate + ' }. max ppm: ' + maxPpm + ' (';
+    intro += (enforceMaxPpm) ? 'enforced)' : 'not enforced)';
+    if (profit) intro += ', profit margin: ' + profit + '%';
+    if (feeStats) intro += '\nthe peer changed ppm ' + feeStats.count + ' time(s) over the past ' + feeHistoryDepth/60 + ' hours, min: ' + feeStats.min + ', max: ' + feeStats.max;
     addMessage(normal, intro);
 
-    // calculate optimal max ppm
-    let optimal = maxPpm;
-    if (enforceMaxPpm) {
-      if (local > maxPpm) {
-        addMessage(normal, 'local fee exceeds the max ppm of ' + maxPpm + ', assuming the current max ppm as the optimal max ppm');
-        if (maxPpm < remote) {
-          addMessage(normal, 'remote fee exceeds the max ppm, this means that rebalances can not go through this peer');
-          // check fee stats, at least two occurances, otherwise it don't matter as much
-          if (feeStats && feeStats.count >= 2) {
-            if (feeStats.min < maxPpm) {
-              // the peer has been flip flopping between fees, with the
-              // min being less than the max ppm, so there is a chance
-              // the peer will lower fees
-              addMessage(normal, 'the peers has been changing their fees fairly often, with the min of ' + feeStats.min + ' that is less than the max ppm');
-              addMessage(normal, 'suggestion: keep on monitoring peer\'s fees, there is a chance the peer will drop their fees');
-            } else {
-              // is there a hope for the peer to drop their fees?
-              addMessage(normal, 'suggestion: keep on monitoring peer\'s fees');
-            }
-          } else {  // no fee history, is there hope?
-            addMessage(normal, 'suggestion: keep on monitoring peer\'s fees');
-          }
-          return array;          
-        }
-      } else {  // local <= max ppm
-        optimal = local;
-        addMessage(normal, 'local ppm of ' + localFee.rate + ' is below the max ppm, assuming the local ppm as optimal max ppm so that rebalances are more cost-effective');
-      }
-      
-      if (optimal < remote) {
-        if (optimal + buffer < maxPpm) {
-          // this will change once profitability is enforced
-          optimal = optimal + buffer;
-          addMessage(normal, 'adjusting the optimal max ppm to ' + optimal + ' to account for min rebalance buffer');
-        } else {
-          addMessage(urgent, 'remote fee exceeds the optimal max ppm of ' + optimal + ', the rebalancer will pause for this peer');
-          addMessage(normal, 'suggestion: keep on monitoring peer\'s fees');
-          return array; // serious enough to exit
-        }
-      }
-
-      // let's figure out profit margin
-      // make sure we are above the min to be profitable
-      if (profit) {
-        let minProfitable = Math.round((remote + buffer) * (1 + profit/100));
-        let profitOptimal = Math.round(optimal * (1 - profit / 100));
-        addMessage(normal, 'optimal rebalance max ppm given the profit margin of ' + profit + '% is ' + minProfitable);
-        if (profitOptimal < minProfitable) {
-          addMessage(warning, 'not enough of a buffer for rebalancer to meet the profitability of ' + profit + '%. consider increasing local ppm to ' + minProfitable);
-        } else {
-          addMessage(normal, 'the rebalance max ppm of ' + profitOptimal + ' meets the profitability of ' + profit + '%');
-        }
-      } else {  // profit requirements not specified
-        if (optimal < remote) {
-          addMessage(urgent, 'the optimal max ppm is below the remote fee of ' + remote + '. the rebalancer will pause for this peer');
-          addMessage(normal, 'suggestion: keep on monitoring peer\'s fees');
-        } else if (optimal < remote + buffer) {
-          let msg = 'not enough of a buffer between the remote fee and the optimal max ppm of ' + optimal + '. this means that rebalances have less of a chance to go through';
-          addMessage(normal, msg);
-          msg = (optimal === maxPpm) ? 'suggestion: consider increasing maxPpm to ' + (remote + buffer) : 'suggestion: consider increasing your local ppm to ' + (remote + buffer);
-          addMessage(warning, msg);
-        } else {
-          addMessage(normal, 'there is enough of a buffer between the remote fee and the optimal max ppm of ' + optimal + '. the rebalance is good to go');
-        }
-      }
+    // check if the node operator intends to accumulate local liquidity,
+    // with 10x difference being an indication
+    let x = Math.floor(local/maxPpm);
+    if (x > 10) {
+      addMessage(warning, 'local ppm exceeds max ppm by more than ' + x + 'x. assuming node operator intends to accumulate sats');
+      addMessage(urgent, 'pausing rebalancing for this peer');
+      addMessage(normal, 'suggestion: consider revisiting local ppm to resume rebalancing');
+      status.action = action.pause;
       return array;
-    } // eo enforceMaxPpm on
+    }
 
-    // enforceMaxPpm is off, make sure to cap the max ppm
-    let xx = Math.floor(local / maxPpm);
-    if (xx >= 10) {
-      // the local ppm is insane
-      addMessage(urgent, 'local fee exceeds the max ppm by more than ' + xx + 'x');
-      addMessage(normal, 'suggestion: revisit your fees. the rebalancer will pause for this peer');
-      return array; // important enough to exit
-    }
-    if (xx >= 2) {
-      addMessage(warning, 'local fee exceeds the max ppm by more than ' + xx + 'x');
-      addMessage(normal, 'suggestion: revisit your fees');
-    }
-    optimal = local;
-    if (profit) {
-      let minProfitable = Math.round((remote + buffer) / (1 - profit/100));
-      let profitOptimal = Math.round(optimal * (1 - profit / 100));
-      addMessage(normal, 'optimal rebalance max ppm given the profit margin of ' + profit + '% is ' + minProfitable);
-      if (profitOptimal < minProfitable) {
-        addMessage(warning, 'not enough of buffer for rebalancer to meet the profitability requirements');
-        addMessage(normal, 'suggestion: consider increasing local ppm from ' + localFee.rate + ' to ' + minProfitable);
+    let optimal = maxPpm;
+    if (local > maxPpm) {
+      if (enforceMaxPpm) {
+        addMessage(normal, 'local ppm exceeds the max ppm, setting optimal max ppm to ' + maxPpm);
+        optimal = maxPpm;
       } else {
-        addMessage(normal, 'there is enough of a buffer between the remote fee and the optimal max ppm of ' + profitOptimal + '. the rebalance is good to go');
+        // extra warning about local/maxPpm ratio
+        if (x >= 2) {
+          // not critical?
+          addMessage(warning, 'local ppm exceeds max ppm by more than ' + x + 'x');
+          addMessage(normal, 'setting optimal max ppm to ' + local);
+        } else {
+          addMessage(normal, 'setting optimal max ppm to ' + local);
+        }
+        optimal = local;
       }
     } else {
-      if (optimal < remote) {
-        addMessage(urgent, 'the optimal max ppm of ' + optimal + ' is below the remote fee. this means that rebalances will not go through for this peer');
-        addMessage(normal, 'suggestion: keep on monitoring peer\'s fees');
-      } else if (optimal < remote + buffer) {
-        addMessage(warning, 'not enough of a buffer between the remote fee and the optimal max ppm of ' + optimal);
-        addMessage(normal, 'suggestion: consider increasing local ppm from ' + localFee.rate + ' to ' + (remote + buffer));
-      } else {
-        addMessage(normal, 'there is enough of a buffer between the remote fee and the optimal max ppm of ' + optimal + '. the rebalance is good to go');
+      addMessage(normal, 'setting optimal max ppm to ' + local);
+      optimal = local;  // local is below the max, so assume it as the max
+    }
+
+    // can rebalance be profitable
+    if (optimal <= remote) {
+      addMessage(warning, 'remote fee exceeds the optimal max ppm');
+      addMessage(urgent, 'pausing rebalancing for this peer');
+      // see if it makes to make ppm reco
+      if (feeStats && feeStats.count >= 2) {
+        if (feeStats.min < remote) {
+          // the peer has been flip flopping between fees, with the min being below
+          // remote, meaning there is still chance that the fee will be reversed
+          addMessage(normal, 'the peer has been changing fees fairly often, with the min of ' + feeStats.min + ' that is less than remote fee');
+          addMessage(normal, 'suggestion: keep on monitoring peer\'s fees, there is a chance the peer will drop fees');
+        } else {
+          // is there a hope for the peer to drop fees?
+          addMessage(normal, 'suggestion: keep on monitoring peer\'s fees');
+        }
+      } else {  // no fee history
+        let suggested = remote + buffer;
+        if (profit) suggested *= (1 + profit/100);
+        let array = [];
+        if (local < suggested) array.push('local ppm');
+        if (enforceMaxPpm && remote > maxPpm) {
+          array.push('max ppm');
+          addMessage(normal, 'suggestion: consider bumping ' + array.join(' and ') + ' to ' + suggested);
+        } else {
+          addMessage(normal, 'suggestion: consider increasing local ppm to ' + suggested);
+        }
+        status.suggestedPpm = suggested;
       }
+      status.action = action.pause;
+      return array; // serious enough to exit
+    }
+
+    // is there a sufficient buffer to rebalance profitably
+    if (profit) {
+      let minProfitable = Math.ceil((remote + buffer) * (1 + profit/100));
+      if (optimal < minProfitable) {
+        addMessage(warning, 'insufficient buffer for rebalancer to meet profitability margin of ' + profit + '%');
+        if (enforceMaxPpm && minProfitable > maxPpm) {
+          addMessage(normal, 'suggestion: consider increasing local ppm and max ppm to ' + minProfitable);
+        } else {
+          addMessage(normal, 'suggestion: consider increasing local ppm to ' + minProfitable);
+        }
+        status.suggestedPpm = minProfitable;
+      } else {
+        addMessage(normal, 'optimal max ppm meets profitability margin of ' + profit + '%');
+      }
+      status.maxPpm = optimal;
+    } else {  // profit requirements not specified
+      if (optimal < remote + buffer) {
+        addMessage(normal, 'insufficient buffer between optimal max and remote ppm, rebalances have less of a chance to go through');
+        if (enforceMaxPpm && remote + buffer > maxPpm) {
+          addMessage(warning, 'suggestion: consider increasing local and max ppm to ' + (remote + buffer));
+        } else {
+          addMessage(warning, 'suggestion: consider increasing local ppm to ' + (remote + buffer));
+        }
+        status.suggestedPpm = remote + buffer;
+      } else {
+        addMessage(normal, 'sufficient buffer between remote ppm and optimal max ppm. things are looking good');
+      }
+      status.maxPpm = optimal;
     }
     return array;
 

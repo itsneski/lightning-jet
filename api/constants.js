@@ -31,7 +31,10 @@ exports.feeAnalysis = {
   normal: 'normal',
   warning: 'warning',
   urgent: 'urgent',
-  success: 'success'
+  success: 'success',
+  action: {
+    pause: 1
+  }
 }
 
 // services
