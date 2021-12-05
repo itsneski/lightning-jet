@@ -46,7 +46,12 @@ module.exports = {
         pendingPeers.push(p.channel.remote_node_pub);
       })
     })
-    if (pendingPeers.length === 0) return { active: activeChannels };
+
+    if (pendingPeers.length === 0) return { 
+      active: activeChannels,
+      updates: topUpdates
+    }
+
     let pendingInfo = getNodesInfoSync(lndClient, pendingPeers);
     let pendingMap = {};
     pendingInfo.forEach(i => {
