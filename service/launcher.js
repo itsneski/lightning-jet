@@ -11,6 +11,8 @@ const {HtlcLogger} = require('./utils');
 const {TelegramBot} = require('./utils');
 const {readLastLineSync} = require('../api/utils');
 const {sendTelegramMessageTimed} = require('../api/utils');
+const {getPropAndDateSync} = require('../db/utils');
+const {deleteProp} = require('../db/utils');
 
 const loopInterval = 5;  // mins
 const bosReconnectInterval = 60;  // mins
@@ -27,7 +29,6 @@ function bosReconnect() {
 
 // get rid of useless records from the db
 function cleanDb() {
-
 }
 
 function runLoop() {
@@ -126,6 +127,15 @@ function runLoopExec() {
       console.log(`restarting ${TelegramBot.name} ...`);
       restartService(TelegramBot.name);
     }
+  }
+
+  // check that the logger service isn't stuck
+  let prop = getPropAndDateSync(constants.services.logger.errorProp);
+  if (prop) {
+    console.error('detected an error in the logger service:', prop.val);
+    console.log('attempting to restart');
+    restartService(HtlcLogger.name);
+    deleteProp(constants.services.logger.errorProp);
   }
 
   // check channel db size

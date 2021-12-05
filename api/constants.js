@@ -45,6 +45,9 @@ exports.services = {
   telegram: {
     feeInterval: 10 * 60,
     pollInterval: 30
+  },
+  logger: {
+    errorProp: 'htlcLoggerError'
   }
 }
 

@@ -144,6 +144,20 @@ module.exports = {
       closeHandle(db);
     }
   },
+  deleteProp(name) {
+    if (!name) throw new Error('name is missing');
+    let db = getHandle();
+    try {
+      db.serialize(function() {
+        let cmd = 'DELETE FROM ' + NAMEVAL_TABLE + ' WHERE name = "' + name + '"';
+        executeDb(db, cmd);
+      })
+    } catch(error) {
+      console.error('deleteProp:', error.message);
+    } finally {
+      closeHandle(db);
+    }
+  },
   getPropSync(name) {
     let data = module.exports.getPropAndDateSync(name);
     return data && data.val;

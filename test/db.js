@@ -6,7 +6,19 @@ dbUtils.enableTestMode();
 
 const timeout = 2 * 1000; // msec
 
-return testHtlcs();
+return testDb();
+
+function testDb() {
+  const name = 'testName';
+  dbUtils.setPropSync(name, 12345);
+  console.log(dbUtils.getPropSync(name));
+  console.log(dbUtils.getPropAndDateSync(name));
+  dbUtils.deleteProp(name);
+  setTimeout(() => {
+    console.log(dbUtils.getPropSync(name));
+  }, 1000);
+}
+
 
 const node = 'nnnnnnnn';
 const chan = 'cccccccc';
@@ -27,7 +39,6 @@ console.log('deleted telegram messages');
 setTimeout(() => {
   console.log('telegram messages:', dbUtils.fetchTelegramMessageSync());  
 }, timeout);
-
 console.log('doesnotexist:', dbUtils.getPropSync('doesnotexist'));
 dbUtils.setPropSync('botChatId', '1234');
 console.log('botChatId:', dbUtils.getPropAndDateSync('botChatId'));
