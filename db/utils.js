@@ -4,7 +4,7 @@ const fs = require('fs');
 const sqlite3 = require('sqlite3').verbose();
 const constants = require('../api/constants');
 
-const dbFile = __dirname + '/jet.db';
+const dbFile = global.testDb || (__dirname + '/jet.db');
 const oldDbFile = __dirname + '/../lnd_optimize.db';
 const testDbFile = '/tmp/jet_test.db';  
 
