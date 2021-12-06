@@ -20,11 +20,12 @@ if (isRunningSync(fileName, true)) {
 }
 
 async function logEvents(readable) {
+  console.log('\n---------------------------------------');
   console.log(date.format(new Date, 'MM/DD hh:mm:ss A'));
   console.log('subscribing to htlc events');
   for await (const event of routerRpc.subscribeHtlcEvents()) {
     let lf = event.link_fail_event;
-    // filter events 
+    // filter events
     if (lf && lf.wire_failure === 'TEMPORARY_CHANNEL_FAILURE' && lf.failure_detail === 'INSUFFICIENT_BALANCE') {
       logEvent(event);
     }
@@ -32,6 +33,9 @@ async function logEvents(readable) {
 }
 
 function logEvent(event) {
+  if (event.incoming_channel_id == '0') {
+    return console.log('skipping htlc since the incoming chan id is 0 (due to rebalance as opposed to a forward)')
+  }
   console.log(date.format(new Date, 'MM/DD hh:mm:ss A'));
   console.log('logging event:', event);
   recordHtlc(event);
