@@ -19,7 +19,7 @@ const {listChannels} = require('./api/list-channels');
 const {htlcHistoryFormatted} = require('./api/htlc-history');
 const {htlcAnalyzer} = require('./api/htlc-analyzer');
 const {htlcAnalyzerNode} = require('./api/htlc-analyzer');
-const {classifyPeersSync} = require('./lnd-api/utils');
+const {classifyPeersSync} = require('./api/utils');
 
 const {statSync} = require('fs');
 const date = require('date-and-time');

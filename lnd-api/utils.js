@@ -3,8 +3,6 @@ const deasync = require('deasync');
 
 const round = n => Math.round(n);
 
-const pThreshold = 2;
-
 module.exports = {
   withCommas: function(s) {
     return (s) ? s.toString().replace(/\B(?<!\.\d*)(?=(\d{3})+(?!\d))/g, ",") : s;
@@ -56,98 +54,6 @@ module.exports = {
       require('deasync').runLoopOnce();
     }
     return channels;
-  },
-  classifyPeersSync: function(lndClient, days = 7) {
-    let history = module.exports.htlcHistorySync(lndClient, days);
-    let inSum = 0;
-    let outSum = 0;
-    let historyMap = {};
-    history.inbound.forEach(h => inSum += h.sum);
-    history.outbound.forEach(h => outSum += h.sum);
-    history.inbound.forEach(h => {
-      h.p = round(100 * h.sum / inSum);
-      historyMap[h.id] = h;
-    })
-    history.outbound.forEach(h => {
-      h.p = round(100 * h.sum / outSum);
-      historyMap[h.id] = h;
-    })
-
-    // now classify; nodes with less than a week lifetime are
-    // classified balanced
-    let balanced = {};
-    let inbound = {};
-    let currTime = Math.floor(+new Date() / 1000);
-    let minlife = 7 * 24 * 60 * 60;
-    history.inbound.forEach(h => {
-      if (h.p >= pThreshold) {
-        inbound[h.id] = h;
-        delete balanced[h.id];
-      } else if (currTime - h.lifetime < minlife && h.name.indexOf('LNBIG.com') < 0) {
-        balanced[h.id] = h;
-      }
-    })
-    let outbound = {};
-    history.outbound.forEach(h => {
-      if (h.p >= pThreshold) {
-        if (inbound[h.id]) {  // can a node be classified as both inbound & outbound?
-          if (h.sum > inbound[h.id].sum) {
-            outbound[h.id] = h;
-            delete inbound[h.id];
-            delete balanced[h.id];
-          }
-        } else {
-          outbound[h.id] = h;
-          delete balanced[h.id];
-        }
-      } else if (currTime - h.lifetime < minlife && h.name.indexOf('LNBIG.com') < 0) {
-        balanced[h.id] = h; // exception for KP (Yoda)
-      }
-    })
-
-    let skipped = {};
-    let peers = module.exports.listPeersMapSync(lndClient);
-    let channels = module.exports.listChannelsSync(lndClient);
-    channels.forEach(c => {
-      if (inbound[c.chan_id] || outbound[c.chan_id] || balanced[c.chan_id]) return;
-      let map;
-      if (peers[c.remote_pubkey].name.indexOf('LNBIG.com') >= 0) {  // find a better way
-        map = outbound;
-        c.p = c.p || 0; // must have p for outbound channels otherwise the sorting will be screwed up
-      } else if (c.capacity <= 1000000) {  // should we even have tiny nodes?
-        // skip tiny nodes
-        map = skipped;
-      } else if (c.capacity <= 2000000) { // do smaller nodes given a chance to shine???
-        map = balanced; // what about stale nodes????
-      } else {
-        map = balanced;
-      }
-      if (map) {
-        map[c.chan_id] = {
-          id: c.chan_id,
-          peer: c.remote_pubkey,
-          name: peers[c.remote_pubkey].name,
-          lifetime: c.lifetime
-        }
-        if (c.p != undefined) map[c.chan_id].p = c.p;
-      }
-    })
-
-    let inboundSorted = Object.values(inbound);
-    inboundSorted.sort(function(a, b) {
-      return b.p - a.p;
-    })
-    let outboundSorted = Object.values(outbound);
-    outboundSorted.sort(function(a, b) {
-      return b.p - a.p;
-    })
-
-    return ({
-      inbound: inboundSorted,
-      outbound: outboundSorted,
-      balanced: Object.values(balanced),
-      skipped: Object.values(skipped)
-    })
   },
   htlcHistorySync: function(lndClient, days = 7) {
     let currTime = Math.floor(+new Date() / 1000);
