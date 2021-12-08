@@ -143,19 +143,45 @@ cap
   })
 
   .command('analyze-fees', 'Analyzes peer fees')
+  .argument('[node]', 'Pub id or an alias (full or partial) of [outbound] node for fee analysis')
   .option('--profit [profit]', 'Profit margin in % to evaluate fees against')
   .help('Each peers\' channel local and remote fees will be evaluated against the profitability margin')
   .action((args, options, logger) => {
     return new Promise(async (resolve, reject) => {
       if (options.profit < 0 || options.profit > 100) return console.error('profit has to be between 0 and 100');
-      let msg = 'analyzing fees for [outbound] peers';
-      msg += (options.profit) ? ' based on profit of ' + options.profit + '%' : '. no profit requirements specified'
-      console.log(msg);
+      if (!args.node) {
+        let msg = 'analyzing fees for [outbound] peers';
+        msg += (options.profit) ? ' based on profit of ' + options.profit + '%' : '. no profit requirements specified'
+        console.log(msg);
+      }
 
       const {printFeeAnalysis} = require('./api/analyze-fees');
       let classified = classifyPeersSync(lndClient);
       let chans = [];
-      classified.outbound.forEach(c => chans.push({chan: c.id, peer: c.peer}));
+      let nodesFound = [];
+      classified.outbound.forEach(c => {
+        chans.push({chan: c.id, peer: c.peer});
+        if (args.node) {
+          let lc1 = c.name && c.name.toLowerCase();
+          let lc2 = args.node.toLowerCase();
+          if (args.node === c.peer || (lc1 && lc1.indexOf(lc2) >= 0)) {
+            nodesFound.push(c);
+          }
+        }
+      })
+      if (args.node) {
+        if (nodesFound.length >= 2) {
+          let matches = [];
+          nodesFound.forEach(n => matches.push(n.name));
+          return console.error('multiple node matches found:', matches);
+        }
+        if (nodesFound.length === 0) return console.error('node not found (possibly not an inbound node)');
+        let node = nodesFound[0];
+        chans = [{chan: node.id, peer: node.peer}];
+        let fees = listFeesSync(lndClient, chans);
+        return printFeeAnalysis(node.name, node.peer, fees[0].local, fees[0].remote, options.profit);
+      }
+
       let fees = listFeesSync(lndClient, chans);
       let feeMap = {};
       fees.forEach(f => feeMap[f.id] = f);
