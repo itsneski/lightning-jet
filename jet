@@ -30,6 +30,7 @@ const {stopService} = require('./service/utils');
 const {startService} = require('./service/utils');
 const {restartService} = require('./service/utils');
 const {printStatus} = require('./service/utils');
+const {rebalanceStatus} = require('./api/analyze-fees');
 const constants = require('./api/constants');
 const config = require('./api/config');
 const serviceNames = getServiceNames();
@@ -309,11 +310,18 @@ cap
 
   .command('monitor', 'Prints information about ongoing rebalances and stuck htlcs')
   .argument('[secs]', 'Refresh delay in seconds')
+  .option('--status', 'Prints rebalance status for peers')
   .action((args, options, logger) => {
     return new Promise(async (resolve, reject) => {
       const delay = args.secs || constants.monitor.refresh;  // in seconds
-      runMonitorLoop();
-      setInterval(runMonitorLoop, delay * 1000);
+      console.log('loading data...');
+      if (options.status) {
+        runMonitorStatusLoop();
+        setInterval(runMonitorStatusLoop, delay * 1000);
+      } else {
+        runMonitorLoop();
+        setInterval(runMonitorLoop, delay * 1000);
+      }
     })
   })
 
@@ -342,13 +350,31 @@ cap
 cap.parse(process.argv);
 
 
+function runMonitorStatusLoop() {
+  let arr = rebalanceStatus();
+  console.clear();
+  console.log(date.format(new Date, 'MM/DD hh:mm:ss A'));
+  if (arr.length === 0)  {
+    console.log('no [outbound] peers found');
+  } else {
+    console.log('rebalance status for [outbound] peers');
+    console.table(arr);
+  }
+}
+
 function runMonitorLoop() {
   const hours = 4;
+
+  // load data before clearing screen
+  let htlcs = pendingHtlcsFormattedSync();
+  let list = listActiveRebalancesFormattedSync();
+  let history = rebalanceHistoryFormattedSync(hours * 60 * 60).filter(r => r.status === 'success');
+  let closed = listForcedClosingFormattedSync();
+
   console.clear();
 
   // active rebalances
   console.log(date.format(new Date, 'MM/DD hh:mm:ss A'));
-  let list = listActiveRebalancesFormattedSync();
   if (list) {
     list.forEach(l => l.amount = withCommas(l.amount));
     list.sort(function(a, b) { return a.from.localeCompare(b.from); });
@@ -360,21 +386,18 @@ function runMonitorLoop() {
 
   // rebalance history
   const maxHistoryLines = constants.monitor.rebalanceHistoryLines;
-  let history = rebalanceHistoryFormattedSync(hours * 60 * 60).filter(r => r.status === 'success');
   if (history.length > 0) {
     console.log(`\nsuccessful rebalances over the past ${hours} hour(s) (${maxHistoryLines} max lines):`);
     console.table(history.slice(0, maxHistoryLines));
   }
 
   // pending htlcs
-  let htlcs = pendingHtlcsFormattedSync();
   if (htlcs && htlcs.length > 0) {
     console.log('\npending htlcs:');
     console.table(htlcs);
   }
 
   // forced closed
-  let closed = listForcedClosingFormattedSync();
   if (closed && closed.length > 0) {
     console.log('\nforced closing channels:');
     console.table(closed);  

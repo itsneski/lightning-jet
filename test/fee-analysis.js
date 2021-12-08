@@ -1,115 +1,99 @@
 const {printFeeAnalysis} = require('../api/analyze-fees');
+const constants = require('../api/constants');
 
-var profit = 25;
+const profit = 25;
 global.testModeOn = true;
+
 global.testMaxPpm = 650;
 global.testEnforceMaxPpm = false;
 
-console.log();
-console.log('max ppm:', global.testMaxPpm);
-console.log('enforce ppm:', global.testEnforceMaxPpm);
-console.log('profit:', profit);
-console.log();
+runAnalysis();
 
-let messages = printFeeAnalysis(
-  'WalletOfSatoshi',
-  '035e4ff418fc8b5554c5d9eea66396c227bd429a3251c8cbc711002ba215bfc226',
-  { base: 1, rate: 3000 },
-  { base: 1, rate: 1000 }
-)
-
-console.log();
-messages = printFeeAnalysis(
-  'WalletOfSatoshi',
-  '035e4ff418fc8b5554c5d9eea66396c227bd429a3251c8cbc711002ba215bfc226',
-  { base: 1, rate: 10000 },
-  { base: 1, rate: 1000 }
-)
-
-console.log();
-messages = printFeeAnalysis(
-  'WalletOfSatoshi',
-  '035e4ff418fc8b5554c5d9eea66396c227bd429a3251c8cbc711002ba215bfc226',
-  { base: 1, rate: 100 },
-  { base: 1, rate: 1 }
-)
-
-console.log();
-messages = printFeeAnalysis(
-  'WalletOfSatoshi',
-  '035e4ff418fc8b5554c5d9eea66396c227bd429a3251c8cbc711002ba215bfc226',
-  { base: 1, rate: 200 },
-  { base: 1, rate: 150 },
-  25
-)
-
-global.testMaxPpm = 650;
 global.testEnforceMaxPpm = true;
 
-console.log();
-console.log('max ppm:', global.testMaxPpm);
-console.log('enforce ppm:', global.testEnforceMaxPpm);
-console.log('profit:', profit);
-console.log();
+runAnalysis();
 
-messages = printFeeAnalysis(
-  'WalletOfSatoshi',
-  '035e4ff418fc8b5554c5d9eea66396c227bd429a3251c8cbc711002ba215bfc226',
-  { base: 1, rate: 3000 },
-  { base: 1, rate: 1000 }
-)
 
-console.log();
-messages = printFeeAnalysis(
-  'WalletOfSatoshi',
-  '035e4ff418fc8b5554c5d9eea66396c227bd429a3251c8cbc711002ba215bfc226',
-  { base: 1, rate: 3000 },
-  { base: 1, rate: 1000 },
-  profit
-)
+function runAnalysis() {
+  console.log();
+  console.log('max ppm:', global.testMaxPpm);
+  console.log('enforce ppm:', global.testEnforceMaxPpm);
+  console.log('profit:', profit);
+  console.log('buffer:', constants.rebalancer.buffer);
+  console.log();
 
-console.log();
-messages = printFeeAnalysis(
-  'WalletOfSatoshi',
-  '035e4ff418fc8b5554c5d9eea66396c227bd429a3251c8cbc711002ba215bfc226',
-  { base: 1, rate: 1250 },
-  { base: 1, rate: 1000 },
-  profit
-)
+  printFeeAnalysis(
+    'WalletOfSatoshi',
+    '035e4ff418fc8b5554c5d9eea66396c227bd429a3251c8cbc711002ba215bfc226',
+    { base: 0, rate: 1 },  // local
+    { base: 0, rate: 1 }   // remote
+  )
 
-console.log();
-messages = printFeeAnalysis(
-  'WalletOfSatoshi',
-  '035e4ff418fc8b5554c5d9eea66396c227bd429a3251c8cbc711002ba215bfc226',
-  { base: 1, rate: 500 },
-  { base: 1, rate: 200 },
-  profit
-)
+  console.log();
+  printFeeAnalysis(
+    'WalletOfSatoshi',
+    '035e4ff418fc8b5554c5d9eea66396c227bd429a3251c8cbc711002ba215bfc226',
+    { base: 1, rate: 3000 },  // local
+    { base: 1, rate: 1000 }   // remote
+  )
 
-console.log();
-messages = printFeeAnalysis(
-  'WalletOfSatoshi',
-  '035e4ff418fc8b5554c5d9eea66396c227bd429a3251c8cbc711002ba215bfc226',
-  { base: 1, rate: 10000 },
-  { base: 1, rate: 1000 }
-)
+  console.log();
+  printFeeAnalysis(
+    'WalletOfSatoshi',
+    '035e4ff418fc8b5554c5d9eea66396c227bd429a3251c8cbc711002ba215bfc226',
+    { base: 1, rate: 3000 },  // local
+    { base: 1, rate: 1000 },  // remote
+    profit
+  )
 
-console.log();
-messages = printFeeAnalysis(
-  'WalletOfSatoshi',
-  '035e4ff418fc8b5554c5d9eea66396c227bd429a3251c8cbc711002ba215bfc226',
-  { base: 1, rate: 200 },
-  { base: 1, rate: 150 },
-  25
-)
+  console.log();
+  printFeeAnalysis(
+    'WalletOfSatoshi',
+    '035e4ff418fc8b5554c5d9eea66396c227bd429a3251c8cbc711002ba215bfc226',
+    { base: 1, rate: 10000 },
+    { base: 1, rate: 1000 }
+  )
 
-console.log();
-messages = printFeeAnalysis(
-  'WalletOfSatoshi',
-  '035e4ff418fc8b5554c5d9eea66396c227bd429a3251c8cbc711002ba215bfc226',
-  { base: 1, rate: 438 },
-  { base: 1, rate: 150 },
-  25
-)
+  console.log();
+  printFeeAnalysis(
+    'WalletOfSatoshi',
+    '035e4ff418fc8b5554c5d9eea66396c227bd429a3251c8cbc711002ba215bfc226',
+    { base: 1, rate: 10000 },
+    { base: 1, rate: 1000 },
+    profit
+  )
 
-console.log();
+  console.log();
+  printFeeAnalysis(
+    'WalletOfSatoshi',
+    '035e4ff418fc8b5554c5d9eea66396c227bd429a3251c8cbc711002ba215bfc226',
+    { base: 1, rate: 100 },
+    { base: 1, rate: 1 }
+  )
+
+  console.log();
+  printFeeAnalysis(
+    'WalletOfSatoshi',
+    '035e4ff418fc8b5554c5d9eea66396c227bd429a3251c8cbc711002ba215bfc226',
+    { base: 1, rate: 100 },
+    { base: 1, rate: 1 },
+    profit
+  )
+
+  console.log();
+  printFeeAnalysis(
+    'WalletOfSatoshi',
+    '035e4ff418fc8b5554c5d9eea66396c227bd429a3251c8cbc711002ba215bfc226',
+    { base: 1, rate: 200 },
+    { base: 1, rate: 150 }
+  )
+
+  console.log();
+  printFeeAnalysis(
+    'WalletOfSatoshi',
+    '035e4ff418fc8b5554c5d9eea66396c227bd429a3251c8cbc711002ba215bfc226',
+    { base: 1, rate: 200 },
+    { base: 1, rate: 150 },
+    profit
+  )
+}
