@@ -17,6 +17,7 @@ const {removeEmojis} = require('../lnd-api/utils');
 const {isRunningSync} = require('../api/utils');
 const {rebalanceMargin} = require('../api/utils');
 const {withCommas} = require('../lnd-api/utils');
+const {analyzeFees} = require('../api/analyze-fees');
 const serviceUtils = require('./utils');
 const tags = require('../api/tags');
 
@@ -341,54 +342,28 @@ function executeCommands() {
         continue;
       }
 
-      // calculate the max_ppm based on rebalance margin
-      // aim for the the rebalance fees to be lower than rebalance margin
-      // jet does not enforce strict profitability rules atm, it'll rather
-      // advise on issues with fees 
+      // analyze fees, get a reco for max ppm
       let maxPpm = max_ppm;
       let fee = feesMap[c.to];
-      let margin = rebalanceMargin(fee.local, fee.remote);
-      let enforceMaxPpm = config.rebalancer.enforceMaxPpm;
-      console.log('fees for', toName, 'local', fee.local, 'remote', fee.remote);
-      console.log('rebalance margin:', margin);
-      if (enforceMaxPpm) {
-        console.log('enforceMaxPpm: on, assuming default max ppm of', maxPpm);
-      } else {
-        if (margin < 0) {
-          console.log(colorRed, 'negative margin, revisit your fees:', fee.local);
-          console.log('assuming default max_ppm:', maxPpm);
+      let analysis = analyzeFees(toName, toId, fee.local, fee.remote);
+      if (analysis) {
+        const action = constants.feeAnalysis.action;
+        let status = analysis[0];
+        if (status.action === action.pause) {
+          let msg = 'rebalancing is paused';
+          if (status.range) msg += ', suggested local ppm range: ' + status.range;
+          if (status.summary) msg += ', ' + status.summary;
+          console.log(colorRed, msg);
+          continue; // skip
+        } else if (status.maxPpm) {
+          let msg = 'setting max ppm to: ' + status.maxPpm;
+          if (status.range) msg += ', suggested local ppm range: ' + status.range;
+          if (status.summary) msg += ', ' + status.summary;
+          console.log(msg);
+          maxPpm = status.maxPpm;
         } else {
-          // see if there is enough of a buffer to rebalance
-          let local = fee.local.base/1000 + fee.local.rate;
-          let remote = fee.remote.base/1000 + fee.remote.rate;
-
-          // we need some buffer for rebalance to go through. perhaps take an
-          // average of past rebalances
-          const buffer = constants.rebalancer.buffer; 
-
-          if (local < remote + buffer) {
-            console.log(colorRed, 'not enough of a buffer between local and remote, should be at least', buffer, 'sats, revisit your fees');
-            if (max_ppm >= remote + buffer) {
-              console.log(colorYellow, 'keeping default ppm of', max_ppm, 'since its greater than the recommended buffer');
-            } else {
-              console.log(colorYellow, 'setting max_ppm to include the buffer', remote + buffer);
-              maxPpm = Math.floor(remote + buffer);
-            }
-          } else {
-            let xx = Math.floor(local / max_ppm);
-            if (xx >= 10) {
-              console.error('local fee exceeds the max ppm by more than ' + xx + 'x. keeping the existing max ppm');
-            } else {
-              console.log('overriding max_ppm by the local fee', local, 'sats');
-              maxPpm = Math.floor(local);
-            }
-          }
+          console.error(colorRed, 'fee analysis did not return max ppm, assuming default');
         }
-      }
-
-      if (maxPpm < fee.remote.rate) {
-        console.error('remote ppm of ' + fee.remote.rate + ' exceeds the max ppm of ' + maxPpm + '. this means that rebalances can\'t go through. skipping');
-        continue;
       }
 
       // execute

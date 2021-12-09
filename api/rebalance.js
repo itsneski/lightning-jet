@@ -21,8 +21,10 @@
 //
 
 const config = require('./config');
-const lndClient = require('./connect');
 const tags = require('./tags');
+const date = require('date-and-time');
+const constants = require('./constants');
+const lndClient = require('./connect');
 const {getNodesInfoSync} = require('../lnd-api/utils');
 const {recordRebalance} = require('../db/utils');
 const {recordRebalanceFailure} = require('../db/utils');
@@ -30,10 +32,10 @@ const {recordRebalanceAvoid} = require('../db/utils');
 const {listRebalanceAvoidSync} = require('../db/utils');
 const {listPeersMapSync} = require('../lnd-api/utils');
 const {getNodeFeeSync} = require('../lnd-api/utils');
-const constants = require('./constants');
 
 const arrAvg = arr => arr.reduce((a,b) => a + b, 0) / arr.length;
 const stringify = obj => JSON.stringify(obj, null, 2);
+
 
 // check bos version compatibility
 const MIN_VERSION = '10.16.0';  // min bos version required
@@ -58,6 +60,9 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
   if (!from || !to || !amount) {
     throw new Error('from, to and amount are mandatory arguments');
   }
+
+  console.log(date.format(new Date, 'MM/DD hh:mm A'));
+  console.log('rebalancer is starting up');
 
   var peerMap = listPeersMapSync(lndClient);
 

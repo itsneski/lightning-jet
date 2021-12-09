@@ -109,7 +109,7 @@ function monitorFeesExec() {
           console.log(p.name + ': analysis not generated, weird, skipping');
         }
       } else {
-        console.log(p.name + ': is not outbound peer, skipping');
+        console.log(p.name + ': is not an outbound or balanced peer, skipping');
       }
     }
   })

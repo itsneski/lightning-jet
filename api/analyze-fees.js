@@ -90,8 +90,8 @@ module.exports = {
     let array = [];
 
     // get recent fee changes for the peer
-    const feeHistoryDepth = 720;  // 12h?
-    let feeHistory = listFeesSync(peerId, feeHistoryDepth);
+    const feeHistoryDepth = constants.feeAnalysis.historyDepth;
+    let feeHistory = listFeesSync(peerId, feeHistoryDepth * 60);
     let feeStats;
     if (feeHistory && feeHistory.length > 0) {
       let min;
@@ -211,8 +211,8 @@ module.exports = {
       if (profitAdjusted < minProfitable) {
         addMessage(warning, 'insufficient buffer for rebalancer to meet profitability margin of ' + profit + '%');
         if (enforceMaxPpm && minProfitable > maxPpm) {
-          addMessage(normal, 'suggested local ppm and / or max ppm range: ' + range);
-          status.summary = 'increase local ppm and / or max ppm to meet profitability. suggested range: ' + range;
+          addMessage(normal, 'suggested local ppm and/or max ppm range: ' + range);
+          status.summary = 'increase local ppm and/or max ppm to meet profitability. suggested range: ' + range;
         } else {
           addMessage(normal, 'suggested local ppm range: ' + range);
           status.summary = 'increase local ppm based on suggested range';
@@ -232,11 +232,12 @@ module.exports = {
         if (enforceMaxPpm && remote + buffer > maxPpm) {
           let msg = 'suggested local ppm and / or max ppm range: ' + range;
           addMessage(warning, msg);
+          status.summary = 'consider increasing local ppm and/or max ppm within the suggested range'
         } else {
           let msg = 'suggested local ppm range: ' + range;
           addMessage(warning, msg);
+          status.summary = 'consider increasing local ppm within the suggested range'
         }
-        status.summary = 'consider increasing local ppm within the suggested range'
         status.suggestedPpm = remote + buffer;
       } else {
         addMessage(normal, 'sufficient buffer between remote ppm and optimal max ppm. things are looking good');

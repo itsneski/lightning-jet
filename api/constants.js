@@ -36,7 +36,8 @@ exports.feeAnalysis = {
   success: 'success',
   action: {
     pause: 1
-  }
+  },
+  historyDepth: 24  // hours
 }
 
 // services
