@@ -54,6 +54,9 @@ function monitorFeesExec() {
   if (classified && classified.outbound) {
     classified.outbound.forEach(c => outboundMap[c.peer] = c.name);
   }
+  if (classified && classified.balanced) {
+    classified.balanced.forEach(c => outboundMap[c.peer] = c.name);
+  }
 
   let prevFees = JSON.parse(decode(prev.val));
   console.log('\nidentified existing fees recorded on', formatDate(prev.date));

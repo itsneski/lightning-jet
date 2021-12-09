@@ -149,26 +149,35 @@ cap
   .action((args, options, logger) => {
     return new Promise(async (resolve, reject) => {
       if (options.profit < 0 || options.profit > 100) return console.error('profit has to be between 0 and 100');
-      if (!args.node) {
-        let msg = 'analyzing fees for [outbound] peers';
-        msg += (options.profit) ? ' based on profit of ' + options.profit + '%' : '. no profit requirements specified'
-        console.log(msg);
-      }
 
       const {printFeeAnalysis} = require('./api/analyze-fees');
       let classified = classifyPeersSync(lndClient);
       let chans = [];
       let nodesFound = [];
-      classified.outbound.forEach(c => {
-        chans.push({chan: c.id, peer: c.peer});
-        if (args.node) {
-          let lc1 = c.name && c.name.toLowerCase();
-          let lc2 = args.node.toLowerCase();
-          if (args.node === c.peer || (lc1 && lc1.indexOf(lc2) >= 0)) {
-            nodesFound.push(c);
+      if (classified.outbound) {
+        classified.outbound.forEach(c => {
+          chans.push({chan: c.id, peer: c.peer});
+          if (args.node) {
+            let lc1 = c.name && c.name.toLowerCase();
+            let lc2 = args.node.toLowerCase();
+            if (args.node === c.peer || (lc1 && lc1.indexOf(lc2) >= 0)) {
+              nodesFound.push(c);
+            }
           }
-        }
-      })
+        })
+      }
+      if (classified.balanced) {
+        classified.balanced.forEach(c => {
+          chans.push({chan: c.id, peer: c.peer});
+          if (args.node) {
+            let lc1 = c.name && c.name.toLowerCase();
+            let lc2 = args.node.toLowerCase();
+            if (args.node === c.peer || (lc1 && lc1.indexOf(lc2) >= 0)) {
+              nodesFound.push(c);
+            }
+          }
+        })
+      }
       if (args.node) {
         if (nodesFound.length >= 2) {
           let matches = [];
@@ -186,8 +195,28 @@ cap
       let feeMap = {};
       fees.forEach(f => feeMap[f.id] = f);
 
+      let msg = 'analyzing fees for [outbound] peers';
+      msg += (options.profit) ? ' based on profit of ' + options.profit + '%' : '. no profit requirements specified'
+      console.log('-------------------------------------------------------------')
+      console.log(msg);
+      console.log('-------------------------------------------------------------')
+
       let count = 0;
       classified.outbound.forEach(c => {
+        console.log();  // newline
+        let num = printFeeAnalysis(c.name, c.peer, feeMap[c.peer].local, feeMap[c.peer].remote, options.profit);
+        count += num;
+      })
+      if (count === 0) console.log('no issues to report');
+
+      msg = 'analyzing fees for [balanced] peers';
+      msg += (options.profit) ? ' based on profit of ' + options.profit + '%' : '. no profit requirements specified'
+      console.log('\n-------------------------------------------------------------')
+      console.log(msg);
+      console.log('-------------------------------------------------------------')
+
+      count = 0;
+      classified.balanced.forEach(c => {
         console.log();  // newline
         let num = printFeeAnalysis(c.name, c.peer, feeMap[c.peer].local, feeMap[c.peer].remote, options.profit);
         count += num;
@@ -380,11 +409,17 @@ function runMonitorStatusLoop() {
   let arr = rebalanceStatus();
   console.clear();
   console.log(date.format(new Date, 'MM/DD hh:mm:ss A'));
-  if (arr.length === 0)  {
+  if (arr.outbound.length === 0)  {
     console.log('no [outbound] peers found');
   } else {
     console.log('rebalance status for [outbound] peers');
-    console.table(arr);
+    console.table(arr.outbound);
+  }
+  if (arr.balanced.length === 0)  {
+    console.log('no [balanced] peers found');
+  } else {
+    console.log('\nrebalance status for [balanced] peers');
+    console.table(arr.balanced);
   }
 }
 

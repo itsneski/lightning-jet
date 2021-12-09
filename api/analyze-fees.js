@@ -11,31 +11,39 @@ module.exports = {
     let classified = classifyPeersSync(lndClient);
     let chans = [];
     classified.outbound.forEach(c => chans.push({chan: c.id, peer: c.peer}));
+    classified.balanced.forEach(c => chans.push({chan: c.id, peer: c.peer}));
     let fees = listFeesSync(lndClient, chans);
     let feeMap = {};
     fees.forEach(f => feeMap[f.id] = f);
 
-    let arr = [];
     const action = constants.feeAnalysis.action;
-    classified.outbound.forEach(c => {
-      let list = analyzeFees(c.name, c.peer, feeMap[c.peer].local, feeMap[c.peer].remote);
-      let entry = {
-        peer: c.name,
-        status: (list[0].action === action.pause) ? 'paused' : 'active'
-      }
-      entry['local'] = feeMap[c.peer].local.rate;
-      entry['remote'] = feeMap[c.peer].remote.rate;
-      if (list[0].maxPpm) entry['max ppm'] = list[0].maxPpm;
-      if (list[0].range) entry.range = list[0].range;
-      if (list[0].summary) entry.summary = list[0].summary;
-      arr.push(entry);
-    })
-    arr.sort(function(a, b) {
-      let a_max = a['max ppm'] || 0;
-      let b_max = b['max ppm'] || 0;
-      return b_max - a_max;
-    })
-    return arr;
+
+    let outbound = doIt(classified.outbound);
+    let balanced = doIt(classified.balanced);
+    return { outbound: outbound, balanced: balanced };
+
+    function doIt(peerList) {
+      let arr = [];
+      peerList.forEach(c => {
+        let list = analyzeFees(c.name, c.peer, feeMap[c.peer].local, feeMap[c.peer].remote);
+        let entry = {
+          peer: c.name,
+          status: (list[0].action === action.pause) ? 'paused' : 'active'
+        }
+        entry['local'] = feeMap[c.peer].local.rate;
+        entry['remote'] = feeMap[c.peer].remote.rate;
+        if (list[0].maxPpm) entry['max ppm'] = list[0].maxPpm;
+        if (list[0].range) entry.range = list[0].range;
+        if (list[0].summary) entry.summary = list[0].summary;
+        arr.push(entry);
+      })
+      arr.sort(function(a, b) {
+        let a_max = a['max ppm'] || 0;
+        let b_max = b['max ppm'] || 0;
+        return b_max - a_max;
+      })
+      return arr;
+    }
   },
   printFeeAnalysis(peerName, peerId, localFee, remoteFee, profit = 0) {
     let msgs = module.exports.analyzeFees(peerName, peerId, localFee, remoteFee, profit);
