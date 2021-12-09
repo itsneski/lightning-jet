@@ -180,11 +180,11 @@ module.exports = {
         if (enforceMaxPpm && remote > maxPpm) {
           let msg = 'suggested local ppm and / or max ppm range: ' + range;
           addMessage(normal, msg);
-          status.summary = 'remote ppm exceeds local. ' + msg;
+          status.summary = 'remote ppm exceeds local. revisit local ppm and / or max ppm based on suggested range';
         } else {
           let msg = 'suggested local ppm range: ' + range;
           addMessage(normal, msg);
-          status.summary = 'remote ppm exceeds local. revit local ppm based on suggested range';
+          status.summary = 'remote ppm exceeds local. revisit local ppm based on suggested range';
         }
         status.suggestedPpm = suggested;
       }
@@ -224,11 +224,11 @@ module.exports = {
         if (enforceMaxPpm && remote + buffer > maxPpm) {
           let msg = 'suggested local ppm and / or max ppm range: ' + range;
           addMessage(warning, msg);
-          status.summary = msg;
         } else {
           let msg = 'suggested local ppm range: ' + range;
           addMessage(warning, msg);
         }
+        status.summary = 'consider increasing local ppm within the suggested range'
         status.suggestedPpm = remote + buffer;
       } else {
         addMessage(normal, 'sufficient buffer between remote ppm and optimal max ppm. things are looking good');

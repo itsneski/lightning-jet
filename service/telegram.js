@@ -11,6 +11,8 @@ const {fetchTelegramMessageSync} = require('../db/utils');
 const {deleteTelegramMessages} = require('../db/utils');
 const lndClient = require('../api/connect');
 const {listFeesSync} = require('../lnd-api/utils');
+const {classifyPeersSync} = require('../api/utils');
+const {analyzeFees} = require('../api/analyze-fees');
 const serviceUtils = require('./utils');
 const util = require('util');
 const date = require('date-and-time');
@@ -22,10 +24,14 @@ const encode = s => Buffer.from(s).toString('base64');
 const decode = s => Buffer.from(s, 'base64').toString();
 const formatDate = d => date.format(new Date(d), 'MM/DD hh:mm A')
 
-initBot();
-
-monitorFees();
-setInterval(monitorFees, feeInterval * 1000);
+if (global.testModeOn) {
+  // for testing
+  module.exports.runMonitor = monitorFeesExec;
+} else {
+  initBot();
+  monitorFees();
+  setInterval(monitorFees, feeInterval * 1000);
+}
 
 function monitorFees() {
   try {
@@ -42,6 +48,12 @@ function monitorFeesExec() {
   let prev = getPropAndDateSync('fees');
   setPropSync('fees', encode(JSON.stringify(fees, null, 2)));
   if (!prev) return;
+
+  let outboundMap = {};
+  let classified = classifyPeersSync(lndClient);
+  if (classified && classified.outbound) {
+    classified.outbound.forEach(c => outboundMap[c.peer] = c.name);
+  }
 
   let prevFees = JSON.parse(decode(prev.val));
   console.log('\nidentified existing fees recorded on', formatDate(prev.date));
@@ -72,6 +84,30 @@ function monitorFeesExec() {
     if (newFee.base || newFee.ppm) {
       // record in the db
       recordFee({node:f.id, chan:f.chan, base:newFee.base, ppm:newFee.ppm});
+      // analyze fees
+      if (outboundMap[p.id]) {
+        let analysis = analyzeFees(p.name, p.id, p.local, f.remote);
+        if (analysis) {
+          const action = constants.feeAnalysis.action;
+          let status = analysis[0];
+          // format telegram msg
+          let msg = util.format('channel %s with <b>%s</b>:', p.chan, p.name);
+          if (status.action === action.pause) msg += ' rebalancing is paused';
+          else msg += ' rebalancing is active';
+          if (status.range || status.summary) {
+            if (status.range) msg += ', suggested local ppm range: ' + status.range;
+            if (status.summary) msg += ', ' + status.summary;
+            console.log(msg);
+            sendMessageFormatted(msg);
+          } else {
+            console.log(p.name + ': no range or summary found, skipping');
+          }
+        } else {
+          console.log(p.name + ': analysis not generated, weird, skipping');
+        }
+      } else {
+        console.log(p.name + ': is not outbound peer, skipping');
+      }
     }
   })
   // see if any of the channels closed
