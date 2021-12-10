@@ -85,6 +85,7 @@ module.exports = {
     const enforceMaxPpm = (global.testEnforceMaxPpm === undefined) ? config.rebalancer.enforceMaxPpm : global.testEnforceMaxPpm;
     const minBuffer = constants.rebalancer.minBuffer;
     const buffer = constants.rebalancer.buffer;
+    const enforceProfitability = (global.testEnforceProfitability === undefined) ? config.rebalancer.enforceProfitability : global.testEnforceProfitability;
 
     let optimalMaxPpm;
     let array = [];
@@ -115,8 +116,9 @@ module.exports = {
 
     let intro = 'current fees: local { base: ' + localFee.base + ', ppm: ' + localFee.rate + ' } remote { base: ' + remoteFee.base + ', ppm: ' + remoteFee.rate + ' }. max ppm: ' + maxPpm + ' (';
     intro += (enforceMaxPpm) ? 'enforced)' : 'not enforced)';
+    if (enforceProfitability) intro += ', profitability is enforced';
     if (profit) intro += ', profit margin: ' + profit + '%';
-    if (feeStats) intro += '\nthe peer changed ppm ' + feeStats.count + ' time(s) over the past ' + feeHistoryDepth/60 + ' hours, min: ' + feeStats.min + ', max: ' + feeStats.max;
+    if (feeStats) intro += '\nthe peer changed ppm ' + feeStats.count + ' time(s) over the past ' + feeHistoryDepth + ' hours, min: ' + feeStats.min + ', max: ' + feeStats.max;
     addMessage(normal, intro);
 
     // check if the node operator intends to accumulate local liquidity,
@@ -162,10 +164,21 @@ module.exports = {
       return array;
     }
 
+    // profitability is not enforced
+    let override = !enforceProfitability && optimal <= remote && maxPpm > optimal;
+    if (override) {
+      // just need to ensure there is enough of a buffer to rebalance, no
+      // need to go overboard
+      let val = Math.min(remote + buffer, maxPpm);
+      addMessage(warning, 'overriding optimal max ppm with ' + val);
+      optimal = val;
+    }
+
     // can rebalance be profitable
     if (optimal <= remote) {
       if (optimal < remote) addMessage(warning, 'remote fee exceeds the optimal max ppm');
       else addMessage(warning, 'remote ppm equals optimal max ppm');
+
       addMessage(urgent, 'pausing rebalancing for this peer');
       // see if it makes to make ppm reco
       if (feeStats && feeStats.count >= 2) {
@@ -210,39 +223,72 @@ module.exports = {
       status.range = range;
       if (profitAdjusted < minProfitable) {
         addMessage(warning, 'insufficient buffer for rebalancer to meet profitability margin of ' + profit + '%');
-        if (enforceMaxPpm && minProfitable > maxPpm) {
-          addMessage(normal, 'suggested local ppm and/or max ppm range: ' + range);
-          status.summary = 'increase local ppm and/or max ppm to meet profitability. suggested range: ' + range;
-        } else {
-          addMessage(normal, 'suggested local ppm range: ' + range);
-          status.summary = 'increase local ppm based on suggested range';
+
+        let override = !enforceProfitability && maxPpm > optimal;
+        if (override) {
+          // just need to make there is enough of a buffer to rebalance
+          let val = Math.min(minProfitable, maxPpm);
+          addMessage(warning, 'overriding optimal max ppm with ' + val);
+          optimal = val;
         }
-        status.suggestedPpm = minProfitable;
+
+        // check if the peer has been frequently changing its fee
+        if (feeStats && feeStats.count >= 2) {
+          status.summary = 'peer changed fees ' + feeStats.count + ' times over past ' + feeHistoryDepth + ' hours with min of ' + feeStats.min + ' sats';
+        } else {
+          status.summary = (override) ? 'override, ' : '';
+          if (enforceMaxPpm && minProfitable > maxPpm) {
+            addMessage(normal, 'suggested local ppm and/or max ppm range: ' + range);
+            status.summary += 'increase local ppm and/or max ppm to meet profitability. suggested range: ' + range;
+          } else {
+            addMessage(normal, 'suggested local ppm range: ' + range);
+            status.summary += 'increase local ppm based on suggested range';
+          }
+          status.suggestedPpm = minProfitable;
+        }
+
         status.maxPpm = optimal;  // insufficient buffer to account for profit %
                                   // revert to the current optimal max ppm
       } else {
         addMessage(normal, 'optimal max ppm meets profitability margin of ' + profit + '%');
+        if (override) status.summary = 'max ppm override';
         status.maxPpm = profitAdjusted;
       }
     } else {  // profit requirements not specified
       if (optimal < remote + buffer) {
         addMessage(normal, 'insufficient buffer between optimal max and remote ppm, rebalances have less of a chance to go through');
-        let range = '[' + (remote + minBuffer) + ' - ' + (remote + buffer) + ']';
-        status.range = range;
-        if (enforceMaxPpm && remote + buffer > maxPpm) {
-          let msg = 'suggested local ppm and / or max ppm range: ' + range;
-          addMessage(warning, msg);
-          status.summary = 'consider increasing local ppm and/or max ppm within the suggested range'
-        } else {
-          let msg = 'suggested local ppm range: ' + range;
-          addMessage(warning, msg);
-          status.summary = 'consider increasing local ppm within the suggested range'
+
+        let override = !enforceProfitability && maxPpm > optimal;
+        if (override) {
+          // just need to make there is enough of a buffer to rebalance
+          let val = Math.min(remote + buffer, maxPpm);
+          addMessage(warning, 'overriding optimal max ppm with ' + val);
+          optimal = val;
         }
-        status.suggestedPpm = remote + buffer;
+
+        // check if the peer has been frequently changing its fee
+        if (feeStats && feeStats.count >= 2) {
+          status.summary = 'peer changed fees ' + feeStats.count + ' times over past ' + feeHistoryDepth + ' hours with min of ' + feeStats.min + ' sats';
+        } else {
+          let range = '[' + (remote + minBuffer) + ' - ' + (remote + buffer) + ']';
+          status.range = range;
+          status.summary = (override) ? 'override, ' : '';
+          if (enforceMaxPpm && remote + buffer > maxPpm) {
+            let msg = 'suggested local ppm and / or max ppm range: ' + range;
+            addMessage(warning, msg);
+            status.summary += 'consider increasing local ppm and/or max ppm within the suggested range'
+          } else {
+            let msg = 'suggested local ppm range: ' + range;
+            addMessage(warning, msg);
+            status.summary += 'consider increasing local ppm within the suggested range'
+          }
+          status.suggestedPpm = remote + buffer;
+        }
       } else {
         addMessage(normal, 'sufficient buffer between remote ppm and optimal max ppm. things are looking good');
+        if (override) status.summary = 'max ppm override';
       }
-      status.maxPpm = optimal;
+      if (status.maxPpm === undefined) status.maxPpm = optimal;
     }
     return array;
 
