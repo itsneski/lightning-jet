@@ -369,7 +369,7 @@ module.exports = {
       return err;
     }
   },
-  listRebalancesSync(secs = -1, status) {
+  listRebalancesSync(secs = -1, status, node) {
     let db = getHandle();
     let list = [];
     let res;
@@ -381,6 +381,9 @@ module.exports = {
         if (status !== undefined) q += ' AND status = ' + status;
       } else if (status !== undefined) {
         q += ' WHERE status = ' + status;
+      }
+      if (node) {
+        q += ' AND (from_node = "' + node + '" OR to_node = "' + node + '")'
       }
       db.each(q, function(err, row) {
         list.push({

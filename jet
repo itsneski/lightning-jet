@@ -311,13 +311,33 @@ cap
   })
 
   .command('rebalance-history', 'Lists past rebalances')
-  .argument('[mins]', 'Depth of history in minutes')
+  .argument('[node]', 'Pub id or an alias (full or partial) of a node')
+  .option('--mins [mins]', 'Depth of history in minutes')
+  .option('--hours [hours]', 'Depth of history in hours')
   .option('--filter [filter]', 'Filter by success or failed', ['success', 'failed'])
   .action((args, options, logger) => {
     return new Promise(async (resolve, reject) => {
-      let secs = (args.mins) ? args.mins * 60 : -1;
-      let formatted = rebalanceHistoryFormattedSync(secs, options.filter);
-      if (args.mins) console.log('rebalances over the past', args.mins, 'minutes');
+      const {resolveNode} = require('./api/utils');
+      let secs = (options.hours) ? options.hours * 60 * 60 : -1;
+      secs = (options.mins) ? options.mins * 60 : secs;
+      
+      // find matches
+      let id;
+      let name;
+      if (args.node) {
+        let matches = resolveNode(args.node);
+        if (!matches) return console.error('no matches found');
+        else if (matches.length >= 2) return console.error('multiple matches found:', matches);
+        id = matches[0].id;
+        name = matches[0].name;
+      }
+
+      let formatted = rebalanceHistoryFormattedSync(secs, options.filter, id);
+      let msg = 'rebalance history';
+      if (options.mins) msg += ' over the past ' + options.mins + ' mins';
+      if (options.hours) msg += ' over the past ' + options.hours + ' hours';
+      if (name) msg += ' for ' + name;
+      console.log(msg);
       console.table(formatted);
     })
   })

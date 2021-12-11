@@ -12,6 +12,7 @@ const {listPeersSync} = require('../lnd-api/utils');
 const {listFeesSync} = require('../lnd-api/utils');
 const {removeEmojis} = require('../lnd-api/utils');
 const {htlcHistorySync} = require('../lnd-api/utils');
+const tags = require('./tags');
 const constants = require('./constants');
 const config = require('./config');
 const findProc = require('find-process');
@@ -21,6 +22,25 @@ const round = n => Math.round(n);
 const pThreshold = 2;
 
 module.exports = {
+  // resolve a node based on a partial alias or a tag
+  resolveNode(str, peers) {
+    if (!str) return new Error('str is missing');
+    let peerList = peers || listPeersSync(lndClient);
+    let matches = [];
+    let id = tags[str];
+    peerList.forEach(p => {
+      if (str === p.id) {
+        matches.push({id:p.id, name:p.name});
+      } else if (id === p.id) {
+        matches.push({id:p.id, name:p.name});
+      } else {
+        let lc1 = str.toLowerCase();
+        let lc2 = p.name.toLowerCase();
+        if (lc2.indexOf(lc1) >= 0) matches.push({id:p.id, name:p.name});
+      }
+    })
+    return (matches.length > 0) ? matches : undefined;
+  },
   classifyPeersSync: function(lndClient, days = 7) {
     let history = htlcHistorySync(lndClient, days);
     let inSum = 0;
@@ -294,11 +314,11 @@ module.exports = {
     })
     return formatted;
   },
-  rebalanceHistoryFormattedSync(secs = -1, filter) {
+  rebalanceHistoryFormattedSync(secs = -1, filter, node) {
     let peers = listPeersMapSync(lndClient);
     let status;
     if (filter) status = (filter === 'success') ? 1 : 0;
-    let list = listRebalancesSync(secs, status);
+    let list = listRebalancesSync(secs, status, node);
 
     let formatted = [];
     list.forEach(l => {
