@@ -4,15 +4,24 @@ General-purpose automated rebalancer for LND Lightning nodes. Helps get an insig
 Join [Lightning Jet telegram chat](https://t.me/lnjet).
 
 ## Prerequisites
-- Install [BalanceOfSatoshis](https://github.com/alexbosworth/balanceofsatoshis) along with its prerequisites (Node).
-- Check out the [BalanceOfSatoshis install page for Umbrel](https://plebnet.wiki/wiki/Umbrel_-_Installing_BoS) on [Plebnet](https://plebnet.wiki/).
-- Make sure `npm` version is up to date (version 8.x.x+) by running `nmp -v`. Update `npm` in case of an old version (like 5.8.x). Re-run `npm -v` after the update to ensure that your path is picking it up. Note: you may have multiple `npm` copies present if your path isn't picking it up; double check it by `find / -name npm 2> /dev/null`.
+- [Install BalanceOfSatoshis on Umbrel](https://plebnet.wiki/wiki/Umbrel_-_Installing_BoS)
+- [Install BalanceOfSatoshis on RaspiBlitz](#raspiblitz)
+- [Install BalanceOfSatoshis on other platforms](https://github.com/alexbosworth/balanceofsatoshis)
+
+#### Node and Npm
+
+Make sure `node` version is up to date (version 16.x) by running `node -v`. Update `node` in case of an old version; this will also update `npm`.
+```bash
+curl -sL https://deb.nodesource.com/setup_16.x | sudo -E bash -
+sudo apt-get install -y nodejs
+```
+Make sure `npm` version is up to date (version 8.x) by running `npm -v`. Update `npm` in case of an old version; refer to `node` update steps above. Note that you may run into an issue of having multiple copies of `npm` installed if you update `npm` separately from `node`. Re-run `npm -v` after the update to ensure that your path is picking it up. Note: you may have multiple `npm` copies present if your path isn't picking it up; double check it by `find / -name npm 2> /dev/null`.
 
 ## Installation
 ```bash
 git clone https://github.com/itsneski/lightning-jet
 cd lightning-jet
-npm install
+npm install --build-from-source --python=/usr/bin/python3
 nano ./api/config.json
 ```
 Edit `config.json`: set correct paths for `macaroonPath` and `tlsCertPath`. On umbrel, admin macaroon is typically located at `~/umbrel/lnd/data/chain/bitcoin/mainnet/readonly.macaroon`, tls cert is at `~/umbrel/lnd/tls.cert`. Optional: you can list expensive nodes to avoid in the `avoid` section of the config file (can be done later).
@@ -36,7 +45,7 @@ Test your path by running `jet`. Your path is set correctly if you get a help pr
 - Enable "LND Balance of Satoshis" within Services area of RaspiBlitz menu to install BOS
 - Following completion, Exit Menu to Terminal
 - Run command: `bos` (switches to bos user)
-- Install JET (following the above steps) 
+- Install JET (following the [above steps](#node-and-npm)) 
 - Set the following in `config.json`:
 ```
 "macaroonPath": "/home/bos/.lnd/data/chain/bitcoin/mainnet/readonly.macaroon"
