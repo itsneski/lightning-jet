@@ -20,6 +20,7 @@ const {htlcHistoryFormatted} = require('./api/htlc-history');
 const {htlcAnalyzer} = require('./api/htlc-analyzer');
 const {htlcAnalyzerNode} = require('./api/htlc-analyzer');
 const {classifyPeersSync} = require('./api/utils');
+const {resolveNode} = require('./api/utils');
 
 const {statSync} = require('fs');
 const date = require('date-and-time');
@@ -184,7 +185,7 @@ cap
           nodesFound.forEach(n => matches.push(n.name));
           return console.error('multiple node matches found:', matches);
         }
-        if (nodesFound.length === 0) return console.error('node not found (possibly not an inbound node)');
+        if (nodesFound.length === 0) return console.error('node not found (possibly an inbound node)');
         let node = nodesFound[0];
         chans = [{chan: node.id, peer: node.peer}];
         let fees = listFeesSync(lndClient, chans);
@@ -236,12 +237,12 @@ cap
       if (history.unknown) {
         console.log('unknown channels:', history.unknown);
       }
-      console.log('inbound traffic:');
+      console.log('inbound routing:');
       console.table(history.inbound);
-      console.log('outbound traffic:');
+      console.log('outbound routing:');
       console.table(history.outbound);
       if (history.noTraffic) {
-        console.log('no traffic:');
+        console.log('no routing:');
         console.table(history.noTraffic);
       }
     })
@@ -311,13 +312,12 @@ cap
   })
 
   .command('rebalance-history', 'Lists past rebalances')
-  .argument('[node]', 'Pub id or an alias (full or partial) of a node')
+  .argument('[node]', 'Pub id or an alias (full or partial)')
   .option('--mins [mins]', 'Depth of history in minutes')
   .option('--hours [hours]', 'Depth of history in hours')
   .option('--filter [filter]', 'Filter by success or failed', ['success', 'failed'])
   .action((args, options, logger) => {
     return new Promise(async (resolve, reject) => {
-      const {resolveNode} = require('./api/utils');
       let secs = (options.hours) ? options.hours * 60 * 60 : -1;
       secs = (options.mins) ? options.mins * 60 : secs;
       
@@ -397,6 +397,53 @@ cap
         runMonitorLoop();
         setInterval(runMonitorLoop, delay * 1000);
       }
+    })
+  })
+
+  .command('fee-history', 'Prints fee history for a peer')
+  .argument('<node>', 'Pub id or an alias (full or partial)')
+  .option('--hours [hours]', 'Depth of history in hours')
+  .action((args, options, logger) => {
+    return new Promise(async (resolve, reject) => {
+      if (!args.node) return console.error('node is missing');
+
+      // find matches
+      let matches = resolveNode(args.node);
+      if (!matches) return console.error('no matches found');
+      else if (matches.length >= 2) return console.error('multiple matches found:', matches);
+
+      let id = matches[0].id;
+      let name = matches[0].name;
+
+      let hours = options.hours || 24 * 7;  // one week by default
+      const dbUtils = require('./db/utils');
+      let history = dbUtils.listFeesSync(id, hours * 60);
+
+      let str;
+      if (hours > 24) {
+        str = Math.floor(hours/24) + ' days';
+        if (hours%24 > 0) str += ' and ' + hours%24 + ' hours';
+      } else {
+        str = hours + ' hours';
+      }
+      console.log('fee history for', name, 'over the past', str);
+      if (!history || history.length === 0) return console.log('no history found');
+      history.sort((a, b) => { return b.date - a.date });
+      let formatted = [];
+      let min = Number.MAX_SAFE_INTEGER, max = 0, avg = 0, sum = 0;
+      history.forEach(h => {
+        if (h.ppm) {
+          sum += h.ppm;
+          min = Math.min(min, h.ppm);
+          max = Math.max(max, h.ppm);
+        }
+        let entry = { date: date.format(new Date(h.date), 'MM/DD hh:mm A') };
+        if (h.base) entry.base = h.base;
+        if (h.ppm) entry.ppm = h.ppm;
+        formatted.push(entry);
+      })
+      console.log('min:', min, 'max:', max, 'avg:', (sum/history.length).toFixed(1));
+      console.table(formatted);
     })
   })
 
