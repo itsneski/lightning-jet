@@ -30,15 +30,14 @@ const uniqueArr = arr => arr.filter(function(elem, pos) {
 })
 
 module.exports = {
-  listFeesSync(node, mins = 60) {
-    if (!node) throw new Error('node is missing');
+  feeHistorySync({node, mins = 60}) {
     let db = getHandle();
     let done;
     let list = [];
     db.serialize(function() {
       let q = 'SELECT * FROM ' + FEE_HISTORY_TABLE;
-      q += ' WHERE node="' + node + '"';
-      q += ' AND date > ' + (Date.now() - mins * 60 * 1000);
+      q += ' WHERE date > ' + (Date.now() - mins * 60 * 1000);
+      if (node) q += ' AND node="' + node + '"';
       q += ' ORDER BY date ASC';
       if (testMode) console.log(q);
       db.each(q, function(err, row) {

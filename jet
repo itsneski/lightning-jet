@@ -21,6 +21,7 @@ const {htlcAnalyzer} = require('./api/htlc-analyzer');
 const {htlcAnalyzerNode} = require('./api/htlc-analyzer');
 const {classifyPeersSync} = require('./api/utils');
 const {resolveNode} = require('./api/utils');
+const {feeHistorySync} = require('./db/utils');
 
 const {statSync} = require('fs');
 const date = require('date-and-time');
@@ -401,23 +402,31 @@ cap
   })
 
   .command('fee-history', 'Prints fee history for a peer')
-  .argument('<node>', 'Pub id or an alias (full or partial)')
+  .argument('[node]', 'Pub id or an alias (full or partial)')
   .option('--hours [hours]', 'Depth of history in hours')
+  .option('--days [days]', 'Depth of history in days')
   .action((args, options, logger) => {
     return new Promise(async (resolve, reject) => {
-      if (!args.node) return console.error('node is missing');
-
       // find matches
-      let matches = resolveNode(args.node);
-      if (!matches) return console.error('no matches found');
-      else if (matches.length >= 2) return console.error('multiple matches found:', matches);
+      let id, name, peerMap;
 
-      let id = matches[0].id;
-      let name = matches[0].name;
+      if (args.node) {
+        let matches = resolveNode(args.node);
+        if (!matches) return console.error('no matches found');
+        else if (matches.length >= 2) return console.error('multiple matches found:', matches);
 
-      let hours = options.hours || 24 * 7;  // one week by default
-      const dbUtils = require('./db/utils');
-      let history = dbUtils.listFeesSync(id, hours * 60);
+        id = matches[0].id;
+        name = matches[0].name;
+      } else {
+        peerMap = {};
+        let peers = listPeersSync(lndClient);
+        peers.forEach(p => peerMap[p.id] = p.name);
+      }
+
+      let hours = options.hours || (options.days && options.days * 24) || 24 * 7;  // one week by default
+      let req = {mins:hours * 60};
+      if (id) req.node = id;
+      let history = feeHistorySync(req);
 
       let str;
       if (hours > 24) {
@@ -426,8 +435,11 @@ cap
       } else {
         str = hours + ' hours';
       }
-      console.log('fee history for', name, 'over the past', str);
+
+      if (name) console.log('fee history for', name, 'over the past', str);
+      else console.log('fee history over the past', str);
       if (!history || history.length === 0) return console.log('no history found');
+
       history.sort((a, b) => { return b.date - a.date });
       let formatted = [];
       let min = Number.MAX_SAFE_INTEGER, max = 0, avg = 0, sum = 0;
@@ -438,11 +450,12 @@ cap
           max = Math.max(max, h.ppm);
         }
         let entry = { date: date.format(new Date(h.date), 'MM/DD hh:mm A') };
+        if (!id) entry.peer = peerMap[h.node] || h.node;
         if (h.base) entry.base = h.base;
         if (h.ppm) entry.ppm = h.ppm;
         formatted.push(entry);
       })
-      console.log('min:', min, 'max:', max, 'avg:', (sum/history.length).toFixed(1));
+      console.log('count:', history.length, 'min:', min, 'max:', max, 'avg:', (sum/history.length).toFixed(1));
       console.table(formatted);
     })
   })

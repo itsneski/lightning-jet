@@ -1,12 +1,12 @@
 const constants = require('./constants');
 const config = require('./config');
 const lndClient = require('./connect');
-const {listFeesSync} = require('../db/utils');
+const {listFeesSync} = require('../lnd-api/utils');
+const {feeHistorySync} = require('../db/utils');
 const {classifyPeersSync} = require('./utils');
 
 module.exports = {
   rebalanceStatus() {
-    const {listFeesSync} = require('../lnd-api/utils');
     const analyzeFees = module.exports.analyzeFees;
     let classified = classifyPeersSync(lndClient);
     let chans = [];
@@ -92,7 +92,7 @@ module.exports = {
 
     // get recent fee changes for the peer
     const feeHistoryDepth = constants.feeAnalysis.historyDepth;
-    let feeHistory = listFeesSync(peerId, feeHistoryDepth * 60);
+    let feeHistory = feeHistorySync({node:peerId, mins:feeHistoryDepth * 60});
     let feeStats;
     if (feeHistory && feeHistory.length > 0) {
       let min;
@@ -186,7 +186,7 @@ module.exports = {
           // the peer has been flip flopping between fees, with the min being below
           // remote, meaning there is still chance that the fee will be reversed
           addMessage(normal, 'the peer has been changing fees fairly often, with the min of ' + feeStats.min + ' that is less than remote fee');
-          addMessage(normal, 'suggestion: keep on monitoring peer\'s fees, there is a chance the peer will drop fees');
+          addMessage(normal, 'suggestion: keep on monitoring peer\'s fees, there is a chance the peer will reduce fees');
         } else {
           // is there a hope for the peer to drop fees?
           addMessage(normal, 'suggestion: keep on monitoring peer\'s fees');

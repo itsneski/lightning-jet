@@ -8,7 +8,7 @@ Join [Lightning Jet telegram chat](https://t.me/lnjet).
 - [Install BalanceOfSatoshis on RaspiBlitz](#raspiblitz)
 - [Install BalanceOfSatoshis on other platforms](https://github.com/alexbosworth/balanceofsatoshis)
 
-#### Node and Npm
+#### Node and npm
 
 Make sure `node` version is up to date (version 16.x) by running `node -v`. Update `node` in case of an old version; this will also update `npm`.
 ```bash
@@ -76,9 +76,12 @@ jet help
 |`jet monitor`|Monitors ongoing rebalances, rebalance history, and stuck htlcs. Warns about the state of BOLD Database (channel.db), e.g., jet will warn when the channel.db grows over a threshold.|
 |`jet monitor --status`|Monitors the status of rebalances; shows whether rebalances are paused or active; provides recommendation for local ppm range.|
 |`jet htlc-analyzer`|Analyzes failed htlcs and lists peers sorted based on missed routing opportunities. Missed routing opportunities are typically due to [outbound] peers not having sufficient liquidity and/or having low fees.|
-|`jet htlc-analyzer ln2me --days .5`|Details missed routing opportunities for ln2me node over the past half a day or 12 hours.|
+|`jet htlc-analyzer ln2me --hours 12`|Shows missed routing opportunities for ln2me node over the past 12 hours.|
 |`jet analyze-fees`|Analyzes fees for [outbound] peers and recommends whether to increase or decrease fees based on routing history.|
-|`jet htlc-history`|Lists peers classified into inbound, outbound, and balanced based on htlc history. Notable columns: `%` of inbound or outbound routing by a peer out of total [inbound or outbound] across all peers; `d%` of [inbound or outbound] routing by a peer out of total routing [inbound & outbound] by the peer.|
+|`jet analyze-fees WalletOfSatoshi`|Analyzes fees for WalletOfSatoshi and recommends whether to increase or decrease fees based on routing history.|
+|`jet fee-history`|Shows fee history for all peers.|
+|`jet fee-history d++`|Shows fee history for d++.|
+|`jet htlc-history`|Shows total number of sats that peers routed based on htlc history. Notable columns: `%` of inbound or outbound routing by a peer out of total [inbound or outbound] across all peers; `d%` of [inbound or outbound] routing by a peer out of total routing [inbound & outbound] by the peer.|
 |`jet rebalance dplus neski 500000 --ppm 550 --mins 30`|Circular rebalance from dplus to neski for 5mil sats with 550 max ppm and a max runtime of 30 mins.|
 |`jet update-channel 769123776873431041 --base 1 --ppm 375`|Sets the base fee to 1 msat and ppm to 375 sats per million for a channel with id of 769123776873431041.|
 

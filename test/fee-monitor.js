@@ -31,7 +31,6 @@ function recordFees() {
   let fees = listFeesSync(lndClient);
   fees.forEach(f => {
     if (testNodes.includes(f.id)) {
-      // steelrat
       f.remote = { base: f.remote.base + 10, rate: f.remote.rate + 100 }
     }
   })

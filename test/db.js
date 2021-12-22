@@ -6,7 +6,7 @@ dbUtils.enableTestMode();
 
 const timeout = 2 * 1000; // msec
 
-return testDb();
+return testFeeHistory();
 
 function testDb() {
   const name = 'testName';
@@ -19,13 +19,21 @@ function testDb() {
   }, 1000);
 }
 
-
-const node = 'nnnnnnnn';
-const chan = 'cccccccc';
-dbUtils.recordFee({node:node, chan:chan, base:100});
-dbUtils.recordFee({node:node, chan:chan, ppm:999});
-dbUtils.recordFee({node:node, chan:chan, base:750, ppm:1999});
-console.log(dbUtils.listFeesSync(node));
+function testFeeHistory() {
+  const nodeA = 'aaaaaaaa';
+  const nodeB = 'bbbbbbbb';
+  const chanA = 'cacacaca';
+  const chanB = 'cbcbcbcb';
+  dbUtils.recordFee({node:nodeA, chan:chanA, base:100});
+  dbUtils.recordFee({node:nodeA, chan:chanA, ppm:999});
+  dbUtils.recordFee({node:nodeA, chan:chanA, base:750, ppm:1999});
+  dbUtils.recordFee({node:nodeB, chan:chanB, base:250});
+  dbUtils.recordFee({node:nodeB, chan:chanB, ppm:899});
+  dbUtils.recordFee({node:nodeB, chan:chanB, base:500, ppm:999});
+  console.log(dbUtils.feeHistorySync({node:nodeA}));
+  console.log(dbUtils.feeHistorySync({node:nodeB}));
+  console.log(dbUtils.feeHistorySync({}));
+}
 
 dbUtils.recordTelegramMessageSync('hey there');
 dbUtils.recordTelegramMessageSync('another hey there');
