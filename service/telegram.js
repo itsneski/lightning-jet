@@ -71,22 +71,25 @@ function monitorFeesExec() {
     let newFee = {};
     if (f.remote.base != p.remote.base) {
       newFee.base = f.remote.base;
-      let msg = util.format('channel %s with %s: base fee changed from %d to %d', f.chan, f.name, p.remote.base, f.remote.base);
+      let msg = util.format('channel %s with %s: base changed from %d to %d', f.chan, f.name, p.remote.base, f.remote.base);
       console.log(msg);
       // format for telegram
-      msg = util.format('channel %s with <b>%s</b>: base fee changed from %d to %d', f.chan, f.name, p.remote.base, f.remote.base);
+      msg = util.format('channel %s with <b>%s</b>: base changed from %d to %d', f.chan, f.name, p.remote.base, f.remote.base);
       sendMessageFormatted(msg);
     }
     if (f.remote.rate != p.remote.rate) {
-      newFee.ppm = p.remote.rate;
-      let msg = util.format('channel %s with %s: ppm fee changed from %d to %d', f.chan, f.name, p.remote.rate, f.remote.rate);
+      newFee.ppm = f.remote.rate;
+      let msg = util.format('channel %s with %s: ppm changed from %d to %d', f.chan, f.name, p.remote.rate, f.remote.rate);
       console.log(msg);
-      msg = util.format('channel %s with <b>%s</b>: ppm fee changed from %d to %d', f.chan, f.name, p.remote.rate, f.remote.rate);
+      msg = util.format('channel %s with <b>%s</b>: ppm changed from %d to %d', f.chan, f.name, p.remote.rate, f.remote.rate);
       sendMessageFormatted(msg);
     }
     if (newFee.base || newFee.ppm) {
       // record in the db
-      recordFee({node:f.id, chan:f.chan, base:newFee.base, ppm:newFee.ppm});
+      let r = { node:f.id, chan:f.chan };
+      if (newFee.base) r.base = newFee.base;
+      if (newFee.ppm) r.ppm = newFee.ppm;
+      recordFee(r);
       // analyze fees
       if (outboundMap[p.id]) {
         let analysis = analyzeFees(p.name, p.id, p.local, f.remote);
