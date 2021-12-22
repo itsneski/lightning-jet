@@ -364,33 +364,49 @@ module.exports = {
   },
   listActiveRebalancesSync: function() {
     try {
-      var result = execSync('ps -aux | grep "jet rebalance" | grep -v grep').toString().trim();
+      var result = execSync('ps -ef | grep "/bos rebalance" | grep -v grep').toString().trim();
     } catch(error) {
       // not a critical error??
       return;
     }
-
     let list = [];
     let lines = result.split(/\r?\n/);
     if (lines.length === 0) return;
-    lines.forEach(l => {
-      let pref = 'jet rebalance';
-      if (l.indexOf(pref) < 0) return;
-      let tok = l.substring(l.indexOf(pref) + pref.length).split(' ');
-      let from, to, amount, ppm;
-      tok.forEach(t => {
-        let val = t.trim();
-        if (val.length <= 0) return;
-        if (!from) from = val;
-        else if (!to) to = val;
-        else if (!amount) amount = parseInt(val);
-        else if (!ppm && val !== '--ppm') ppm = parseInt(val);
-      })
-      let item = {from:from, to:to, amount: amount};
-      if (ppm) item.ppm = ppm;
-      list.push(item);
+    let peers = listPeersSync(lndClient);
+    lines.forEach(line => {
+      if (!line) return;
+      let from = parsePeer(line, '--out', peers);
+      if (!from) return console.error('listActiveRebalancesSync: couldnt parse from');
+      let to = parsePeer(line, '--in', peers);
+      if (!to) return console.error('listActiveRebalancesSync: couldnt parse to');
+      let amount = parseVal(line, '--amount');
+      if (!amount) return console.error('listActiveRebalancesSync: couldnt parse amount,', line);
+      let ppm = parseVal(line, '--max-fee-rate');
+      if (!ppm) return console.error('listActiveRebalancesSync: couldnt parse ppm,', line);
+      let mins = parseVal(line, '--minutes');
+      if (!mins) return console.error('listActiveRebalancesSync: couldnt parse mins,', line);
+      list.push({from:from, to:to, amount:parseInt(amount), ppm:parseInt(ppm), mins:parseInt(mins)});
     })
     return list;
+
+    function parsePeer(line, pref, peers) {
+      const resolveNode = module.exports.resolveNode;
+      let val = parseVal(line, pref);
+      if (!val) return console.error('listActiveRebalancesSync: couldnt parse ' + pref + ',', line);
+      let matches = resolveNode(val, peers);
+      if (!matches) return console.error('listActiveRebalancesSync: couldnt resolve', val, 'into a node,', line);
+      if (matches.length >=2) return console.error('listActiveRebalancesSync: couldnt resolve', val, 'into a node,', line);
+      return matches[0].id;
+    }
+
+    function parseVal(line, pref) {
+      let ind1 = line.indexOf(pref);
+      if (ind1 <= 0) return;
+      ind1 += pref.length;
+      let ind2 = line.indexOf('--', ind1);
+      if (ind2 >= 0) return line.substring(ind1, ind2).trim();
+      else return line.substring(ind1).trim();
+    }
   },
   readLastLineSync: function(file) {
     let lastLine;

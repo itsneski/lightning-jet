@@ -1,0 +1,8 @@
+#!/usr/bin/env node
+
+const {listActiveRebalancesSync} = require('../api/utils');
+const {listActiveRebalancesSyncV2} = require('../api/utils');
+const {listActiveRebalancesFormattedSync} = require('../api/utils');
+
+console.table(listActiveRebalancesSync());
+console.table(listActiveRebalancesFormattedSync());
