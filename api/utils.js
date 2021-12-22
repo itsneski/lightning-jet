@@ -276,6 +276,7 @@ module.exports = {
     let pendingInfo = getNodesInfoSync(lndClient, pendingPeers);
     let pendingMap = {};
     pendingInfo.forEach(i => {
+      if (!i) return; // https://github.com/itsneski/lightning-jet/issues/30
       pendingMap[i.node.pub_key] = i.node.alias;
     })
 
