@@ -42,24 +42,24 @@ module.exports = {
 
     try {
       let stats = statSync(global.channelDbFile);
-      let size = Math.round(stats.size / Math.pow(10, 6));  // in mbs
+      let size = global.testChannelDbSize || Math.round(stats.size / Math.pow(10, 6));  // in mbs
       let str = (size >= 1000) ? withCommas(size) + ' gb' : size + ' mb';
 
-      let msg;
+      let msg = 'channe.db is located under ' + global.channelDbFile;
       if (size > priority.urgent * 1000) {
-        msg = 'channel.db size ' + str + ' exceeds ' + priority.urgent + ' gb';
+        msg += '\nchannel.db size ' + str + ' exceeds ' + priority.urgent + ' gb';
         msg += '\nyou must prune & compact ASAP: https://plebnet.wiki/wiki/Compacting_Channel_DB';
         return { msg: msg, priority: priority.urgent }
       } else if (size > priority.serious * 1000) {
-        msg = 'channel.db size ' + str + ' exceeds ' + priority.serious + ' gb';
+        msg += '\nchannel.db size ' + str + ' exceeds ' + priority.serious + ' gb';
         msg += '\nconsider pruning & compacting: https://plebnet.wiki/wiki/Compacting_Channel_DB';
         return { msg: msg, priority: priority.serious }
       } else if (size > priority.warning * 1000) {
-        msg = 'channel.db size ' + str + ' exceeds ' + priority.serious + ' gb';
+        msg += '\nchannel.db size ' + str + ' exceeds ' + priority.warning + ' gb';
         msg += '\nfamiliarize yourself with compacting & pruning procedure: https://plebnet.wiki/wiki/Compacting_Channel_DB';
         return { msg: msg, priority: priority.warning }
       } else {
-        msg = 'channel.db size ' + str + ' is within normal limits';
+        msg += '\nchannel.db size ' + str + ' is within normal limits';
         return { msg: msg, priority: priority.normal }
       }
     } catch(error) {

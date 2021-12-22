@@ -1,0 +1,19 @@
+#!/usr/bin/env node
+
+const {checkSize} = require('../api/channeldb');
+const {printCheckSize} = require('../api/channeldb');
+
+global.testChannelDbSize = 1578;
+printCheckSize();
+
+global.testChannelDbSize = 2255;
+console.log();
+printCheckSize();
+
+global.testChannelDbSize = 5467;
+console.log();
+printCheckSize();
+
+global.testChannelDbSize = 7352;
+console.log();
+printCheckSize();
