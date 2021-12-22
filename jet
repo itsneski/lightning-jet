@@ -460,6 +460,16 @@ cap
     })
   })
 
+  .command('channeldb', 'Prints stats about the channel.db')
+  .action((args, options, logger) => {
+    return new Promise(async (resolve, reject) => {
+      const {getPath} = require('./api/channeldb');
+      const {printCheckSize} = require('./api/channeldb');
+      console.log('channel.db is located under', getPath());
+      printCheckSize();
+    })
+  })
+
   .command('send-message', 'Sends a message to a node via keysend')
   .argument('<node>', 'Node pub id')
   .argument('<message>', 'Message to send')
