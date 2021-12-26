@@ -134,28 +134,32 @@ module.exports = {
   },
   stopService: function(name) {
     if (!name) return console.error('missing service');
-    if (!services[name]) return console.error('unknown service:', name);
-    return services[name].stop();
-  },
-  startService: function(name) {
-    if (!name) return console.error('missing service');
-    if (!services[name]) return console.error('unknown service:', name);
-    return services[name].start();
-  },
-  restartService: function(name) {
-    if (!name) return 'missing service';
-    const daddy = module.exports.Launcher;
     if (name === 'all') {
-      // stop all services
+      const daddy = module.exports.Launcher;
+      daddy.stop();
       Object.values(services).forEach(s => {
         if (s.name !== daddy.name) s.stop();
       })
-      daddy.stop();
-      // start all services
-      Object.values(services).forEach(s => {
-        if (s.name !== daddy.name) s.start();
-      })
-      daddy.start();
+    } else {
+      if (!services[name]) return console.error('unknown service:', name);
+      return services[name].stop();
+    }
+  },
+  startService: function(name) {
+    if (!name) return console.error('missing service');
+    if (name === 'all') {
+      const daddy = module.exports.Launcher;
+      daddy.start();  // will start all other services
+    } else {
+      if (!services[name]) return console.error('unknown service:', name);
+      return services[name].start();
+    }
+  },
+  restartService: function(name) {
+    if (!name) return 'missing service';
+    if (name === 'all') {
+      module.exports.stopService('all');
+      module.exports.startService('all');
     } else {
       if (!services[name]) return 'unknown service: ' + name;
       return services[name].restart();

@@ -46,7 +46,7 @@ cap
   .version(version)
 
   .command('start', 'Starts a service')
-  .argument('<service>', 'Services', serviceNames)
+  .argument('<service>', 'Service; use \'all\' to restart all services', serviceNamesPlus)
   .help(`Services: ${serviceNames.join(', ')}`)
   .action((args, options, logger) => {
     return new Promise(async (resolve, reject) => {
@@ -56,7 +56,7 @@ cap
   })
 
   .command('stop', 'Stops a service')
-  .argument('<service>', 'Services', serviceNames)
+  .argument('<service>', 'Service; use \'all\' to restart all services', serviceNamesPlus)
   .help(`Services: ${serviceNames.join(', ')}`)
   .action((args, options, logger) => {
     return new Promise(async (resolve, reject) => {
@@ -65,7 +65,7 @@ cap
   })
 
   .command('restart', 'Restarts a service')
-  .argument('<service>', 'Services; use \'all\' to restart all services', serviceNamesPlus)
+  .argument('<service>', 'Service; use \'all\' to restart all services', serviceNamesPlus)
   .help(`Services: ${serviceNames.join(', ')}`)
   .action((args, options, logger) => {
     return new Promise(async (resolve, reject) => {
@@ -73,7 +73,7 @@ cap
     })
   })
 
-  .command('status', 'Prints service status')
+  .command('status', 'Shows services status')
   .action((args, options, logger) => {
     return new Promise(async (resolve, reject) => {
       printStatus();
