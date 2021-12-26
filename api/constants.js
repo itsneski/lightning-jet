@@ -19,7 +19,7 @@ exports.rebalancer = {
   maxInstances: 10, // max rebalancer instances
   maxPendingHtlcs: 4,
   minBuffer: 20,  // sats
-  buffer: 200, // sats
+  buffer: 250, // sats
   minCapacity: 990000  // sats
 }
 

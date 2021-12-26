@@ -86,7 +86,7 @@ module.exports = {
     const maxPpm = global.testMaxPpm || config.rebalancer.maxAutoPpm || constants.rebalancer.maxAutoPpm;
     const enforceMaxPpm = (global.testEnforceMaxPpm === undefined) ? config.rebalancer.enforceMaxPpm : global.testEnforceMaxPpm;
     const minBuffer = constants.rebalancer.minBuffer;
-    const buffer = constants.rebalancer.buffer;
+    const buffer = config.rebalancer.buffer || constants.rebalancer.buffer;
     const enforceProfitability = (global.testEnforceProfitability === undefined) ? config.rebalancer.enforceProfitability : global.testEnforceProfitability;
 
     let optimalMaxPpm;
@@ -118,6 +118,7 @@ module.exports = {
 
     let intro = 'current fees: local { base: ' + localFee.base + ', ppm: ' + localFee.rate + ' } remote { base: ' + remoteFee.base + ', ppm: ' + remoteFee.rate + ' }. max ppm: ' + maxPpm + ' (';
     intro += (enforceMaxPpm) ? 'enforced)' : 'not enforced)';
+    intro += ', rebalance buffer is ' + buffer + ' sats';
     if (enforceProfitability) intro += ', profitability is enforced';
     if (profit) intro += ', profit margin: ' + profit + '%';
     if (feeStats) intro += '\nthe peer changed ppm ' + feeStats.count + ' time(s) over the past ' + feeHistoryDepth + ' hours, min: ' + feeStats.min + ', max: ' + feeStats.max;
