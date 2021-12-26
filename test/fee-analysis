@@ -1,8 +1,13 @@
+#!/usr/bin/env node
+
 const {printFeeAnalysis} = require('../api/analyze-fees');
 const constants = require('../api/constants');
 
-const profit = 25;
 global.testModeOn = true;
+
+return bug36();
+
+const profit = 25;
 
 global.testMaxPpm = 500;
 global.testEnforceMaxPpm = false;
@@ -16,6 +21,26 @@ runAnalysis();
 global.testEnforceProfitability = true;
 
 runAnalysis();
+
+// https://github.com/itsneski/lightning-jet/issues/36
+function bug36() {
+  global.testMaxPpm = 450;
+  global.testEnforceMaxPpm = true;
+  global.testEnforceProfitability = true;
+  printFeeAnalysis(
+    'WalletOfSatoshi',
+    '035e4ff418fc8b5554c5d9eea66396c227bd429a3251c8cbc711002ba215bfc226',
+    { base: 0, rate: 700 },  // local
+    { base: 1000, rate: 499 }   // remote
+  )
+  console.log();
+  printFeeAnalysis(
+    'WalletOfSatoshi',
+    '035e4ff418fc8b5554c5d9eea66396c227bd429a3251c8cbc711002ba215bfc226',
+    { base: 0, rate: 700 },  // local
+    { base: 1, rate: 500 }   // remote
+  )
+}
 
 function runAnalysis() {
   console.log();

@@ -56,10 +56,12 @@ module.exports = {
       if (m.importance === constants.feeAnalysis.success) color = constants.colorGreen;
       if (color) console.log(color, m.message);
       else console.log(m.message);
+
       // rebalancing status
       if (m.action === action.pause) status.push('action: pause');
       if (m.maxPpm) status.push('current max ppm: ' + m.maxPpm);
       if (m.suggestedPpm) status.push('suggested max ppm: ' + m.suggestedPpm);
+      if (m.summary) status.push('summary: ' + m.summary);
     })
     if (global.testModeOn && status.length > 0) console.log('(' + status.join(', ') + ')');
     return msgs.length;
@@ -201,7 +203,7 @@ module.exports = {
         if (enforceMaxPpm && remote > maxPpm) {
           let msg = 'suggested local ppm and / or max ppm range: ' + range;
           addMessage(normal, msg);
-          status.summary = 'remote ppm exceeds local. revisit local ppm and / or max ppm based on suggested range';
+          status.summary = 'remote ppm exceeds max ppm. revisit max ppm based on suggested range';
         } else {
           let msg = 'suggested local ppm range: ' + range;
           addMessage(normal, msg);
