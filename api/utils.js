@@ -332,6 +332,8 @@ module.exports = {
       if (l.rebalanced) item.rebalanced = withCommas(l.rebalanced);
       item.status = (l.status === 1) ? 'success' : 'failed';
       if (l.extra) item.error = l.extra;
+      if (l.ppm > 0) item.ppm  = l.ppm;
+      if (l.min > 0) item.min = l.min;
       formatted.push(item);
     })
     formatted.sort(function(a, b) {

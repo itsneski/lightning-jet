@@ -159,6 +159,10 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
     }
   })
 
+  // store min ppm of a failed route due to high fee;
+  // present it as a stat in jet rebalance-history
+  let minFailedPpm = Number.MAX_SAFE_INTEGER;
+
   console.log('\n----------------------------------------')
   console.log(`from: ${outName}, ${outId}`);
   console.log(`to: ${inName}, ${inId}`);
@@ -262,7 +266,8 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
               count++;
             })
             console.log('the route has', nodes.length, 'nodes:', stringify(nodes));
-            console.log('the route has a cumulative fee of', ppmsum, 'vs', ppm, 'targeted');
+            console.log('the route has a [cumulative] ppm of', ppmsum, 'vs', ppm, 'targeted');
+            minFailedPpm = Math.min(minFailedPpm, ppmsum);
             if (max) {
               console.log('identified a node to unblock the route:', stringify(max));
               if (max.ppm > ppm_per_hop) {
@@ -397,7 +402,7 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
         amountRebalanced += amount;
 
         // record result in the db for further optimation
-        recordRebalance(outId, inId, AMOUNT, amount);
+        recordRebalance(outId, inId, AMOUNT, amount, Math.round(1000000 * fees / amount));
 
         console.log('* total amount rebalanced:', numberWithCommas(amountRebalanced));
         if (fees > 0) {
@@ -453,7 +458,8 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
 
   // record rebalance failure, success has already been recorded
   if (amountRebalanced <= 0 && ['rebalanceFeeTooHigh', 'failedToFindPath'].indexOf(lastError) >= 0) {
-    recordRebalanceFailure(outId, inId, AMOUNT, lastError);
+    if (minFailedPpm < Number.MAX_SAFE_INTEGER) recordRebalanceFailure(outId, inId, AMOUNT, lastError, ppm, minFailedPpm);
+    else recordRebalanceFailure(outId, inId, AMOUNT, lastError, ppm);
   }
 
   printStats(lndClient, nodeStats, nodeInfo);

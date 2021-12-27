@@ -1,12 +1,30 @@
+#!/usr/bin/env node
+
 const dbUtils = require('../db/utils');
 const fs = require('fs');
 const file = '/tmp/jet_test.db';
-if (fs.existsSync(file)) fs.unlinkSync(file);
+//if (fs.existsSync(file)) fs.unlinkSync(file);
 dbUtils.enableTestMode();
 
 const timeout = 2 * 1000; // msec
 
-return testFeeHistory();
+return testRebalanceHistory();
+
+function testNameValList() {
+  dbUtils.recordValSync('aaaa', 1234);
+  dbUtils.recordValSync('aaaa', 5678);
+  dbUtils.recordValSync('bbbb', 4321);
+  dbUtils.recordValSync('aaaa:bbbb', 1111);
+  dbUtils.recordValSync('cccc:bbbb', 2222);
+  dbUtils.recordValSync('aaaa:cccc', 3333);
+  dbUtils.recordValSync('bbbb:cccc', 4444);
+  console.log(dbUtils.getValSync('aaaa'));
+  console.log(dbUtils.getValSync('bbbb'));
+  console.log(dbUtils.getValSync('does not exist'));
+  console.log(dbUtils.getValByFilterSync('aaaa:%'));
+  console.log(dbUtils.getValByFilterSync('%:bbbb'));
+  console.log(dbUtils.getValByFilterSync('%aaaa%'));
+}
 
 function testDb() {
   const name = 'testName';
@@ -159,10 +177,12 @@ function testHtlcs() {
   }, timeout);
 }
 
-dbUtils.recordRebalance('node_a', 'node_b', 1000000, 350000);
-dbUtils.recordRebalance('node_a', 'node_c', 2000000, 550000);
-dbUtils.recordRebalanceFailure('node_a', 'node_c', 1000000, 'ops');
-dbUtils.recordRebalanceFailure('node_a', 'node_c', 2000000, 'ops again');
-setTimeout(() => {
-  console.log(dbUtils.listRebalancesSync()); 
-}, timeout);
+function testRebalanceHistory() {
+  dbUtils.recordRebalance('node_a', 'node_b', 1000000, 350000, 350);
+  dbUtils.recordRebalance('node_a', 'node_c', 2000000, 550000, 675);
+  dbUtils.recordRebalanceFailure('node_a', 'node_c', 1000000, 'ops', 550, 950);
+  dbUtils.recordRebalanceFailure('node_a', 'node_c', 2000000, 'ops again', 675);
+  setTimeout(() => {
+    console.log(dbUtils.listRebalancesSync()); 
+  }, timeout);
+}

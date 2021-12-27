@@ -12,6 +12,7 @@ const REBALANCE_HISTORY_TABLE = 'rebalance_history';
 const FAILED_HTLC_TABLE = 'failed_htlc';
 const REBALANCE_AVOID_TABLE = 'rebalance_avoid';
 const NAMEVAL_TABLE = 'nameval';
+const NAMEVAL_LIST_TABLE = 'nameval_list';
 const TELEGRAM_MESSAGES_TABLE = 'telegram_messages';
 const FEE_HISTORY_TABLE = 'fee_history';
 
@@ -30,6 +31,68 @@ const uniqueArr = arr => arr.filter(function(elem, pos) {
 })
 
 module.exports = {
+  getValByFilterSync(filter) {
+    let db = getHandle();
+    let done;
+    let data = [];
+    try {
+      db.serialize(function() {
+        let q = 'SELECT date, val FROM ' + NAMEVAL_LIST_TABLE + ' WHERE name like "' + filter + '"';
+        db.each(q, function(err, row) {
+          data.push(row);
+        }, function(error) {
+          if (error) throw new Error(error.message);
+          done = true;
+        })
+      })
+      while(done === undefined) {
+        require('deasync').runLoopOnce();
+      }
+      return data.length > 0 ? data : undefined;
+    } catch(error) {
+      console.error('getValByFilterSync:', error.message);
+    } finally {
+      closeHandle(db);
+    }
+  },
+  getValSync(name) {
+    let db = getHandle();
+    let done;
+    let data = [];
+    try {
+      db.serialize(function() {
+        let q = 'SELECT date, val FROM ' + NAMEVAL_LIST_TABLE + ' WHERE name="' + name + '"';
+        db.each(q, function(err, row) {
+          data.push(row);
+        }, function(error) {
+          if (error) throw new Error(error.message);
+          done = true;
+        })
+      })
+      while(done === undefined) {
+        require('deasync').runLoopOnce();
+      }
+      return data.length > 0 ? data : undefined;
+    } catch(error) {
+      console.error('getValSync:', error.message);
+    } finally {
+      closeHandle(db);
+    }
+  },
+  recordValSync(name, val) {
+    let db = getHandle();
+    try {
+      db.serialize(function() {
+        let values = constructInsertString([Date.now(), name, val]);
+        let cmd = 'INSERT INTO ' + NAMEVAL_LIST_TABLE + ' VALUES (' + values + ')';
+        executeDbSync(db, cmd);
+      })
+    } catch(error) {
+      console.error('addValSync:', error.message);
+    } finally {
+      closeHandle(db);
+    }
+  },
   feeHistorySync({node, mins = 60}) {
     let db = getHandle();
     let done;
@@ -180,7 +243,7 @@ module.exports = {
       }
       return data;
     } catch(error) {
-      console.error('setProp:', error.message);
+      console.error('getPropAndDateSync:', error.message);
     } finally {
       closeHandle(db);
     }
@@ -196,7 +259,7 @@ module.exports = {
         executeDbSync(db, cmd);
       })
     } catch(error) {
-      console.error('setProp:', error.message);
+      console.error('setPropSync:', error.message);
     } finally {
       closeHandle(db);
     }
@@ -318,7 +381,7 @@ module.exports = {
       return err;
     }
   },
-  recordRebalance(from, to, amount, rebalanced) {
+  recordRebalance(from, to, amount, rebalanced, ppm) {
     if (doIt()) {
       // retry in case of an error
       console.log('recordRebalance: retrying due to an error');
@@ -330,8 +393,8 @@ module.exports = {
       let db = getHandle();
       try {
         db.serialize(function() {
-          let values = constructInsertString([Date.now(), from, to, amount, rebalanced, 1]);
-          let cmd = 'INSERT INTO ' + REBALANCE_HISTORY_TABLE + '(date, from_node, to_node, amount, rebalanced, status) VALUES (' + values + ')';
+          let values = constructInsertString([Date.now(), from, to, amount, rebalanced, ppm, 1]);
+          let cmd = 'INSERT INTO ' + REBALANCE_HISTORY_TABLE + '(date, from_node, to_node, amount, rebalanced, ppm, status) VALUES (' + values + ')';
           executeDb(db, cmd);
         })
       } catch(error) {
@@ -343,7 +406,7 @@ module.exports = {
       return err;
     }
   },
-  recordRebalanceFailure(from, to, amount, errorMsg) {
+  recordRebalanceFailure(from, to, amount, errorMsg, ppm, min) {
     if (doIt()) {
       // retry in case of an error
       console.log('recordRebalanceFailure: retrying due to an error');
@@ -355,8 +418,14 @@ module.exports = {
       let db = getHandle();
       try {
         db.serialize(function() {
-          let values = constructInsertString([Date.now(), from, to, amount, 0, errorMsg]);
-          let cmd = 'INSERT INTO ' + REBALANCE_HISTORY_TABLE + '(date, from_node, to_node, amount, status, extra) VALUES (' + values + ')';
+          let props = [Date.now(), from, to, amount, 0, errorMsg, ppm];
+          let names = 'date, from_node, to_node, amount, status, extra, ppm';
+          if (min > 0) {
+            props.push(min);
+            names += ', min';
+          }
+          let values = constructInsertString(props);
+          let cmd = 'INSERT INTO ' + REBALANCE_HISTORY_TABLE + '(' + names + ') VALUES (' + values + ')';
           executeDb(db, cmd);
         })
       } catch(error) {
@@ -392,6 +461,8 @@ module.exports = {
           to: row.to_node,
           amount: row.amount,
           rebalanced: row.rebalanced,
+          ppm: row.ppm,
+          min: row.min,
           status: row.status,
           extra: row.extra
         })
@@ -446,6 +517,7 @@ function createTables() {
     createFailedHtlcTable(db);
     createRebalanceAvoidTable(db);
     createNamevalTable(db);
+    createNamevalListTable(db);
     createTelegramMessagesTable(db);
     createFeeHistoryTable(db);
   })
@@ -469,7 +541,14 @@ function createFailedHtlcTable(db) {
 }
 
 function createRebalanceHistoryTable(db) {
-  executeDbSync(db, "CREATE TABLE IF NOT EXISTS " + REBALANCE_HISTORY_TABLE + " (date INTEGER NOT NULL, from_node TEXT NOT NULL, to_node TEXT NOT NULL, amount INTEGER NOT NULL, rebalanced INTEGER DEFAULT 0, status INTEGER, extra TEXT DEFAULT NULL)");
+  executeDbSync(db, "CREATE TABLE IF NOT EXISTS " + REBALANCE_HISTORY_TABLE + " (date INTEGER NOT NULL, from_node TEXT NOT NULL, to_node TEXT NOT NULL, amount INTEGER NOT NULL, rebalanced INTEGER DEFAULT 0, ppm INTEGER, min INTEGER, status INTEGER, extra TEXT DEFAULT NULL)");
+  // add a column, it'll error out if the column already exists
+  executeDbSync(db, "ALTER TABLE " + REBALANCE_HISTORY_TABLE + " ADD COLUMN ppm INTEGER");
+  executeDbSync(db, "ALTER TABLE " + REBALANCE_HISTORY_TABLE + " ADD COLUMN min INTEGER");
+}
+
+function createNamevalListTable(db) {
+  executeDbSync(db, "CREATE TABLE IF NOT EXISTS " + NAMEVAL_LIST_TABLE + " (date INTEGER NOT NULL, name TEXT NOT NULL, val TEXT)");
 }
 
 function createRebalanceAvoidTable(db) {
