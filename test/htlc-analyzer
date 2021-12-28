@@ -1,0 +1,9 @@
+#!/usr/bin/env node
+
+const lndClient = require('../api/connect');
+const {classifyPeersSync} = require('../api/utils');
+const {htlcAnalyzer} = require('../api/htlc-analyzer');
+const {htlcAnalyzerFormatted} = require('../api/htlc-analyzer');
+const {classifyPeersAnalyzer} = require('../api/htlc-analyzer');
+
+console.log(classifyPeersAnalyzer());

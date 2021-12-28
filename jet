@@ -17,7 +17,7 @@ const {listPeersSync} = require('./lnd-api/utils');
 const {updateChannelSync} = require('./lnd-api/update-channel');
 const {listChannels} = require('./api/list-channels');
 const {htlcHistoryFormatted} = require('./api/htlc-history');
-const {htlcAnalyzer} = require('./api/htlc-analyzer');
+const {htlcAnalyzerFormatted} = require('./api/htlc-analyzer');
 const {htlcAnalyzerNode} = require('./api/htlc-analyzer');
 const {classifyPeersSync} = require('./api/utils');
 const {resolveNode} = require('./api/utils');
@@ -284,7 +284,7 @@ cap
             console.log('no missed htlcs found');
           }
         } else {
-          let formatted = htlcAnalyzer(days);
+          let formatted = htlcAnalyzerFormatted(days);
           if (formatted) {
             console.log('\ndetailed breakdown of missed htlcs for [outbound] peers:');
             console.log('-to: [outbound] peer that attempted to route sats');
@@ -465,7 +465,7 @@ cap
     return new Promise(async (resolve, reject) => {
       const {getPath} = require('./api/channeldb');
       const {printCheckSize} = require('./api/channeldb');
-      console.log('channel.db is located under', getPath());
+      console.log('channel.db is located at', getPath());
       printCheckSize();
     })
   })

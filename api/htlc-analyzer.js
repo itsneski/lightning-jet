@@ -8,9 +8,70 @@ const {listPeersSync} = require('../lnd-api/utils');
 const {listPeersMapSync} = require('../lnd-api/utils');
 const {listHtlcsSync} = require('../db/utils');
 const {withCommas} = require('../lnd-api/utils');
+const {classifyPeersSync} = require('./utils');
 const date = require('date-and-time');
 
 module.exports = {
+  // overrides classifyPeersSync in api/utils. amends prioritization
+  // of peers based on missed routing opportunities
+  classifyPeersAnalyzer() {
+    let htlcs = module.exports.htlcAnalyzer();
+    let classify = classifyPeersSync(lndClient);
+    if (!htlcs.peers || htlcs.peers.length === 0) return classify;
+    
+    // create a map for easy access
+    let peerMap = {};
+    htlcs.peers.forEach(p => peerMap[p.toId] = p);
+    let outboundMap = {};
+    if (classify.outbound) {
+      classify.outbound.forEach(n => { if (!outboundMap[n.peer]) outboundMap[n.peer] = n});
+    }
+    let balancedMap = {};
+    if (classify.balanced) {
+      classify.balanced.forEach(n => {if (!balancedMap[n.peer]) balancedMap[n.peer] = n});
+    }
+
+    // amend prioritization of outbound and balanced peers based on
+    // missed htlcs. current algo focuses on the outliers
+    // with p of at least 10% of the total missed.
+    htlcs.peers.forEach(p => {
+      if (p.p < 10) return;
+      let item = outboundMap[p.toId] || balancedMap[p.toId];
+      if (!item) return;  // neither outbound nor balanced
+      if (p.sats < .25 * item.sum) return; // revisit, ensure sufficient volume of missed sats, currently daily missed sats should be at least 25% of weekly routed
+      item.pMissed = p.p;
+      // record amended
+      classify.amended = classify.amended || [];
+      classify.amended.push(p);
+      // move from balanced to outbound list to give it higher priority; revisit
+      if (balancedMap[p.toId]) {
+        let b = balancedMap[p.toId];
+        let index = 0;
+        for(i = 0; i < classify.balanced.length; i++) {
+          if (classify.balanced[i].id === b.id) index = i;
+        }
+        classify.balanced.splice(index, 1);
+        classify.outbound.push(b);
+        balancedMap[p.toId] = undefined;
+      }
+    })
+
+    // now resort
+    resort(classify.outbound);
+    resort(classify.balanced);
+
+    return classify;
+
+    function resort(list) {
+      list.sort((a, b) => {
+        if (a.pMissed && b.pMissed) return b.pMissed - a.pMissed;
+        if (a.pMissed) return -1;
+        if (b.pMissed) return 1;
+        if (a.p && b.p) return b.p - a.p;
+        return 0;
+      })
+    } 
+  },
   htlcAnalyzerNode(node, days = 1) {
     if (!node) throw new Error('node is missing');
 
@@ -116,6 +177,26 @@ module.exports = {
       list: formatted
     }
   },
+  htlcAnalyzerFormatted(days) {
+    let res = module.exports.htlcAnalyzer(days);
+    if (!res) return;
+    if (res.peers) {
+      res.peers.forEach(p => {
+        p.sats = withCommas(p.sats);
+        p.avg = withCommas(p.avg);
+        delete p.toId;
+      })
+    }
+    if (res.list) {
+      res.list.forEach(p => {
+        p.sats = withCommas(p.sats);
+        p.avg = withCommas(p.avg);
+        delete p.fromId;
+        delete p.toId;
+      })
+    }
+    return res;
+  },
   htlcAnalyzer(days = 1) {
     let curr;
     let htlcs = listHtlcsSync({days:days});
@@ -163,7 +244,9 @@ module.exports = {
         let name = (k == '0') ? info.alias : peerMap[channelMap[k].remote_pubkey].name
         formatted.push({
           from: name,
+          fromId: channelMap[k].remote_pubkey,
           to: peerMap[channelMap[l].remote_pubkey].name,
+          toId: channelMap[l].remote_pubkey,
           sats: sumMap[k][l].sum,
           avg: Math.round(sumMap[k][l].sum / sumMap[k][l].count),
           count: sumMap[k][l].count
@@ -176,8 +259,6 @@ module.exports = {
     })
     formatted.forEach(f => {
       f.p = Math.round(100 * f.sats / sum);
-      f.sats = withCommas(f.sats);
-      f.avg = withCommas(f.avg);
     })
 
     // format for printing
@@ -186,6 +267,7 @@ module.exports = {
       if (!channelMap[c]) return; // unknown channel, already reported above
       peerStats.push({
         to: peerMap[channelMap[c].remote_pubkey].name,
+        toId: channelMap[c].remote_pubkey,
         sats: perPeerMap[c].total,
         count: perPeerMap[c].count,
         avg: Math.round(perPeerMap[c].total / perPeerMap[c].count),
@@ -193,10 +275,6 @@ module.exports = {
       })
     })
     peerStats.sort(function(a, b) { return b.sats - a.sats });
-    peerStats.forEach(s => {
-      s.sats = withCommas(s.sats);
-      s.avg = withCommas(s.avg);
-    })
 
     return {
       peers: peerStats,

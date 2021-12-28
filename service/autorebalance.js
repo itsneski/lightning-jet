@@ -10,6 +10,7 @@ const config = require('../api/config');
 const {exec} = require('child_process');
 const {listChannelsMapSync} = require('../lnd-api/utils');
 const {classifyPeersSync} = require('../api/utils');
+const {classifyPeersAnalyzer} = require('../api/htlc-analyzer');
 const {listFeesSync} = require('../lnd-api/utils');
 const {listPeersMapSync} = require('../lnd-api/utils');
 const {stuckHtlcsSync} = require('../lnd-api/utils');
@@ -121,7 +122,7 @@ function printHtlcHistory() {
 function classify() {
   try {
     console.log('classifying peers...');
-    classified = classifyPeersSync(lndClient);
+    classified = classifyPeersAnalyzer(lndClient);
   } catch(error) {
     console.error('classify:', error);
   } finally {
@@ -225,6 +226,7 @@ function autoRebalance(inboundId, balanced, firstRound) {
       let ch = channels[c.peer];
       if (c.name.indexOf('LNBIG.com') === 0) {  // special case???
         if (ch.local_balance < 2500000) {
+          console.log('including [outbound] ' + peers[c.peer].name + ', ' + c.peer + ' for ' + base + ' sats');
           commands.push({from: inboundId, to: c.peer, amount: base});
         } else {
           console.log(colorYellow, `${c.name} has sufficient local capacity, skipping`);
@@ -234,6 +236,7 @@ function autoRebalance(inboundId, balanced, firstRound) {
         // ok to be more aggressive on outbound channels and with
         // the max available liquidity
         if (ch.local_balance < .5 * ch.capacity) {
+          console.log('including [outbound] ' + peers[c.peer].name + ', ' + c.peer + ' for ' + base + ' sats');
           commands.push({from: inboundId, to: c.peer, amount: base});
         } else {
           console.log(colorYellow, `${c.name} has sufficient local capacity, skipping`);
@@ -249,7 +252,7 @@ function autoRebalance(inboundId, balanced, firstRound) {
 
       let type = exclude[c.peer];
       if (type && ['all', 'outbound'].includes(type)) {
-        return console.log(colorYellow, 'excluding [outbound] ' + peers[c.peer].name + ', ' + c.peer + ' based on exclude settings');
+        return console.log(colorYellow, 'excluding [balanced] ' + peers[c.peer].name + ', ' + c.peer + ' based on exclude settings');
       }
 
       let ch = channels[c.peer];
@@ -263,8 +266,7 @@ function autoRebalance(inboundId, balanced, firstRound) {
       // calculate amount to rebalance; take it more gradually on outbound channels
       let delta = Math.round(.5 * ch.capacity - ch.local_balance);
       let rebalanceAmount = Math.round(Math.min(base, .25 * delta));  // is quarter sufficient????
-      //console.log('name:', name, 'delta:', delta, 'base:', base, 'amount:', rebalanceAmount);
-
+      console.log('including [balanced] ' + peers[c.peer].name + ', ' + c.peer + ' for ' + rebalanceAmount + ' sats');
       commands.push({from: inboundId, to: c.peer, amount: rebalanceAmount});
     })
   }
@@ -382,7 +384,7 @@ function executeCommands() {
   }
 
   function printCommand(c) {
-    console.log({from: getNodeName(c.from), to: getNodeName(c.to), amount: c.amount});
+    console.log({from: getNodeName(c.from) + ', ' + c.from, to: getNodeName(c.to), amount: c.amount});
   }
 
   function countRunning() {
