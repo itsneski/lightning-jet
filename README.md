@@ -10,12 +10,12 @@ Join [Lightning Jet telegram chat](https://t.me/lnjet).
 
 #### Node and npm
 
-Make sure `node` version is up to date (version 16.x) by running `node -v`. Update `node` in case of an old version; this will also update `npm`.
+Make sure `node` is up to date (version 16.x) by running `node -v`. Update `node` in case of an old version (this will also update `npm`).
 ```bash
 curl -sL https://deb.nodesource.com/setup_16.x | sudo -E bash -
 sudo apt-get install -y nodejs
 ```
-Make sure `npm` version is up to date (version 8.x) by running `npm -v`. Update `npm` in case of an old version; refer to `node` update steps above. Note that you may run into an issue of having multiple copies of `npm` installed if you update `npm` separately from `node`. Re-run `npm -v` after the update to ensure that your path is picking it up. Note: you may have multiple `npm` copies present if your path isn't picking it up; double check it by `find / -name npm 2> /dev/null`.
+Make sure `npm` is up to date (version 8.x) by running `npm -v`. Update `npm` in case of an old version; refer to `node` update steps above. Note that you may run into an issue of having multiple copies of `npm` installed if you update `npm` separately from `node`. Re-run `npm -v` after the update to ensure that your path is picking the update version. Note: you may have multiple `npm` copies present if your path isn't picking it up; locate mnultiple copies by `find / -name npm 2> /dev/null`; identify the updated copy and update `PATH` in `~/.profile`.
 
 ## Installation
 ```bash
@@ -24,7 +24,7 @@ cd lightning-jet
 npm install --build-from-source --python=/usr/bin/python3
 nano ./api/config.json
 ```
-Edit `config.json`: set correct paths for `macaroonPath` and `tlsCertPath`. On umbrel, admin macaroon is typically located at `~/umbrel/lnd/data/chain/bitcoin/mainnet/readonly.macaroon`, tls cert is at `~/umbrel/lnd/tls.cert`. Optional: you can list expensive nodes to avoid in the `avoid` section of the config file (can be done later).
+Edit `config.json`: set correct paths for `macaroonPath` and `tlsCertPath`. On umbrel, macaroons are typically located at `~/umbrel/lnd/data/chain/bitcoin/mainnet/readonly.macaroon`, tls cert is at `~/umbrel/lnd/tls.cert`. Optional: you can list expensive nodes to avoid in the `avoid` section of the config file (can be done later).
 ```bash
 nano ~/.profile
 ```
@@ -38,7 +38,7 @@ Next, execute the updated `.profile` for your current terminal session. The path
 ```bash
 . ~/.profile
 ```
-Test your path by running `jet`. Your path is set correctly if you get a help prompt. Double-check the `PATH` in `.profile` in case you get an error.
+Test your path by running `jet -v`. Your path is set correctly if it prints out help. Fix the `PATH` in `~/.profile` in case of an error.
 
 #### RaspiBlitz
 
@@ -73,16 +73,18 @@ jet help
 |||
 |--|--|
 |`jet peers`|Lists peers classified into inbound, outbound, and balanced based on htlc history. Notable columns: `p` - % of [inbound or outbound] routing by the peer out of a total [inbound or outbound] across all peers; `ppm` - peer's current ppm rate; `margin` - rebalance will be profitable as long as its ppm is below the margin.|
-|`jet monitor`|Monitors ongoing rebalances, rebalance history, and stuck htlcs. Warns about the state of BOLD Database (channel.db), e.g., jet will warn when the channel.db grows over a threshold.|
+|`jet monitor`|Monitors ongoing rebalances, rebalance history, and stuck htlcs. Warns about the state of BOLT database (channel.db); for example, jet will warn when the channel.db grows over a threshold.|
 |`jet monitor --status`|Monitors the status of rebalances; shows whether rebalances are paused or active; provides recommendation for local ppm range.|
 |`jet htlc-analyzer`|Analyzes failed htlcs and lists peers sorted based on missed routing opportunities. Missed routing opportunities are typically due to [outbound] peers not having sufficient liquidity and/or having low fees.|
 |`jet htlc-analyzer ln2me --hours 12`|Shows missed routing opportunities for ln2me node over the past 12 hours.|
 |`jet analyze-fees`|Analyzes fees for [outbound] peers and recommends whether to increase or decrease fees based on routing history.|
-|`jet analyze-fees WalletOfSatoshi`|Analyzes fees for WalletOfSatoshi and recommends whether to increase or decrease fees based on routing history.|
+|`jet analyze-fees WalletOfSatoshi`|Analyzes fees for WalletOfSatoshi and recommends to increase or decrease fees based on routing history.|
 |`jet fee-history`|Shows fee history for all peers.|
 |`jet fee-history d++`|Shows fee history for d++.|
-|`jet htlc-history`|Shows total number of sats that peers routed based on htlc history. Notable columns: `%` of inbound or outbound routing by a peer out of total [inbound or outbound] across all peers; `d%` of [inbound or outbound] routing by a peer out of total routing [inbound & outbound] by the peer.|
-|`jet rebalance dplus neski 500000 --ppm 550 --mins 30`|Circular rebalance from dplus to neski for 5mil sats with 550 max ppm and a max runtime of 30 mins.|
+|`jet htlc-history`|Shows total sats that peers routed based on htlc history. Notable columns: `%` of inbound or outbound routing by a peer out of total [inbound or outbound] across all peers; `d%` of [inbound or outbound] routing by a peer out of total routing [inbound & outbound] by the peer.|
+|`jet rebalance-history --hours 12`|Shows rebalance history for all peers over the past 12 hours.|
+|`jet rebalance-history coingate --hours 12`|Shows rebalance history for coingate over the past 12 hours.|
+|`jet rebalance d++ neski 500000 --ppm 550 --mins 30`|Circular rebalance from dplus to neski for 5mil sats with 550 max ppm and a max runtime of 30 mins.|
 |`jet update-channel 769123776873431041 --base 1 --ppm 375`|Sets the base fee to 1 msat and ppm to 375 sats per million for a channel with id of 769123776873431041.|
 
 ## Telegram bot
@@ -114,7 +116,7 @@ Settings under `rebalancer` section:
 |`enforceMaxPpm`|Controls whether jet will enforce max ppm default set by `maxAutoPpm` for all rebalances. By default, as long as rebalances are still profitable, jet may override the default max ppm with [outbound] peer's local ppm. With `enforceMaxPpm` set to `true` jet will cap the rebalances by`maxAutoPpm`. The downside is that it may reduce the rebalance success rate for peers with local ppm being higher than the default max ppm.|
 |`enforceProfitability`|When set to true, jet will pause all non profitable automated rebalances, leaving only profitable rebalances. Monitor rebalance status by `jet monitor --status`|
 |`minCapacity`|Sets minimum capacity (in sats) for channels to be included in automated rebalancing. For example, `"minCapacity": 500000` means that channels with capacity below or equal to `500000` sats will be excluded from automated rebalancing.|
-|`buffer`|Minimum rebalance buffer in sats, overrides default value of `250`. Jet will warm when the delta between local and remote ppm for outbound and balanced peers is below the buffer.|
+|`buffer`|Minimum rebalance buffer in sats, overrides default value of `250`. Jet will warn when the delta between local and remote ppm for outbound and balanced peers is below the buffer.|
 |`exclude`|A list of nodes to exclude from auto rebalancing. Nodes can be excluded from inbound peers, outbound peers, or both. By default, nodes will be excluded from outbound peers when no further info is provided, meaning that excluded nodes won't be rebalanced into. E.g.`"exclude": ["11111111", "22222222:outbound", "33333333:inbound", "44444444:all"]` excludes nodes with ids `11111111` and `22222222` from outbound peers, node with id `33333333` from inbound peers and node with id `44444444` from both inbound and outbound peers.|
 
 ### Example:
