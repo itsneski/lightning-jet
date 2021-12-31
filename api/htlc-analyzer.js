@@ -17,7 +17,7 @@ module.exports = {
   classifyPeersAnalyzer() {
     let htlcs = module.exports.htlcAnalyzer();
     let classify = classifyPeersSync(lndClient);
-    if (!htlcs.peers || htlcs.peers.length === 0) return classify;
+    if (!htlcs || !htlcs.peers || htlcs.peers.length === 0) return classify;
     
     // create a map for easy access
     let peerMap = {};
@@ -201,7 +201,7 @@ module.exports = {
     let curr;
     let htlcs = listHtlcsSync({days:days});
 
-    if (htlcs.length === 0) return console.log('no events found');
+    if (htlcs.length === 0) return console.log('no htlc records found');
 
     let perPeerMap = {};
     let sumMap = {};
