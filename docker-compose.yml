@@ -1,0 +1,12 @@
+services:
+  app:
+    build: .
+    volumes:
+      - $HOME/.lnd:/root/.lnd:ro
+      - $HOME/.bos:/root/.bos
+      - $HOME/.lightning-jet/config.json:/app/api/config.json
+    extra_hosts:
+      - umbrel.local:10.21.21.9
+      - umbrel:10.21.21.9
+    network_mode: host
+    tty: true
