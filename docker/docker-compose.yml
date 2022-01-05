@@ -1,0 +1,11 @@
+services:
+  app:
+    build: ..
+    volumes:
+      - ${LND_DIR}:/root/.lnd:ro
+      - ${BOS_DIR}:/root/.bos
+      - ${LND_CONFIG_FILE}:/app/api/config.json
+    extra_hosts:
+      - ${LND_HOSTNAME}:${LND_IP_ADDRESS}
+    network_mode: host
+    tty: true
