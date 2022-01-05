@@ -2,11 +2,10 @@ services:
   app:
     build: .
     volumes:
-      - $HOME/.lnd:/root/.lnd:ro
-      - $HOME/.bos:/root/.bos
-      - $HOME/.lightning-jet/config.json:/app/api/config.json
+      - ${LND_DIR}:/root/.lnd:ro
+      - ${BOS_DIR}:/root/.bos
+      - ${LND_CONFIG_FILE}:/app/api/config.json
     extra_hosts:
-      - umbrel.local:10.21.21.9
-      - umbrel:10.21.21.9
+      - ${LND_HOSTNAME}:${LND_IP_ADDRESS}
     network_mode: host
     tty: true
