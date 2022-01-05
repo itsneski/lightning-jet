@@ -1,3 +1,7 @@
 **/.git
-docker-compose.yml
-
+docker/docker-compose.yml
+README.md
+api/config.json
+test/
+docker/.env
+docker/.env.example
