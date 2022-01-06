@@ -48,7 +48,7 @@ module.exports = {
     let ret = {};
     if (arr.length < 3) { // something is off
       ret.original = res;
-      return;
+      return ret;
     }
     const parseVal = (val) => Math.round(parseFloat(val) * 100000000);
     const parsePpm = (ppm) => parseInt(ppm.match(/\((.*?)\)/)[1]);
