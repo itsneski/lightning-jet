@@ -1,4 +1,20 @@
+// loads bos tags in case bos tool is present
+// this is optional, but nice to have if the user
+// already spend time configuring bos tags
 const config = require('./config')
+const {execSync} = require('child_process');
+
+// check if bos exists
+let bosExists;
+try {
+  let res = execSync('which bos').toString().trim();
+  bosExists = res && res.indexOf('bos') >= 0;
+} catch(err) {}
+
+if (!bosExists) {
+  if (config.debugMode) console.log('didnt locate bos, skipping bos tags');
+  return;
+}
 
 var tags = {};
 
