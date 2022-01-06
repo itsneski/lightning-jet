@@ -29,6 +29,8 @@ const {recordRebalance} = require('../db/utils');
 const {recordRebalanceFailure} = require('../db/utils');
 const {recordRebalanceAvoid} = require('../db/utils');
 const {listRebalanceAvoidSync} = require('../db/utils');
+const {recordActiveRebalanceSync} = require('../db/utils');
+const {deleteActiveRebalance} = require('../db/utils');
 const {listPeersMapSync} = require('../lnd-api/utils');
 const {getNodeFeeSync} = require('../lnd-api/utils');
 const {rebalanceSync} = require('../bos/rebalance');
@@ -186,7 +188,7 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
     let lastRoute; // last route that was evaluated
     const rebalanceLogger = {
       eval: (route) => {
-        console.log('\nexploring route:', route);
+        console.log('\nprobing route:', route);
         lastRoute = route;
 
         // record the node for sats
@@ -203,7 +205,7 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
           }
 
           if (node.ppm > ppm_per_hop && canAvoidNode(node.id)) {
-            console.log('found a node that exceeds ppm_per_hop:', stringify(node));
+            console.log('identified expensive node:', stringify(node));
           }
         })
       },
@@ -221,10 +223,24 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
       }
     }
 
+    // record for jet monitor
+    const rebalanceId = recordActiveRebalanceSync({from: outId, to: inId, amount: remainingAmount, ppm, mins: timeLeft});
+
     // call bos rebalance in sync mode
-    let rbSync = rebalanceSync({logger: rebalanceLogger, from: OUT, to: IN, amount: remainingAmount.toString(), maxFeeRate: ppm, maxFee, mins: timeLeft, avoid: Object.keys(avoidNodes)});
-    let rbSuccess = rbSync.result;
-    let rbError = rbSync.error;
+    let rbSuccess, rbError;
+    try {
+      let rbSync = rebalanceSync({logger: rebalanceLogger, from: outId, to: inId, amount: remainingAmount.toString(), maxFeeRate: ppm, maxFee, mins: timeLeft, avoid: Object.keys(avoidNodes)});
+      rbSuccess = rbSync.result;
+      rbError = rbSync.error;
+    } catch(err) {
+      console.error('error calling bos rebalance:', err.message);
+      // force to exit the loop, otherwise may get into infinite loop
+      rep = REPS;
+      continue;
+    } finally {
+      // remove the record
+      deleteActiveRebalance(rebalanceId);
+    }
 
     if (rbError) {
       let rebalanceFeeTooHigh = ['RebalanceTotalFeeTooHigh', 'RebalanceFeeRateTooHigh'].includes(rbError.error);

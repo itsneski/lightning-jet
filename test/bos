@@ -23,9 +23,9 @@ const logger = {
   }
 }
 
-//testLogger();
+testLogger();
 //testRebalance();
-testRebalanceSync();
+//testRebalanceSync();
 
 function testLogger() {
   // logger to parse bos messages into useful structures
