@@ -4,11 +4,6 @@ General-purpose automated rebalancer for LND Lightning nodes. Helps get an insig
 Join [Lightning Jet telegram chat](https://t.me/lnjet).
 
 ## Prerequisites
-- [Install BalanceOfSatoshis on Umbrel](https://plebnet.wiki/wiki/Umbrel_-_Installing_BoS)
-- [Install BalanceOfSatoshis on RaspiBlitz](#raspiblitz)
-- [Install BalanceOfSatoshis on other platforms](https://github.com/alexbosworth/balanceofsatoshis)
-
-#### Node and npm
 
 Make sure `node` is up to date (version 16.x) by running `node -v`. Update `node` in case of an old version (this will also update `npm`).
 ```bash
@@ -42,9 +37,6 @@ Test your path by running `jet -v`. Your path is set correctly if it prints out 
 
 #### RaspiBlitz
 
-- Enable "LND Balance of Satoshis" within Services area of RaspiBlitz menu to install BOS
-- Following completion, Exit Menu to Terminal
-- Run command: `bos` (switches to bos user)
 - Install JET (following the [above steps](#node-and-npm)) 
 - Set the following in `config.json`:
 ```
