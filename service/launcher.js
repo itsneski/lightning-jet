@@ -13,15 +13,31 @@ const {readLastLineSync} = require('../api/utils');
 const {sendTelegramMessageTimed} = require('../api/utils');
 const {getPropAndDateSync} = require('../db/utils');
 const {deleteProp} = require('../db/utils');
+const {reconnect} = require('../bos/reconnect');
 
 const loopInterval = 5;  // mins
 const bosReconnectInterval = 60;  // mins
 const cleanDbInterval = 24; // hours
 
 function bosReconnect() {
+  const logger = {
+    debug: (msg) => {
+      console.log(msg);
+    },
+    info: (msg) => {
+      console.log(msg);
+    },
+    warn: (msg) => {
+      console.warn(msg);
+    },
+    error: (msg) => {
+      console.error(msg);
+    }
+  }
+
   try {
     console.log('bos reconnect...');
-    exec('bos reconnect');
+    reconnect(logger);
   } catch (error) {
     console.error('error running bos reconnect:', error.toString());
   }

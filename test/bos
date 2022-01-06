@@ -2,6 +2,7 @@
 
 const {parseNode, parseNodes, parseError, parseResult} = require('../bos/parser');
 const {rebalance, rebalanceSync} = require('../bos/rebalance');
+const {reconnect} = require('../bos/reconnect');
 
 global.testModeOn = true;
 
@@ -23,9 +24,14 @@ const logger = {
   }
 }
 
-testLogger();
+testReconnect();
+//testLogger();
 //testRebalance();
 //testRebalanceSync();
+
+function testReconnect() {
+  reconnect(logger);
+}
 
 function testLogger() {
   // logger to parse bos messages into useful structures

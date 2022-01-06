@@ -41,6 +41,7 @@ var serviceNamesPlus = serviceNames.slice();
 serviceNamesPlus.push('all');
 
 const rebalanceApi = importLazy('./api/rebalance');
+const {reconnect} = importLazy('./bos/reconnect');
 
 cap
   .version(version)
@@ -81,7 +82,7 @@ cap
   })
 
   .command('rebalance', 'Rebalances the node via circular rebalance.')
-  .help('Calls BalanceOfSatoshis in a loop until the target amount is met or all possible routes are exhausted.')
+  .help('Calls BalanceOfSatoshis rebalance api in a loop until the target amount is met or all possible routes are exhausted.')
   .argument('<from>', 'From this peer. Can be a partial alias, a pub id, or a bos tag')
   .argument('<to>', 'To this peer. Can be a partial alias, a pub id, or a bos tag')
   .argument('<amount>', 'Amount in sats')
@@ -489,6 +490,14 @@ cap
     return new Promise(async (resolve, reject) => {
       updateChannelSync(lndClient, {chan: args.chan, base: options.base, ppm: options.ppm});
       console.log('updated');
+    })
+  })
+
+  .command('reconnect', 'Reconnects to disconnected peers')
+  .help('Same as BalanceOfSatoshis (bos) reconnect; calls bos api')
+  .action((args, options, logger) => {
+    return new Promise(async (resolve, reject) => {
+      reconnect(logger);
     })
   })
 
