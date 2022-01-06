@@ -1,5 +1,6 @@
+const importLazy = require('import-lazy')(require);
 const {execSync} = require('child_process');
-const lndClient = require('./connect');
+const lndClient = importLazy('./connect');
 const {listPeersMapSync} = require('../lnd-api/utils');
 const {listChannelsSync} = require('../lnd-api/utils');
 const {stuckHtlcsSync} = require('../lnd-api/utils');
@@ -12,9 +13,9 @@ const {listPeersSync} = require('../lnd-api/utils');
 const {listFeesSync} = require('../lnd-api/utils');
 const {removeEmojis} = require('../lnd-api/utils');
 const {htlcHistorySync} = require('../lnd-api/utils');
-const tags = require('./tags');
+const tags = importLazy('./tags');
 const constants = require('./constants');
-const config = require('./config');
+const config = importLazy('./config');
 const findProc = require('find-process');
 const date = require('date-and-time');
 
