@@ -78,6 +78,7 @@ jet help
 |`jet rebalance-history coingate --hours 12`|Shows rebalance history for coingate over the past 12 hours.|
 |`jet rebalance d++ neski 500000 --ppm 550 --mins 30`|Circular rebalance from dplus to neski for 5mil sats with 550 max ppm and a max runtime of 30 mins.|
 |`jet update-channel 769123776873431041 --base 1 --ppm 375`|Sets the base fee to 1 msat and ppm to 375 sats per million for a channel with id of 769123776873431041.|
+|`jet reconnect`|Reconnects to disconnected peers (via BalancesOfSatoshis (bos) api)|
 
 ## Telegram bot
 Lightning Jet telegram bot (jet bot) will notify you about important events such as changes in fees for your remote peers.
