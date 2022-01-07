@@ -1,5 +1,6 @@
 // jet start rebalancer
 
+const importLazy = require('import-lazy')(require);
 const date = require('date-and-time');
 const {execSync} = require('child_process');
 const {listActiveRebalancesSync} = require('../api/utils');
@@ -20,7 +21,8 @@ const {rebalanceMargin} = require('../api/utils');
 const {withCommas} = require('../lnd-api/utils');
 const {analyzeFees} = require('../api/analyze-fees');
 const serviceUtils = require('./utils');
-const tags = require('../api/tags');
+const tags = importLazy('../api/tags');
+const {rebalanceHistoryConsolidated} = require('../api/utils');
 
 const constants = require('../api/constants');
 const colorRed = constants.colorRed;
@@ -69,6 +71,7 @@ const max_per_peer = 5;
 const min_to_rebalance = 50000; // sats
 const max_ppm = config.rebalancer.maxAutoPpm || constants.rebalancer.maxAutoPpm;
 const maxPendingHtlcs = config.rebalancer.maxPendingHtlcs || constants.rebalancer.maxPendingHtlcs;
+const failureThreshold = 75;  // %
 
 console.log('max ppm:', max_ppm);
 console.log('max pending htlcs:', maxPendingHtlcs);
@@ -133,6 +136,7 @@ function classify() {
 var commands;
 var peers;
 var feesMap;
+var rbHistory;  // failures consolidated
 
 function runLoop() {
   try {
@@ -152,6 +156,7 @@ function runLoopExec() {
   commandMap = {};  // reset
   feesMap = {};     // reset
   peers = listPeersMapSync(lndClient);
+  rbHistory = rebalanceHistoryConsolidated(1);  // hour
   let fees = listFeesSync(lndClient);
   fees.forEach(f => feesMap[f.id] = f);
   classified.inbound.forEach(c => { // first round
@@ -217,6 +222,9 @@ function autoRebalance(inboundId, balanced, firstRound) {
   if (balanced || firstRound) {
     classified.outbound.forEach(c => {
       if (c.peer === inboundId) return;
+      if (rbHistory[c.peer] >= failureThreshold) { 
+        return console.log(colorYellow, 'excluding [outbound] ' + peers[c.peer].name + ', ' + c.peer + ' too many failures');
+      }
 
       let type = exclude[c.peer];
       if (type && ['all', 'outbound'].includes(type)) {
@@ -249,6 +257,9 @@ function autoRebalance(inboundId, balanced, firstRound) {
   if (balanced || !firstRound) {
     classified.balanced.forEach(c => {
       if (c.peer === inboundId) return;
+      if (rbHistory[c.peer] >= failureThreshold) { 
+        return console.log(colorYellow, 'excluding [balanced] ' + peers[c.peer].name + ', ' + c.peer + ' too many failures');
+      }
 
       let type = exclude[c.peer];
       if (type && ['all', 'outbound'].includes(type)) {

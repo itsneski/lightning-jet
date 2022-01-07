@@ -23,6 +23,31 @@ const round = n => Math.round(n);
 const pThreshold = 2;
 
 module.exports = {
+  rebalanceHistoryConsolidated(hours = 1) {
+    let history = listRebalancesSync(hours * 60 * 60);  // in secs
+    if (!history || history.length === 0) return;
+    let peerMap = {};
+    let countFailures = 0;  
+    history.forEach(n => {
+      let entry = peerMap[n.to];
+      if (!entry) {
+        entry = { count: 0, map: {} };
+        peerMap[n.to] = entry;
+      }
+      if (n.status !== 0) return; // skip success
+      countFailures++;
+      entry.count++;
+      if (!entry.map[n.extra]) entry.map[n.extra] = 0;
+      entry.map[n.extra]++;
+    })
+    let map = {};
+    Object.keys(peerMap).forEach(n => {
+      let entry = peerMap[n];
+      map[n] = Math.round(100 * entry.count / history.length);
+    })
+    return map;
+  },
+
   // resolve a node based on a partial alias or a tag
   resolveNode(str, peers) {
     if (!str) return new Error('str is missing');
