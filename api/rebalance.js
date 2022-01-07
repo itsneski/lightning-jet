@@ -280,7 +280,7 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
             console.log('the route has a [cumulative] ppm of', ppmsum, 'vs', ppm, 'targeted');
             minFailedPpm = Math.min(minFailedPpm, ppmsum);
             if (max) {
-              console.log('identified a node to unblock the route:', stringify(max));
+              console.log('identified expensive node to exclude:', stringify(max));
               if (max.ppm > ppm_per_hop) {
                 let entry = nodeStats[max.id];
                 console.log('identified corresponding nodeStats entry:', nodeToString(entry));
