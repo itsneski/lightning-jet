@@ -71,7 +71,7 @@ const max_per_peer = 5;
 const min_to_rebalance = 50000; // sats
 const max_ppm = config.rebalancer.maxAutoPpm || constants.rebalancer.maxAutoPpm;
 const maxPendingHtlcs = config.rebalancer.maxPendingHtlcs || constants.rebalancer.maxPendingHtlcs;
-const failureThreshold = 75;  // %
+const failureThreshold = 50;  // %
 
 console.log('max ppm:', max_ppm);
 console.log('max pending htlcs:', maxPendingHtlcs);
