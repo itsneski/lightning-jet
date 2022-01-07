@@ -6,8 +6,7 @@ RUN apk update \
   make \
   gcc \
   g++ \
-  python3 \
-  && npm install -g balanceofsatoshis
+  python3
 
 WORKDIR /app/
 
