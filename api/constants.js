@@ -61,12 +61,12 @@ exports.channeldb = {
     normal: 0,
     warning: 2, // >2
     serious: 5,
-    urgent: 7
+    urgent: 8
   },
   telegramNotify: {
     category: 'telegram.notify.channeldb',
     warning: 24 * 60 * 60,  // 24 hours
     serious: 4 * 60 * 60,   // 4 hours
-    urgent: 5 * 60 // 5 mins
+    urgent: 60 * 60 // one hour
   }
 }
