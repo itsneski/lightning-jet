@@ -495,15 +495,18 @@ module.exports = {
     let res;
     db.serialize(function() {
       let q = 'SELECT rowid AS id, * FROM ' + REBALANCE_HISTORY_TABLE;
+      let first;
       if (secs > 0) {
-        let epoch = Date.now();
-        q += ' WHERE date > ' + (epoch - secs * 1000);
-        if (status !== undefined) q += ' AND status = ' + status;
-      } else if (status !== undefined) {
-        q += ' WHERE status = ' + status;
+        if (first) q += ' AND'; else { q += ' WHERE'; first = true; };
+        q += ' date > ' + (Date.now() - secs * 1000);
+      }
+      if (status !== undefined) {
+        if (first) q += ' AND'; else { q += ' WHERE'; first = true; }
+        q += ' status = ' + status;
       }
       if (node) {
-        q += ' AND (from_node = "' + node + '" OR to_node = "' + node + '")'
+        if (first) q += ' AND'; else { q += ' WHERE'; first = true; }
+        q += ' (from_node = "' + node + '" OR to_node = "' + node + '")';
       }
       db.each(q, function(err, row) {
         list.push({
