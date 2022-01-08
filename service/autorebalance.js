@@ -159,12 +159,8 @@ function runLoopExec() {
   rbHistory = rebalanceHistoryConsolidated(1);  // hour
   let fees = listFeesSync(lndClient);
   fees.forEach(f => feesMap[f.id] = f);
-  classified.inbound.forEach(c => { // first round
-    autoRebalance(c.peer, false, true);
-  })
-  classified.inbound.forEach(c => { // second round
-    autoRebalance(c.peer, false, false);
-  })
+  classified.inbound.forEach(tryAutoRebalance({ firstRound: true }));
+  classified.inbound.forEach(tryAutoRebalance()); // second round
   // sort balanced channels by available capacity
   classified.balanced.forEach(entry => {
     let ch = channels[entry.peer];
@@ -174,10 +170,26 @@ function runLoopExec() {
   balanced.sort(function(a, b) {
     return b.availableCapacity - a.availableCapacity;
   })
-  balanced.forEach(c => {
-    autoRebalance(c.peer, true);
-  })
+  balanced.forEach(tryAutoRebalance({ balanced: true });
   executeCommands();
+}
+
+function tryAutoRebalance(options = {}) {
+  return function tryAutoRebalance({ peer }) {
+    try {
+      if (options.firstRound) {
+        autoRebalance(peer, false, true);
+      } else if (options.balanced) {
+        autoRebalance(peer, true);
+      } else {
+        autoRebalance(peer, false, false);
+      }
+    } catch (error) {
+      error.name = 'AutoRebalanceError';
+      error.message = `Unable to rebalance channel with peer ${peer}. Reason: ${error.message}`;
+      console.error(colorRed, error);
+    }
+  }
 }
 
 function autoRebalance(inboundId, balanced, firstRound) {
