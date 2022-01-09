@@ -5,6 +5,9 @@ Join [Lightning Jet telegram chat](https://t.me/lnjet).
 
 ## Prerequisites
 
+You can install Lighting Jet on your laptop or desktop (this section), or run it in Docker. For installation on Docker refer to [Docker](
+#docker).
+
 Make sure `node` is up to date (version 16.x) by running `node -v`. Update `node` in case of an old version (this will also update `npm`).
 ```bash
 curl -sL https://deb.nodesource.com/setup_16.x | sudo -E bash -
@@ -51,6 +54,7 @@ chmod +r /home/bos/.lnd/data/chain/bitcoin/mainnet/readonly.macaroon
 ```
 
 ## Post-Installation
+
 ```shell
 jet start daddy
 ```
@@ -79,6 +83,51 @@ jet help
 |`jet rebalance d++ neski 500000 --ppm 550 --mins 30`|Circular rebalance from dplus to neski for 5mil sats with 550 max ppm and a max runtime of 30 mins.|
 |`jet update-channel 769123776873431041 --base 1 --ppm 375`|Sets the base fee to 1 msat and ppm to 375 sats per million for a channel with id of 769123776873431041.|
 |`jet reconnect`|Reconnects to disconnected peers (via BalancesOfSatoshis (bos) api)|
+
+## Docker
+
+### Prerequisites
+
+- [Install Docker](https://docs.docker.com/get-docker/) if not exists (`docker -v`)
+- [Install docker-compose](https://docs.docker.com/compose/install/) if not exists (`docker-compose -v`)
+
+### Installation
+
+```bash
+git clone https://github.com/itsneski/lightning-jet
+cd lightning-jet
+```
+
+Edit `config.json`: set correct paths for `macaroonPath` and `tlsCertPath`. On umbrel, macaroons are typically located at `~/umbrel/lnd/data/chain/bitcoin/mainnet/readonly.macaroon`, tls cert is at `~/umbrel/lnd/tls.cert`. Optional: you can list expensive nodes to avoid in the `avoid` section of the config file (can be done later).
+```bash
+nano ~/.lightning-jet/config.json
+```
+
+Edit the `.env`: set `LND_DIR` to your installation of LND (typically `/home/umbrel/umbrel/lnd`). Set `LND_HOSTNAME` and `LND_IP_ADDRESS` to match your instance of LND. On Umbrel you can leave default `LND_HOSTNAME` value. For `LND_IP_ADDRESS` run `ifconfig -a | grep inet` and select IP address that begins with `10.`.
+```bash
+nano ./docker/.env
+```
+
+### Build image
+
+Note: if the following fails due to permissions, run using `sudo`:
+```bash
+docker-compose -f docker/docker-compose.yml build
+```
+
+### Start up daddy
+
+```shell
+docker-compose -f docker/docker-compose.yml up
+```
+
+### Execute commands
+
+Prepend [all commands](#how-to-run) with `docker exec -it lightning-jet`:
+```shell
+docker exec -it lightning-jet jet help
+```
+
 
 ## Telegram bot
 Lightning Jet telegram bot (jet bot) will notify you about important events such as changes in fees for your remote peers.
