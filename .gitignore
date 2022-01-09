@@ -3,4 +3,3 @@ config.json
 jet.db
 node_modules
 sftp-config.json
-docker/.env
