@@ -16,7 +16,6 @@ sudo apt-get install -y nodejs
 Make sure `npm` is up to date (version 8.x) by running `npm -v`. Update `npm` in case of an old version; refer to `node` update steps above. Note that you may run into an issue of having multiple copies of `npm` installed if you update `npm` separately from `node`. Re-run `npm -v` after the update to ensure that your path is picking the update version. Note: you may have multiple `npm` copies present if your path isn't picking it up; locate mnultiple copies by `find / -name npm 2> /dev/null`; identify the updated copy and update `PATH` in `~/.profile`.
 
 ## Installation
-
 ```bash
 git clone https://github.com/itsneski/lightning-jet
 cd lightning-jet
