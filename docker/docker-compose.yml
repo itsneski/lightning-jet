@@ -1,9 +1,10 @@
 services:
   app:
-    build: ..
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
     volumes:
-      - ${LND_DIR}:/root/.lnd:ro
-      - ${BOS_DIR}:/root/.bos
+      - ${LND_DIR}:/home/umbrel/umbrel/lnd:ro
       - ${LND_CONFIG_FILE}:/app/api/config.json
     extra_hosts:
       - ${LND_HOSTNAME}:${LND_IP_ADDRESS}
