@@ -60,7 +60,7 @@ Edit `config.json`: set correct paths for `macaroonPath` and `tlsCertPath`. On u
 nano ~/.lightning-jet/config.json
 ```
 
-Create a `.env` file in the `./docker` folder based on the .env.example file provided:
+Create a `.env` file in the `./docker` folder based on the `.env.example` file provided:
 ```bash
 cp ./docker/.env.example ./docker/.env
 ```
