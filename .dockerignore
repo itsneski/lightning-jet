@@ -2,11 +2,12 @@
 .gitignore
 .dockerignore
 docker/docker-compose.yml
-README.md
-api/config.json
-test/
 docker/.env
 docker/.env.example
 docker/Dockerfile
+node_modules
+README.md
+api/config.json
+test/
 LICENSE
 README.md
