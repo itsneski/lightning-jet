@@ -136,7 +136,7 @@ function classify() {
 var commands;
 var peers;
 var feesMap;
-var rbHistory;  // failures consolidated
+var rbHistory;  // a map of consolidated failures
 
 function runLoop() {
   try {
@@ -156,7 +156,13 @@ function runLoopExec() {
   commandMap = {};  // reset
   feesMap = {};     // reset
   peers = listPeersMapSync(lndClient);
-  rbHistory = rebalanceHistoryConsolidated(1);  // hour
+
+  // rebalance failure map; meaningful if it has the min # of entries (per hour);
+  // this map helps to ensure that no particular node monopolize rebalacing
+  // if rebalances keep on failing
+  let res = rebalanceHistoryConsolidated(1);  // hourly
+  rbHistory = (res && res.total >= 10) ? res.map : undefined;
+
   let fees = listFeesSync(lndClient);
   fees.forEach(f => feesMap[f.id] = f);
   classified.inbound.forEach(c => { // first round
@@ -222,7 +228,7 @@ function autoRebalance(inboundId, balanced, firstRound) {
   if (balanced || firstRound) {
     classified.outbound.forEach(c => {
       if (c.peer === inboundId) return;
-      if (rbHistory[c.peer] >= failureThreshold) { 
+      if (rbHistory && rbHistory[c.peer] >= failureThreshold) { 
         return console.log(colorYellow, 'excluding [outbound] ' + peers[c.peer].name + ', ' + c.peer + ' too many failures');
       }
 
@@ -257,7 +263,7 @@ function autoRebalance(inboundId, balanced, firstRound) {
   if (balanced || !firstRound) {
     classified.balanced.forEach(c => {
       if (c.peer === inboundId) return;
-      if (rbHistory[c.peer] >= failureThreshold) { 
+      if (rbHistory && rbHistory[c.peer] >= failureThreshold) { 
         return console.log(colorYellow, 'excluding [balanced] ' + peers[c.peer].name + ', ' + c.peer + ' too many failures');
       }
 

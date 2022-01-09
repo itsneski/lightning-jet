@@ -45,7 +45,7 @@ module.exports = {
       let entry = peerMap[n];
       map[n] = Math.round(100 * entry.count / history.length);
     })
-    return map;
+    return {total: history.length, failures: countFailures, map};
   },
 
   // resolve a node based on a partial alias or a tag
