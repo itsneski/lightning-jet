@@ -15,12 +15,8 @@ sudo apt-get install -y nodejs
 ```
 Make sure `npm` is up to date (version 8.x) by running `npm -v`. Update `npm` in case of an old version; refer to `node` update steps above. Note that you may run into an issue of having multiple copies of `npm` installed if you update `npm` separately from `node`. Re-run `npm -v` after the update to ensure that your path is picking the update version. Note: you may have multiple `npm` copies present if your path isn't picking it up; locate mnultiple copies by `find / -name npm 2> /dev/null`; identify the updated copy and update `PATH` in `~/.profile`.
 
-### with Docker
-- [Install Docker](https://docs.docker.com/get-docker/)
-- [Install docker-compose](https://docs.docker.com/compose/install/) 
-
 ## Installation
-### Native setup
+
 ```bash
 git clone https://github.com/itsneski/lightning-jet
 cd lightning-jet
@@ -43,38 +39,6 @@ Next, execute the updated `.profile` for your current terminal session. The path
 ```
 Test your path by running `jet -v`. Your path is set correctly if it prints out help. Fix the `PATH` in `~/.profile` in case of an error.
 
-### with Docker
-Clone the repository and `cd` into it.
-```bash
-git clone https://github.com/itsneski/lightning-jet
-cd lightning-jet
-```
-
-Generate a new `config.json` with the `genconfig.sh` shell script:
-```bash
-./tools/genconfig.sh
-```
-
-Edit `config.json`: set correct paths for `macaroonPath` and `tlsCertPath`. On umbrel, macaroons are typically located at `~/umbrel/lnd/data/chain/bitcoin/mainnet/readonly.macaroon`, tls cert is at `~/umbrel/lnd/tls.cert`. Optional: you can list expensive nodes to avoid in the `avoid` section of the config file (can be done later).
-```bash
-nano ~/.lightning-jet/config.json
-```
-
-Create a `.env` file in the `./docker` folder based on the `.env.example` file provided:
-```bash
-cp ./docker/.env.example ./docker/.env
-```
-
-Edit the `.env`: set `LND_DIR` to your installation of LND (typically `/home/umbrel/umbrel/lnd`). Set `LND_HOSTNAME` and `LND_IP_ADDRESS` to match your instance of LND.
-```bash
-nano ./docker/.env
-```
-
-Build the docker image:
-```bash
-sudo docker-compose -f docker/docker-compose.yml build
-```
-
 #### RaspiBlitz
 
 - Install JET (following the [above steps](#node-and-npm)) 
@@ -94,12 +58,6 @@ chmod +r /home/bos/.lnd/data/chain/bitcoin/mainnet/readonly.macaroon
 
 ```shell
 jet start daddy
-```
-
-### with Docker
-Start daddy:
-```shell
-sudo docker-compose -f docker/docker-compose.yml up
 ```
 
 ## How to run
