@@ -1,0 +1,13 @@
+#!/usr/bin/env node
+
+const {listRebalancesSync} = require('../db/utils');
+const {rebalanceHistoryConsolidated} = require('../api/utils');
+const {rebalanceHistoryFormattedSync} = require('../api/utils');
+
+//let history = listRebalancesSync(60 * 60);
+//console.log(history);
+//let map = rebalanceHistoryConsolidated(4);
+//console.log(map);
+//let list = rebalanceHistoryFormattedSync(-1, undefined, '03eba3295492a69621a2501675b663c7051f6035b52f98f0e911475534f105e670');
+let list = listRebalancesSync(24 * 60 * 60, 1, '03eba3295492a69621a2501675b663c7051f6035b52f98f0e911475534f105e670');
+console.log(list);

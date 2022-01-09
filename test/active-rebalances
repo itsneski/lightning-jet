@@ -1,0 +1,21 @@
+#!/usr/bin/env node
+
+const {listActiveRebalancesSync} = require('../api/utils');
+const {listActiveRebalancesFormattedSync} = require('../api/utils');
+const {recordActiveRebalanceSync} = require('../db/utils');
+
+// make sure that a rebalance is running and the the results are accurate
+console.log(listActiveRebalancesFormattedSync());
+
+// record a fake rebalance
+console.log('update with a fake rebalance');
+let ret = recordActiveRebalanceSync({
+  from: '03eba3295492a69621a2501675b663c7051f6035b52f98f0e911475534f105e670',
+  to: '035e4ff418fc8b5554c5d9eea66396c227bd429a3251c8cbc711002ba215bfc226',
+  amount: 500000,
+  ppm: 650,
+  mins: 30}, 11111
+)
+
+// check that the rebalance is the same as before and the fake rebalance is ignored
+console.log(listActiveRebalancesFormattedSync());

@@ -4,43 +4,44 @@ const cap = require('caporal');
 const importLazy = require('import-lazy')(require);
 const {version} = importLazy('./package');
 
-const lndClient = require('./api/connect');
-const {listActiveRebalancesFormattedSync} = require('./api/utils');
-const {rebalanceHistoryFormattedSync} = require('./api/utils');
-const {pendingHtlcsFormattedSync} = require('./api/utils');
-const {listForcedClosingFormattedSync} = require('./api/utils');
-const {listPeersFormattedSync} = require('./api/utils');
-const {readLastLineSync} = require('./api/utils');
-const {withCommas} = require('./lnd-api/utils');
-const {listFeesSync} = require('./lnd-api/utils');
-const {listPeersSync} = require('./lnd-api/utils');
-const {updateChannelSync} = require('./lnd-api/update-channel');
-const {listChannels} = require('./api/list-channels');
-const {htlcHistoryFormatted} = require('./api/htlc-history');
-const {htlcAnalyzerFormatted} = require('./api/htlc-analyzer');
-const {htlcAnalyzerNode} = require('./api/htlc-analyzer');
-const {classifyPeersSync} = require('./api/utils');
-const {resolveNode} = require('./api/utils');
-const {feeHistorySync} = require('./db/utils');
+const lndClient = importLazy('./api/connect');
+const {listActiveRebalancesFormattedSync} = importLazy('./api/utils');
+const {rebalanceHistoryFormattedSync} = importLazy('./api/utils');
+const {pendingHtlcsFormattedSync} = importLazy('./api/utils');
+const {listForcedClosingFormattedSync} = importLazy('./api/utils');
+const {listPeersFormattedSync} = importLazy('./api/utils');
+const {readLastLineSync} = importLazy('./api/utils');
+const {withCommas} = importLazy('./lnd-api/utils');
+const {listFeesSync} = importLazy('./lnd-api/utils');
+const {listPeersSync} = importLazy('./lnd-api/utils');
+const {updateChannelSync} = importLazy('./lnd-api/update-channel');
+const {listChannels} = importLazy('./api/list-channels');
+const {htlcHistoryFormatted} = importLazy('./api/htlc-history');
+const {htlcAnalyzerFormatted} = importLazy('./api/htlc-analyzer');
+const {htlcAnalyzerNode} = importLazy('./api/htlc-analyzer');
+const {classifyPeersSync} = importLazy('./api/utils');
+const {resolveNode} = importLazy('./api/utils');
+const {feeHistorySync} = importLazy('./db/utils');
 
 const {statSync} = require('fs');
 const date = require('date-and-time');
 
-const serviceUtils = require('./service/utils');
-const {getServiceNames} = require('./service/utils');
-const {stopService} = require('./service/utils');
-const {startService} = require('./service/utils');
-const {restartService} = require('./service/utils');
-const {printStatus} = require('./service/utils');
-const {rebalanceStatus} = require('./api/analyze-fees');
-const constants = require('./api/constants');
-const config = require('./api/config');
+const serviceUtils = importLazy('./service/utils');
+const {getServiceNames} = importLazy('./service/utils');
+const {stopService} = importLazy('./service/utils');
+const {startService} = importLazy('./service/utils');
+const {restartService} = importLazy('./service/utils');
+const {printStatus} = importLazy('./service/utils');
+const {rebalanceStatus} = importLazy('./api/analyze-fees');
+const constants = importLazy('./api/constants');
+const config = importLazy('./api/config');
 const serviceNames = getServiceNames();
 // service names, plus all for restart
 var serviceNamesPlus = serviceNames.slice();
 serviceNamesPlus.push('all');
 
-const rebalanceApi = require('./api/rebalance');
+const rebalanceApi = importLazy('./api/rebalance');
+const {reconnect} = importLazy('./bos/reconnect');
 
 cap
   .version(version)
@@ -81,7 +82,7 @@ cap
   })
 
   .command('rebalance', 'Rebalances the node via circular rebalance.')
-  .help('Calls BalanceOfSatoshis in a loop until the target amount is met or all possible routes are exhausted.')
+  .help('Calls BalanceOfSatoshis rebalance api in a loop until the target amount is met or all possible routes are exhausted.')
   .argument('<from>', 'From this peer. Can be a partial alias, a pub id, or a bos tag')
   .argument('<to>', 'To this peer. Can be a partial alias, a pub id, or a bos tag')
   .argument('<amount>', 'Amount in sats')
@@ -489,6 +490,14 @@ cap
     return new Promise(async (resolve, reject) => {
       updateChannelSync(lndClient, {chan: args.chan, base: options.base, ppm: options.ppm});
       console.log('updated');
+    })
+  })
+
+  .command('reconnect', 'Reconnects to disconnected peers')
+  .help('Same as BalanceOfSatoshis (bos) reconnect; calls bos api')
+  .action((args, options, logger) => {
+    return new Promise(async (resolve, reject) => {
+      reconnect(logger);
     })
   })
 

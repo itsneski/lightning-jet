@@ -1,0 +1,170 @@
+#!/usr/bin/env node
+
+const {parseNode, parseNodes, parseError, parseResult} = require('../bos/parser');
+const {rebalance, rebalanceSync} = require('../bos/rebalance');
+const {reconnect} = require('../bos/reconnect');
+
+global.testModeOn = true;
+
+const logger = {
+  eval: (route) => {
+    console.log('route:', route);
+  },
+  debug: (msg) => {
+    console.log(msg);
+  },
+  info: (msg) => {
+    console.log(msg);
+  },
+  warn: (msg) => {
+    console.warn(msg);
+  },
+  error: (msg) => {
+    console.error(msg);
+  }
+}
+
+testReconnect();
+//testLogger();
+//testRebalance();
+//testRebalanceSync();
+
+function testReconnect() {
+  reconnect(logger);
+}
+
+function testLogger() {
+  // logger to parse bos messages into useful structures
+  const logger = {
+    debug(msg) {
+      console.log(msg);
+    },
+    info(msg) {
+      let nodes = parseNodes(msg);
+      if (nodes) return console.log(nodes);
+    },
+    warn(msg) {
+      console.warn(msg);
+    },
+    error(msg) {
+      console.error(msg);
+    }
+  }
+
+  const msgs = [
+    {
+      outgoing_peer_to_increase_inbound: "Gondolin 🏔🏯🏔 0333175e2ddb8ae3fab14125c312cf62b9da6dc54fc922edd1aa11e4e059496594",
+      incoming_peer_to_decrease_inbound: "Cowa Lightning 0294fd62bc6f4ad2804dfb01237baaf8b8dd5646cf60639e6586c5a1d9d4ed01f4",
+      rebalance_target_amount: '0.00050000'
+    },
+    {
+      circular_rebalance_for: "Neski 02c43115328a5bd4dd5870c4c2e129f0f19bdb685ff8c1727c9320c0c6f5636a2e"
+    },
+    {
+      evaluating: [
+        "\x1B[90m705350x451x0\x1B[39m ★ ★ ★ ☆",
+        "\x1B[92m Gondolin 🏔🏔\x1B[39m 0333175e2ddb8ae3fab14125c312cf62b9da6dc54fc922edd1aa11e4e059496594. Fee rate: 0.01% (127)",
+        "\x1B[90m703460x785x1\x1B[39m",
+        "\x1B[92m BCash_Is_Trash\x1B[39m 0298f6074a454a1f5345cb2a7c6f9fce206cd0bf675d177cdbf0ca7508dd28852f. Fee rate: 0.00% (18)",
+        "\x1B[90m586255x2386x0\x1B[39m",
+        "\x1B[92mln.BitSoapBox.com\x1B[39m 021607cfce19a4c5e7e6e738663dfafbbbac262e4ff76c2c9b30dbeefc35c00643. Fee rate: 0.01% (50)",
+        "\x1B[90m701816x2935x1\x1B[39m",
+        "\x1B[92mDILLON, You son of a bitch!\x1B[39m 020f5ec11bd12c4be776722b9e9b60698179a3478f8146595953b7da76b39c269d. Fee rate: 0.00% (26)",
+        "\x1B[90m715907x1525x1\x1B[39m",
+        "\x1B[92mCowa Lightning\x1B[39m 0294fd62bc6f4ad2804dfb01237baaf8b8dd5646cf60639e6586c5a1d9d4ed01f4. Fee rate: 0.02% (152)",
+        "\x1B[90m713964x27x1\x1B[39m"
+      ]
+    },
+    {
+      failure: "TemporaryChannelFailure at 701816x2935x1 from ln.BitSoapBox.com"
+    },
+    {
+      evaluating: [
+        "\x1B[90m705350x451x0\x1B[39m ★ ★ ★ ★",
+        "\x1B[92m Gondolin 🏔🏔\x1B[39m 0333175e2ddb8ae3fab14125c312cf62b9da6dc54fc922edd1aa11e4e059496594. Fee rate: 0.05% (479)",
+        "\x1B[90m713967x88x0\x1B[39m",
+        "\x1B[92mCowa Lightning\x1B[39m 0294fd62bc6f4ad2804dfb01237baaf8b8dd5646cf60639e6586c5a1d9d4ed01f4. Fee rate: 0.02% (152)",
+        "\x1B[90m713964x27x1\x1B[39m"
+      ]
+    },
+    { evaluating_amount: 50000 }
+  ]
+  const errFeeRate = 
+  [
+    400,
+    'RebalanceFeeRateTooHigh',
+    {
+      needed_max_fee_rate: '640',
+      high_fee: '0333175e2ddb8ae3fab14125c312cf62b9da6dc54fc922edd1aa11e4e059496594'
+    }
+  ]
+  const errFee = 
+  [
+    400,
+    'RebalanceTotalFeeTooHigh',
+    {
+      needed_max_fee: '750',
+      high_fee: '0333175e2ddb8ae3fab14125c312cf62b9da6dc54fc922edd1aa11e4e059496594'
+    }
+  ]
+  const success = 
+  {
+    rebalance: [
+      {
+        increased_inbound_on: 'D++',
+        liquidity_inbound: '0.04479111',
+        liquidity_inbound_opening: undefined,
+        liquidity_inbound_pending: undefined,
+        liquidity_outbound: '0.04608863',
+        liquidity_outbound_opening: undefined,
+        liquidity_outbound_pending: '0.00907004'
+      },
+      {
+        decreased_inbound_on: 'Cowa Lightning',
+        liquidity_inbound: '0.05114254',
+        liquidity_inbound_opening: undefined,
+        liquidity_inbound_pending: undefined,
+        liquidity_outbound: '0.04882381',
+        liquidity_outbound_opening: undefined,
+        liquidity_outbound_pending: undefined
+      },
+      {
+        rebalanced: '0.01350954',
+        rebalance_fees_spent: '0.00000593',
+        rebalance_fee_rate: '0.04% (439)'
+      }
+    ]
+  }
+  msgs.forEach(m => {
+    logger.info(m);
+  })
+  console.log(parseError(errFeeRate));
+  console.log(parseError(errFee));
+  console.log(parseResult(success));
+}
+
+function testRebalance() {
+  const cbk = {
+    success: (sats) => console.log('success:', sats),
+    failure: (err) => console.log('failure:', err)
+  }
+  const avoid = [
+  ]
+  let res = rebalance({
+    logger, avoid, from: 'd++', to: 'cowa', amount: '5000000', maxFeeRate: 750},
+    cbk);
+  res.then(val => {
+    console.log('rebalance:', val);
+  }, err => {
+    console.log('rebalance err:', err);
+  })
+}
+
+function testRebalanceSync() {
+  const avoid = [
+  ]
+  let {error, result} = rebalanceSync({
+    logger, avoid, from: 'd++', to: 'cowa', amount: '5000000', maxFeeRate: 750});
+  if (error) console.log('error:', error);
+  else console.log('result:', result);
+}

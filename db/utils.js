@@ -15,6 +15,7 @@ const NAMEVAL_TABLE = 'nameval';
 const NAMEVAL_LIST_TABLE = 'nameval_list';
 const TELEGRAM_MESSAGES_TABLE = 'telegram_messages';
 const FEE_HISTORY_TABLE = 'fee_history';
+const ACTIVE_REBALANCE_TABLE = 'active_rebalance';
 
 var testMode = false;
 
@@ -31,6 +32,57 @@ const uniqueArr = arr => arr.filter(function(elem, pos) {
 })
 
 module.exports = {
+  deleteActiveRebalance(rowid) {
+    let db = getHandle();
+    try {
+      db.serialize(function() {
+        let cmd = 'DELETE FROM ' + ACTIVE_REBALANCE_TABLE + ' WHERE rowid = ' + rowid;
+        executeDb(db, cmd);
+      })
+    } catch(error) {
+      console.error('deleteActiveRebalance:', error.message);
+    } finally {
+      closeHandle(db);
+    }
+  },
+  listActiveRebalancesSync() {
+    let db = getHandle();
+    let done;
+    let list = [];
+    db.serialize(function() {
+      let q = 'SELECT rowid, * FROM ' + ACTIVE_REBALANCE_TABLE;
+      if (testMode) console.log(q);
+      db.each(q, function(err, row) {
+        list.push(row);
+      }, function(err) {
+        done = true;
+      })
+    })
+    while(!done) {
+      require('deasync').runLoopOnce();
+    }
+    closeHandle(db);
+    return list;
+  },
+  // pid is optional, used for testing
+  recordActiveRebalanceSync({from, to, amount, ppm, mins}, pid) {
+    let db = getHandle();
+    let rowid;
+    try {
+      const proc = pid || require('process').pid;
+      db.serialize(() => {
+        const vals = constructInsertString([Date.now(), from, to, amount, ppm, mins, proc]);
+        const cols = '(date, from_node, to_node, amount, ppm, mins, pid)';
+        let cmd = 'INSERT INTO ' + ACTIVE_REBALANCE_TABLE + ' ' + cols + ' VALUES (' + vals + ')';
+        rowid = execInsertDbSync(db, cmd); // rowid
+      })
+    } catch(error) {
+      console.error('recordActiveRebalanceSync:', error.message);
+    } finally {
+      closeHandle(db);
+    }
+    return rowid;
+  },
   getValByFilterSync(filter) {
     let db = getHandle();
     let done;
@@ -443,15 +495,18 @@ module.exports = {
     let res;
     db.serialize(function() {
       let q = 'SELECT rowid AS id, * FROM ' + REBALANCE_HISTORY_TABLE;
+      let first;
       if (secs > 0) {
-        let epoch = Date.now();
-        q += ' WHERE date > ' + (epoch - secs * 1000);
-        if (status !== undefined) q += ' AND status = ' + status;
-      } else if (status !== undefined) {
-        q += ' WHERE status = ' + status;
+        if (first) q += ' AND'; else { q += ' WHERE'; first = true; };
+        q += ' date > ' + (Date.now() - secs * 1000);
+      }
+      if (status !== undefined) {
+        if (first) q += ' AND'; else { q += ' WHERE'; first = true; }
+        q += ' status = ' + status;
       }
       if (node) {
-        q += ' AND (from_node = "' + node + '" OR to_node = "' + node + '")'
+        if (first) q += ' AND'; else { q += ' WHERE'; first = true; }
+        q += ' (from_node = "' + node + '" OR to_node = "' + node + '")';
       }
       db.each(q, function(err, row) {
         list.push({
@@ -506,6 +561,17 @@ function executeDbSync(db, cmd) {
   }
 }
 
+function execInsertDbSync(db, cmd) {
+  if (testMode) console.log(cmd);
+  let finished;
+  let rowid;
+  db.run(cmd, function() { rowid = this.lastID; finished = true; })
+  while(!finished) {
+    require('deasync').runLoopOnce();
+  }
+  return rowid;
+}
+
 function constructInsertString(arr) {
   return "'" + arr.join("', '") + "'";
 }
@@ -520,8 +586,13 @@ function createTables() {
     createNamevalListTable(db);
     createTelegramMessagesTable(db);
     createFeeHistoryTable(db);
+    createActiveRebalanceTable(db);
   })
   closeHandle(db);
+}
+
+function createActiveRebalanceTable(db) {
+  executeDbSync(db, "CREATE TABLE IF NOT EXISTS " + ACTIVE_REBALANCE_TABLE + " (date INTEGER NOT NULL, from_node TEXT NOT NULL, to_node TEXT NOT NULL, amount INTEGER NOT NULL, ppm INTEGER, mins INTEGER, pid INTEGER NOT NULL, extra TEXT)");
 }
 
 function createFeeHistoryTable(db) {

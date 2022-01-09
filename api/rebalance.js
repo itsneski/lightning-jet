@@ -1,5 +1,4 @@
-// lnd rebalance is built on top of https://github.com/alexbosworth/balanceofsatoshis
-// tool.
+// rebalance build on top of https://github.com/alexbosworth/balanceofsatoshis
 //
 // calls 'bos rebalance' in a loop, until the target amount is met or until all
 // possible routes is exhausted.  dynamically builds a list of nodes to avoid
@@ -30,24 +29,15 @@ const {recordRebalance} = require('../db/utils');
 const {recordRebalanceFailure} = require('../db/utils');
 const {recordRebalanceAvoid} = require('../db/utils');
 const {listRebalanceAvoidSync} = require('../db/utils');
+const {recordActiveRebalanceSync} = require('../db/utils');
+const {deleteActiveRebalance} = require('../db/utils');
 const {listPeersMapSync} = require('../lnd-api/utils');
 const {getNodeFeeSync} = require('../lnd-api/utils');
+const {rebalanceSync} = require('../bos/rebalance');
 
 const arrAvg = arr => arr.reduce((a,b) => a + b, 0) / arr.length;
 const stringify = obj => JSON.stringify(obj, null, 2);
 
-
-// check bos version compatibility
-const MIN_VERSION = '10.16.0';  // min bos version required
-try {
-  let ver = require('child_process').execSync('bos --version').toString().trim();
-  if (config.debugMode) console.log('identified bos version:', ver);
-  if (ver < MIN_VERSION) {  // string based compare works?
-    throw new Error('incompatible bos version, minimum required: ' + MIN_VERSION);
-  }
-} catch(error) {
-  throw new Error('error checking bos version: ' + error.toString());
-}
 
 // keep track of nodes to report stats
 const REPS = 2;
@@ -188,57 +178,78 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
     let remainingAmount = AMOUNT - amountRebalanced;
     maxFee = Math.round(remainingAmount * ppm / 1000000);
 
-    let command = `bos rebalance --no-color --out "${OUT}" --in "${IN}" --amount ${remainingAmount} --max-fee-rate ${ppm} --max-fee ${maxFee} --minutes ${timeLeft}${avoid}`;
     console.log('\n-------------------------------------------');
     console.log(`* rebalancing from ${outName} to ${inName}`);
     if (amountRebalanced > 0) console.log('* targeted amount:', numberWithCommas(AMOUNT));
     console.log('* remaining amount:', numberWithCommas(remainingAmount));
     console.log('* time left:', timeLeft, 'mins');
-    console.log('* command:', command);
 
-    let stderr;
-    let stdout;
-    try {
-      stdout = require('child_process').execSync(command).toString();
-    } catch (error) {
-      stdout = error.stdout.toString();
-      stderr = error.stderr.toString();
+    // call bos rebalance; async logger will be notified about route evals and log messages
+    let lastRoute; // last route that was evaluated
+    const rebalanceLogger = {
+      eval: (route) => {
+        console.log('\nprobing route:', route);
+        lastRoute = route;
+
+        // record the node for sats
+        route.forEach(node => {
+          if (nodeStats[node.id]) {
+            let n = nodeStats[node.id];
+            n.ppms.push(node.ppm);
+          } else {
+            nodeStats[node.id] = {
+              name: node.name,
+              id: node.id,
+              ppms: [node.ppm]
+            }
+          }
+
+          if (node.ppm > ppm_per_hop && canAvoidNode(node.id)) {
+            console.log('identified expensive node:', stringify(node));
+          }
+        })
+      },
+      debug: (msg) => {
+        if (config.debugMode) console.log(msg);
+      },
+      info: (msg) => {
+        if (config.debugMode) console.log(msg);
+      },
+      warn: (msg) => {
+        console.warn(msg);
+      },
+      error: (msg) => {
+        console.error(msg);
+      }
     }
 
-    if (stderr && config.debugMode) console.log('stderr: ', stderr);
-    if (stdout && config.debugMode) console.log('stdout: ', stdout);
+    // record for jet monitor
+    const rebalanceId = recordActiveRebalanceSync({from: outId, to: inId, amount: remainingAmount, ppm, mins: timeLeft});
 
-    // process output, collect stats
-    stdout.split(/\r?\n/).forEach(line => {
-      let node = parseNode(line);
-      if (node) {
-        //console.log('parsed node: ', stringify(node));
+    // call bos rebalance in sync mode
+    let rbSuccess, rbError;
+    try {
+      let rbSync = rebalanceSync({logger: rebalanceLogger, from: outId, to: inId, amount: remainingAmount.toString(), maxFeeRate: ppm, maxFee, mins: timeLeft, avoid: Object.keys(avoidNodes)});
+      rbSuccess = rbSync.result;
+      rbError = rbSync.error;
+    } catch(err) {
+      console.error('error calling bos rebalance:', err.message);
+      // force to exit the loop, otherwise may get into infinite loop
+      rep = REPS;
+      continue;
+    } finally {
+      // remove the record
+      deleteActiveRebalance(rebalanceId);
+    }
 
-        // collect stats
-        if (nodeStats[node.id]) {
-          let n = nodeStats[node.id];
-          n.ppms.push(node.ppm);
-        } else {
-          nodeStats[node.id] = {
-            name: node.name,
-            id: node.id,
-            ppms: [node.ppm]
-          }
-        }
-
-        if (node.ppm > ppm_per_hop) {
-          console.log('found a node that exceeds ppm_per_hop:', stringify(node));
-        }
-      }
-    })
-
-    if (stderr) {
-      let rebalanceFeeTooHigh = stderr.indexOf('RebalanceTotalFeeTooHigh') >= 0 || stderr.indexOf('RebalanceFeeRateTooHigh') >= 0;
-      let failedToFindPath = stderr.indexOf('FailedToFindPathBetweenPeers') >= 0;
-      let lowRebalanceAmount = stderr.indexOf('LowRebalanceAmount') >= 0;
-      let failedToFindPeer = stderr.indexOf('FailedToFindPeerAliasMatch') >= 0;
-      let noSufficientBalance = stderr.indexOf('NoOutboundPeerWithSufficientBalance') >= 0;
-      let probeTimeout = stderr.indexOf('ProbeTimeout') >= 0;
+    if (rbError) {
+      let rebalanceFeeTooHigh = ['RebalanceTotalFeeTooHigh', 'RebalanceFeeRateTooHigh'].includes(rbError.error);
+      let failedToFindPath = rbError.error === 'FailedToFindPathBetweenPeers';
+      let lowRebalanceAmount = rbError.error === 'LowRebalanceAmount';
+      let failedToFindPeer = rbError.error === 'FailedToFindPeerAliasMatch';
+      let noSufficientBalance = rbError.error === 'NoOutboundPeerWithSufficientBalance';
+      let probeTimeout = rbError.error === 'ProbeTimeout';
+      let failedToParseAmount = rbError.error === 'FailedToParseSpecifiedAmount';
 
       if (rebalanceFeeTooHigh) {
         // find nodes that exceed the per hop ppm in the last
@@ -247,9 +258,9 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
         console.log('\n-------------------------------------------');
         console.log('found a prospective route, but the fee is too high');
         //console.log('evaluating output:', stdout);
-        let index = stdout.lastIndexOf('evaluating:');
-        if (index >= 0) {
-          let nodes = parseNodes(stdout.substring(index));
+        //let index = stdout.lastIndexOf('evaluating:');
+        if (lastRoute) {
+          let nodes = lastRoute;
           if (nodes) {
             // find a node with max ppm that's not already on the avoid list
             // its enough to select one node to unblock the route
@@ -269,7 +280,7 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
             console.log('the route has a [cumulative] ppm of', ppmsum, 'vs', ppm, 'targeted');
             minFailedPpm = Math.min(minFailedPpm, ppmsum);
             if (max) {
-              console.log('identified a node to unblock the route:', stringify(max));
+              console.log('identified expensive node to exclude:', stringify(max));
               if (max.ppm > ppm_per_hop) {
                 let entry = nodeStats[max.id];
                 console.log('identified corresponding nodeStats entry:', nodeToString(entry));
@@ -383,20 +394,24 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
         lastMessage = 'ran out of time';
         console.log(lastMessage + ', exiting');
         rep = REPS;
+      } else if (failedToParseAmount) {
+        lastError = 'FailedToParseSpecifiedAmount';
+        lastMessage = 'failed to parse amount';
+        console.log(lastMessage + ', exiting');
+        rep = REPS;
       } else {
         lastError = 'unknownError';
         lastMessage = 'unidentified error';
         console.log('\n-------------------------------------------');
         console.log(lastMessage + ', retrying');
-        console.log('stdout:', stdout);
         rep++;
       }
     } else {  // !stderr
       console.log('\n-------------------------------------------');
       lastMessage = 'successful rebalance';
       // determine amount rebalanced
-      let amount = parseAmountRebalanced(stdout);
-      let fees = parseFeesSpent(stdout);
+      let amount = rbSuccess.amount;
+      let fees = rbSuccess.fees;
       if (amount > 0) {
         console.log('* amount rebalanced:', numberWithCommas(amount));
         amountRebalanced += amount;
@@ -426,28 +441,6 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
         console.log(lastMessage + ', exiting');
         rep = REPS; // force to exit the loop
       }
-
-      // remember the route
-      let index = stdout.lastIndexOf('evaluating:');
-      if (index >= 0) {
-        let nodes = parseNodes(stdout.substring(index));
-        if (nodes) {
-          console.log('* nodes:', stringify(nodes));
-          nodes.unshift({
-            amount: amount || 0,
-            fees: fees || 0
-          })
-          routes.push(nodes);
-        } else {
-          lastMessage = 'failed to parse nodes after successful rebalance';
-          console.log(lastMessage);
-        }
-      } else {
-        lastMessage = 'failed to parse route after successful rebalance';
-        console.log(lastMessage);
-      }
-
-      if (config.debugMode) console.log('output:', stdout);
     } // if stderr
 
     // helper function
@@ -554,63 +547,6 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
   function isSkippedHop(a, b) {
     return skippedHops[a] && skippedHops[a].includes(b);
   }
-}
-
-function parseNodes(str) {
-  let nodes = [];
-  str.split(/\r?\n/).forEach(line => {
-    let n = parseNode(line);
-    if (n) nodes.push(n);
-  })
-  return (nodes.length > 0) ? nodes : undefined;
-}
-
-function parseNode(str) {
-  let node;
-  let index = str.indexOf(". Fee rate");
-  if (index >= 0) {
-    node = {};
-    let part1 = str.substring(0, index).split(/(\s+)/).filter( e => e.trim().length > 0);
-    let part2 = str.substring(index + 1);
-    // get node id
-    node.id = part1[part1.length-1];
-    // determine name
-    let name = normalizeString(str.substring(0, index));
-    if (name.indexOf('-') === 0) name = name.substring(name.indexOf('-') + 1, name.indexOf(node.id)).trim();
-    node.name = name;
-    // get ppm
-    node.ppm = parseInt(part2.substring(part2.indexOf('(') + 1, part2.indexOf(')')));
-  }
-  return node;
-}
-
-function normalizeString(str) {
-  // take care of funkiness of bos output
-  let index = str.indexOf('[39m');
-  if (index >= 0) str = str.substring(index + 4);
-  return str.trim();
-}
-
-function parseAmountRebalanced(str) {
-  let amount = 0;
-  let index1 = str.indexOf('rebalanced:');
-  let index2 = str.indexOf('rebalance_fees_spent:');
-  if (index1 >= 0 && index2 >=0 ) {
-    amount = str.substring(index1 + 11, index2).trim();
-    amount = Math.round(amount * 100000000);  // convert to sats
-  }
-  return amount;
-}
-
-function parseFeesSpent(str) {
-  let fees = 0;
-  let index1 = str.indexOf('rebalance_fees_spent:');
-  let index2 = str.indexOf('rebalance_fee_rate:');
-  if (index1 >= 0 && index2 >=0 ) {
-    fees = str.substring(index1 + 21, index2).trim();
-    fees = Math.round(fees * 100000000);  // convert to sats
-  }
-  return fees;
 }
 
 function numberWithCommas(x) {

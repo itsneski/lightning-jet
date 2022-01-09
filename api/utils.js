@@ -1,5 +1,6 @@
+const importLazy = require('import-lazy')(require);
 const {execSync} = require('child_process');
-const lndClient = require('./connect');
+const lndClient = importLazy('./connect');
 const {listPeersMapSync} = require('../lnd-api/utils');
 const {listChannelsSync} = require('../lnd-api/utils');
 const {stuckHtlcsSync} = require('../lnd-api/utils');
@@ -12,9 +13,9 @@ const {listPeersSync} = require('../lnd-api/utils');
 const {listFeesSync} = require('../lnd-api/utils');
 const {removeEmojis} = require('../lnd-api/utils');
 const {htlcHistorySync} = require('../lnd-api/utils');
-const tags = require('./tags');
+const tags = importLazy('./tags');
 const constants = require('./constants');
-const config = require('./config');
+const config = importLazy('./config');
 const findProc = require('find-process');
 const date = require('date-and-time');
 
@@ -22,6 +23,31 @@ const round = n => Math.round(n);
 const pThreshold = 2;
 
 module.exports = {
+  rebalanceHistoryConsolidated(hours = 1) {
+    let history = listRebalancesSync(hours * 60 * 60);  // in secs
+    if (!history || history.length === 0) return;
+    let peerMap = {};
+    let countFailures = 0;  
+    history.forEach(n => {
+      let entry = peerMap[n.to];
+      if (!entry) {
+        entry = { count: 0, map: {} };
+        peerMap[n.to] = entry;
+      }
+      if (n.status !== 0) return; // skip success
+      countFailures++;
+      entry.count++;
+      if (!entry.map[n.extra]) entry.map[n.extra] = 0;
+      entry.map[n.extra]++;
+    })
+    let map = {};
+    Object.keys(peerMap).forEach(n => {
+      let entry = peerMap[n];
+      map[n] = Math.round(100 * entry.count / history.length);
+    })
+    return {total: history.length, failures: countFailures, map};
+  },
+
   // resolve a node based on a partial alias or a tag
   resolveNode(str, peers) {
     if (!str) return new Error('str is missing');
@@ -151,6 +177,20 @@ module.exports = {
   // its ppm is below the margin
   rebalanceMargin(localFee, remoteFee) {
     return Math.round(localFee.base/1000 + localFee.rate - (remoteFee.base/1000 + remoteFee.rate));
+  },
+  // is process running
+  isRunningPidSync(pid) {
+    let done, res;
+    findProc('pid', pid).then(list => {
+      res = list;
+      done = true;
+    }, err => {
+      done = true;
+    })
+    while(!done) {
+      require('deasync').runLoopOnce();
+    }
+    return res && res.length > 0;
   },
   // is process running
   isRunningSync(proc, self = false) {
@@ -365,50 +405,22 @@ module.exports = {
     }
   },
   listActiveRebalancesSync: function() {
-    try {
-      var result = execSync('ps -ef | grep "/bos rebalance" | grep -v grep').toString().trim();
-    } catch(error) {
-      // not a critical error??
-      return;
-    }
-    let list = [];
-    let lines = result.split(/\r?\n/);
-    if (lines.length === 0) return;
-    let peers = listPeersSync(lndClient);
-    lines.forEach(line => {
-      if (!line) return;
-      let from = parsePeer(line, '--out', peers);
-      if (!from) return console.error('listActiveRebalancesSync: couldnt parse from');
-      let to = parsePeer(line, '--in', peers);
-      if (!to) return console.error('listActiveRebalancesSync: couldnt parse to');
-      let amount = parseVal(line, '--amount');
-      if (!amount) return console.error('listActiveRebalancesSync: couldnt parse amount,', line);
-      let ppm = parseVal(line, '--max-fee-rate');
-      if (!ppm) return console.error('listActiveRebalancesSync: couldnt parse ppm,', line);
-      let mins = parseVal(line, '--minutes');
-      if (!mins) return console.error('listActiveRebalancesSync: couldnt parse mins,', line);
-      list.push({from:from, to:to, amount:parseInt(amount), ppm:parseInt(ppm), mins:parseInt(mins)});
+    const dbUtils = require('../db/utils');
+    let list = dbUtils.listActiveRebalancesSync();
+    if (!list || list.length === 0) return;
+    
+    // clean up the list, remove processes that no longer exist
+    let updated = [];
+    list.forEach(l => {
+      if (module.exports.isRunningPidSync(l.pid)) {
+        updated.push({from:l.from_node, to:l.to_node, amount:l.amount, ppm:l.ppm, mins:l.mins});
+      } else {
+        // for whatever reason the record lingers even though the process
+        // is gone. clean up
+        dbUtils.deleteActiveRebalance(l.rowid);
+      }
     })
-    return list;
-
-    function parsePeer(line, pref, peers) {
-      const resolveNode = module.exports.resolveNode;
-      let val = parseVal(line, pref);
-      if (!val) return console.error('listActiveRebalancesSync: couldnt parse ' + pref + ',', line);
-      let matches = resolveNode(val, peers);
-      if (!matches) return console.error('listActiveRebalancesSync: couldnt resolve', val, 'into a node,', line);
-      if (matches.length >=2) return console.error('listActiveRebalancesSync: couldnt resolve', val, 'into a node,', line);
-      return matches[0].id;
-    }
-
-    function parseVal(line, pref) {
-      let ind1 = line.indexOf(pref);
-      if (ind1 <= 0) return;
-      ind1 += pref.length;
-      let ind2 = line.indexOf('--', ind1);
-      if (ind2 >= 0) return line.substring(ind1, ind2).trim();
-      else return line.substring(ind1).trim();
-    }
+    return updated;
   },
   readLastLineSync: function(file) {
     let lastLine;

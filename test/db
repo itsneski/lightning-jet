@@ -3,12 +3,39 @@
 const dbUtils = require('../db/utils');
 const fs = require('fs');
 const file = '/tmp/jet_test.db';
+const findProc = require('find-process');
+
 //if (fs.existsSync(file)) fs.unlinkSync(file);
 dbUtils.enableTestMode();
 
 const timeout = 2 * 1000; // msec
 
-return testRebalanceHistory();
+return testActiveRebalance();
+
+function testActiveRebalance() {
+  let ret = dbUtils.recordActiveRebalanceSync({
+    from: '03eba3295492a69621a2501675b663c7051f6035b52f98f0e911475534f105e670',
+    to: '035e4ff418fc8b5554c5d9eea66396c227bd429a3251c8cbc711002ba215bfc226',
+    amount: 500000,
+    ppm: 650,
+    mins: 30
+  });
+  console.log('inserted row:', ret);
+  ret = dbUtils.recordActiveRebalanceSync({
+    from: '0393a0f0312439b82d43ceb35af6f7a2a2d5a5aa71e461f66b418a77532db51c00',
+    to: '035e4ff418fc8b5554c5d9eea66396c227bd429a3251c8cbc711002ba215bfc226',
+    amount: 1000000,
+    ppm: 550,
+    mins: 30
+  });
+  console.log('inserted row:', ret);
+  console.log(dbUtils.listActiveRebalancesSync());
+
+  dbUtils.deleteActiveRebalance(ret); // last row id
+  setTimeout(() => {
+    console.log(dbUtils.listActiveRebalancesSync());
+  }, timeout);
+}
 
 function testNameValList() {
   dbUtils.recordValSync('aaaa', 1234);

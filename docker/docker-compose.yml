@@ -1,0 +1,12 @@
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    volumes:
+      - ${LND_DIR}:/home/umbrel/umbrel/lnd:ro
+      - ${LND_CONFIG_FILE}:/app/api/config.json
+    extra_hosts:
+      - ${LND_HOSTNAME}:${LND_IP_ADDRESS}
+    network_mode: host
+    tty: true

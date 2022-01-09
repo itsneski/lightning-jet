@@ -1,0 +1,12 @@
+**/.git
+.gitignore
+.dockerignore
+docker/docker-compose.yml
+README.md
+api/config.json
+test/
+docker/.env
+docker/.env.example
+docker/Dockerfile
+LICENSE
+README.md
