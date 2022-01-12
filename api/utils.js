@@ -408,12 +408,14 @@ module.exports = {
     const dbUtils = require('../db/utils');
     let list = dbUtils.listActiveRebalancesSync();
     if (!list || list.length === 0) return;
-    
+
     // clean up the list, remove processes that no longer exist
     let updated = [];
     list.forEach(l => {
       if (module.exports.isRunningPidSync(l.pid)) {
-        updated.push({from:l.from_node, to:l.to_node, amount:l.amount, ppm:l.ppm, mins:l.mins});
+        // recalculate minites left
+        let minsLeft = l.mins - Math.round((Date.now() - l.date)/(60 * 1000));
+        updated.push({from:l.from_node, to:l.to_node, amount:l.amount, ppm:l.ppm, mins:minsLeft});
       } else {
         // for whatever reason the record lingers even though the process
         // is gone. clean up
