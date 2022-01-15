@@ -4,6 +4,17 @@ const deasync = require('deasync');
 const round = n => Math.round(n);
 
 module.exports = {
+  // return true if lnd is alive, false otherwise
+  isLndAlive: function(lndClient) {
+    // do a simple ping (perhaps replace it with getVersion)
+    const {getInfoSync} = module.exports;
+    try {
+      const info = getInfoSync(lndClient);
+      return info !== undefined;
+    } catch(err) {
+      return false;
+    }
+  },
   withCommas: function(s) {
     return (s) ? s.toString().replace(/\B(?<!\.\d*)(?=(\d{3})+(?!\d))/g, ",") : s;
   },
@@ -248,14 +259,15 @@ module.exports = {
     })
   },
   getInfoSync: function(lndClient) {
-    let info;
+    let info, done;
     lndClient.getInfo({}, function(err, response) {
       if (err) {
         throw new Error(err);
       }
       info = response;
+      done = true;
     })
-    while(info === undefined) {
+    while(done === undefined) {
       require('deasync').runLoopOnce();
     }
     return info;
