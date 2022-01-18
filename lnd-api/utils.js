@@ -13,7 +13,7 @@ module.exports = {
       const info = getInfoSync(lndClient);
       return info !== undefined;
     } catch(err) {
-      console.log('err:', err);
+      console.log('isLndAlive: error calling getInfo', err.message);
       return false;
     }
   },
