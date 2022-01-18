@@ -1,6 +1,8 @@
+const importLazy = require('import-lazy')(require);
 const date = require('date-and-time');
-const config = require('../api/config');
+const config = importLazy('../api/config');
 const constants = require('../api/constants');
+const lndClient = importLazy('../api/connect');
 const {exec} = require('child_process');
 const {isRunning} = require('./utils');
 const {isConfigured} = require('./utils');
@@ -14,10 +16,12 @@ const {sendTelegramMessageTimed} = require('../api/utils');
 const {getPropAndDateSync} = require('../db/utils');
 const {deleteProp} = require('../db/utils');
 const {reconnect} = require('../bos/reconnect');
+const {isLndAlive} = require('../lnd-api/utils');
 
 const loopInterval = 5;  // mins
 const bosReconnectInterval = 60;  // mins
 const cleanDbInterval = 24; // hours
+const lndPingInterval = 60; // seconds
 
 function bosReconnect() {
   const logger = {
@@ -172,7 +176,22 @@ function runLoopExec() {
   }
 }
 
+function lndPingLoop() {
+  console.log('lndPingLoop');
+  const prop = 'lndOfflineTelegramNotify';
+  const frequency = constants.services.launcher.lndTelegramNotify;
+  try {
+    if (!isLndAlive(lndClient)) {
+      console.error(constants.colorRed, 'lnd is offline');
+      sendTelegramMessageTimed('lnd is offline', prop, frequency);
+    }
+  } catch(err) {
+    console.error('error pinging lnd:', err.message);
+  }
+}
+
 runLoop();
 setInterval(runLoop, loopInterval * 60 * 1000);
 setInterval(bosReconnect, bosReconnectInterval * 60 * 1000);
 setInterval(cleanDb, cleanDbInterval * 60 * 60 * 1000);
+setInterval(lndPingLoop, lndPingInterval * 1000);

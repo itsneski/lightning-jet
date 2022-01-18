@@ -6,12 +6,14 @@ const round = n => Math.round(n);
 module.exports = {
   // return true if lnd is alive, false otherwise
   isLndAlive: function(lndClient) {
+    if (!lndClient) throw new Error('isLndAlive: lndClient is null');
     // do a simple ping (perhaps replace it with getVersion)
     const {getInfoSync} = module.exports;
     try {
       const info = getInfoSync(lndClient);
       return info !== undefined;
     } catch(err) {
+      console.log('err:', err);
       return false;
     }
   },
@@ -74,7 +76,7 @@ module.exports = {
       num_max_events: 10000
     }, (err, response) => {
       if (err) {
-        return console.error('Error: ' + err);
+        return console.error('htlcHistorySync: ' + err);
       }
       history = response;
     })

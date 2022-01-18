@@ -51,6 +51,9 @@ exports.services = {
   },
   logger: {
     errorProp: 'htlcLoggerError'
+  },
+  launcher: {
+    lndTelegramNotify: 5 * 60  // seconds
   }
 }
 
