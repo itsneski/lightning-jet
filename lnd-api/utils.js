@@ -261,18 +261,22 @@ module.exports = {
     })
   },
   getInfoSync: function(lndClient) {
-    let info, done;
-    lndClient.getInfo({}, function(err, response) {
-      if (err) {
-        throw new Error(err);
-      }
-      info = response;
+    let info, done, error;
+    try {
+      lndClient.getInfo({}, function(err, response) {
+        if (err) error = err;
+        else info = response;
+      })
+    } catch(ex) {
+      error = ex;
+    } finally {
       done = true;
-    })
+    }
     while(done === undefined) {
       require('deasync').runLoopOnce();
     }
-    return info;
+    if (error) throw new Error(error);
+    else return info;
   },
   listPeersMapSync: function(lndClient) {
     let map;
@@ -365,17 +369,6 @@ module.exports = {
     let info;
     module.exports.getNodesInfo(lndClient, nodes, function(result) {
       info = result;
-    })
-    while(info === undefined) {
-      require('deasync').runLoopOnce();
-    }
-    return info;
-  },
-  getInfoSync: function(lndClient) {
-    let info;
-    lndClient.getInfo({}, (err, response) => {
-      if (err) throw new Error(err);
-      info = response;
     })
     while(info === undefined) {
       require('deasync').runLoopOnce();

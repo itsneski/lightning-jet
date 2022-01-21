@@ -38,7 +38,7 @@ const config = importLazy('./api/config');
 
 const rebalanceApi = importLazy('./api/rebalance');
 const {reconnect} = importLazy('./bos/reconnect');
-const {isLndAlive} = importLazy('./api/utils');
+const {isLndAlive} = importLazy('./lnd-api/utils');
 
 // service names, plus all for restart
 const serviceNames = getServiceNames();
@@ -92,11 +92,7 @@ cap
   .option('--mins [mins]', 'Max time to run in minutes')
   .action((args, options, logger) => {
     return new Promise(async (resolve, reject) => {
-      if (!isLndAlive(lndClient)) {
-        let err = 'lnd is offline';
-        logger.error(err);
-        return reject(err)
-      }
+      if (!isLndAlive(lndClient)) return reject('lnd is offline');
 
       const amount = (args.amount < 1000) ? args.amount * 1000000 : args.amount;
 
@@ -114,11 +110,7 @@ cap
   .help('Notable columns: p - % of [inbound or outbound] routing by the peer out of total [inbound or outbound] across all peers; ppm - peer\'s current ppm rate; margin - rebalance ppm margin, rebalance will be profitable as long as its ppm is below this margin.')
   .action((args, options, logger) => {
     return new Promise(async (resolve, reject) => {
-      if (!isLndAlive(lndClient)) {
-        let err = 'lnd is offline';
-        logger.error(err);
-        return reject(err)
-      }
+      if (!isLndAlive(lndClient)) return reject('lnd is offline');
 
       let peers = listPeersFormattedSync();
       console.table(peers.all);
@@ -138,11 +130,7 @@ cap
   .command('fees', 'Lists peer fees')
   .action((args, options, logger) => {
     return new Promise(async (resolve, reject) => {
-      if (!isLndAlive(lndClient)) {
-        let err = 'lnd is offline';
-        logger.error(err);
-        return reject(err)
-      }
+      if (!isLndAlive(lndClient)) return reject('lnd is offline');
 
       let fees = listFeesSync(lndClient);
       //console.log(classified);
@@ -171,11 +159,7 @@ cap
   .help('Each peers\' channel local and remote fees will be evaluated against the profitability margin')
   .action((args, options, logger) => {
     return new Promise(async (resolve, reject) => {
-      if (!isLndAlive(lndClient)) {
-        let err = 'lnd is offline';
-        logger.error(err);
-        return reject(err)
-      }
+      if (!isLndAlive(lndClient)) return reject('lnd is offline');
 
       if (options.profit < 0 || options.profit > 100) return console.error('profit has to be between 0 and 100');
 
@@ -259,11 +243,7 @@ cap
   .help('Prints % of total inbound / outbound routing for each peer (e.g. inbound routing from D++ takes 25% of total inbound traffic across all peers), and % of inbound / outbound routing for a peer (e.g. inbound routing from D++ takes 95% of total routing from D++)')
   .action((args, options, logger) => {
     return new Promise(async (resolve, reject) => {
-      if (!isLndAlive(lndClient)) {
-        let err = 'lnd is offline';
-        logger.error(err);
-        return reject(err)
-      }
+      if (!isLndAlive(lndClient)) return reject('lnd is offline');
 
       let days = args.days || 7;  // hardcoded??
       let history = htlcHistoryFormatted(days);
@@ -288,11 +268,7 @@ cap
   .option('--hours [hours]', 'Depth of history in hours.')
   .action((args, options, logger) => {
     return new Promise(async (resolve, reject) => {
-      if (!isLndAlive(lndClient)) {
-        let err = 'lnd is offline';
-        logger.error(err);
-        return reject(err)
-      }
+      if (!isLndAlive(lndClient)) return reject('lnd is offline');
 
       try {
         const isInt = n => n % 1 === 0;
@@ -358,11 +334,7 @@ cap
   .option('--filter [filter]', 'Filter by success or failed', ['success', 'failed'])
   .action((args, options, logger) => {
     return new Promise(async (resolve, reject) => {
-      if (!isLndAlive(lndClient)) {
-        let err = 'lnd is offline';
-        logger.error(err);
-        return reject(err)
-      }
+      if (!isLndAlive(lndClient)) return reject('lnd is offline');
 
       let secs = (options.hours) ? options.hours * 60 * 60 : -1;
       secs = (options.mins) ? options.mins * 60 : secs;
@@ -391,11 +363,7 @@ cap
   .command('list-peers', 'Lists peer aliases and ids')
   .action((args, options, logger) => {
     return new Promise(async (resolve, reject) => {
-      if (!isLndAlive(lndClient)) {
-        let err = 'lnd is offline';
-        logger.error(err);
-        return reject(err)
-      }
+      if (!isLndAlive(lndClient)) return reject('lnd is offline');
 
       let peers = listPeersSync(lndClient);
       let peerNames = [];
@@ -416,11 +384,7 @@ cap
   .command('list-channels', 'Lists channels along force closing ones')
   .action((args, options, logger) => {
     return new Promise(async (resolve, reject) => {
-      if (!isLndAlive(lndClient)) {
-        let err = 'lnd is offline';
-        logger.error(err);
-        return reject(err)
-      }
+      if (!isLndAlive(lndClient)) return reject('lnd is offline');
 
       let chans = listChannels();
       if (!chans) return console.log('no channels found, likely due to an error');
@@ -446,11 +410,7 @@ cap
   .option('--status', 'Prints rebalance status for peers')
   .action((args, options, logger) => {
     return new Promise(async (resolve, reject) => {
-      if (!isLndAlive(lndClient)) {
-        let err = 'lnd is offline';
-        logger.error(err);
-        return reject(err)
-      }
+      if (!isLndAlive(lndClient)) return reject('lnd is offline');
 
       const delay = args.secs || constants.monitor.refresh;  // in seconds
       console.log('loading data...');
@@ -470,11 +430,7 @@ cap
   .option('--days [days]', 'Depth of history in days')
   .action((args, options, logger) => {
     return new Promise(async (resolve, reject) => {
-      if (!isLndAlive(lndClient)) {
-        let err = 'lnd is offline';
-        logger.error(err);
-        return reject(err)
-      }
+      if (!isLndAlive(lndClient)) return reject('lnd is offline');
 
       // find matches
       let id, name, peerMap;
@@ -544,11 +500,7 @@ cap
   .argument('<message>', 'Message to send')
   .action((args, options, logger) => {
     return new Promise(async (resolve, reject) => {
-      if (!isLndAlive(lndClient)) {
-        let err = 'lnd is offline';
-        logger.error(err);
-        return reject(err)
-      }
+      if (!isLndAlive(lndClient)) return reject('lnd is offline');
 
       const {sendMessage} = require('./api/send-message');
       sendMessage(args.node, args.message);
@@ -562,11 +514,7 @@ cap
   .option('--ppm [ppm]', 'Ppm in sats per million')
   .action((args, options, logger) => {
     return new Promise(async (resolve, reject) => {
-      if (!isLndAlive(lndClient)) {
-        let err = 'lnd is offline';
-        logger.error(err);
-        return reject(err)
-      }
+      if (!isLndAlive(lndClient)) return reject('lnd is offline');
 
       updateChannelSync(lndClient, {chan: args.chan, base: options.base, ppm: options.ppm});
       console.log('updated');
@@ -577,11 +525,7 @@ cap
   .help('Same as BalanceOfSatoshis (bos) reconnect; calls bos api')
   .action((args, options, logger) => {
     return new Promise(async (resolve, reject) => {
-      if (!isLndAlive(lndClient)) {
-        let err = 'lnd is offline';
-        logger.error(err);
-        return reject(err)
-      }
+      if (!isLndAlive(lndClient)) return reject('lnd is offline');
 
       reconnect(logger);
     })

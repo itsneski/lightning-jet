@@ -23,26 +23,6 @@ const round = n => Math.round(n);
 const pThreshold = 2;
 
 module.exports = {
-  // pings lnd not more often than once in a fixed time period
-  // meant to optimize the lower level ping; for a direct ping
-  // call the api/lnd-api isLndAlive.
-  isLndAlive() {
-    const {getPropAndDateSync} = require('../db/utils');
-    const {setPropSync} = require('../db/utils');
-    const {isLndAlive} = require('../lnd-api/utils');
-    const pingInterval = 60;  // seconds
-    const propName = 'lndPing';
-
-    let isAlive;
-    let lastPing = getPropAndDateSync(propName);
-    if (!lastPing || (Date.now() - lastPing.date) > pingInterval * 1000) {
-      isAlive = isLndAlive(lndClient);
-      setPropSync(propName, isAlive);
-    } else {
-      isAlive = lastPing.val;
-    }
-    return isAlive;
-  },
   rebalanceHistoryConsolidated(hours = 1) {
     let history = listRebalancesSync(hours * 60 * 60);  // in secs
     if (!history || history.length === 0) return;
