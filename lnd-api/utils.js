@@ -187,17 +187,21 @@ module.exports = {
     return fee && fee.remote;
   },
   listFeesSync: function(lndClient, chans) {
-    let fees;
-    module.exports.listFees(lndClient, chans, function(result) {
-      if (!result) {
-        throw new Error('null result');
-      }
-      fees = result;
-    })
-    while(fees === undefined) {
+    let fees, done, error;
+    try {
+      module.exports.listFees(lndClient, chans, function(result) {
+        fees = result;
+        done = true;
+      })
+    } catch(err) {
+      error = err;
+      done = true;
+    }
+    while(done === undefined) {
       require('deasync').runLoopOnce();
     }
-    return fees;
+    if (error) throw new Error(error);
+    else return fees;
   },
   listFees: function(lndClient, chans, callback) {
     let info = module.exports.getInfoSync(lndClient);
@@ -261,21 +265,22 @@ module.exports = {
     })
   },
   getInfoSync: function(lndClient) {
-    let info, done, error;
+    var info, done, error;
     try {
       lndClient.getInfo({}, function(err, response) {
         if (err) error = err;
         else info = response;
+        done = true;
       })
     } catch(ex) {
       error = ex;
-    } finally {
       done = true;
     }
     while(done === undefined) {
       require('deasync').runLoopOnce();
     }
     if (error) throw new Error(error);
+    if (!info) throw new Error('error getting node info');
     else return info;
   },
   listPeersMapSync: function(lndClient) {
