@@ -14,9 +14,9 @@ const date = require('date-and-time');
 module.exports = {
   // overrides classifyPeersSync in api/utils. amends prioritization
   // of peers based on missed routing opportunities
-  classifyPeersAnalyzer() {
+  classifyPeersAnalyzer(days = 7) {
     let htlcs = module.exports.htlcAnalyzer();
-    let classify = classifyPeersSync(lndClient);
+    let classify = classifyPeersSync(lndClient, days);
     if (!htlcs || !htlcs.peers || htlcs.peers.length === 0) return classify;
     
     // create a map for easy access

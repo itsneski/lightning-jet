@@ -102,9 +102,12 @@ module.exports = {
       if (h.p >= pThreshold) {
         if (inbound[h.id]) {  // can a node be classified as both inbound & outbound?
           if (h.sum > inbound[h.id].sum) {
+            h.split = Math.round(100 * h.sum / (h.sum + inbound[h.id].sum));
             outbound[h.id] = h;
             delete inbound[h.id];
             delete balanced[h.id];
+          } else {
+            inbound[h.id].split = Math.round(100 * inbound[h.id].sum / (h.sum + inbound[h.id].sum));
           }
         } else {
           outbound[h.id] = h;
@@ -201,13 +204,13 @@ module.exports = {
     }
     return (self) ? res.length > 1 : res.length > 0;
   },
-  listPeersFormattedSync() {
+  listPeersFormattedSync(days = 7) {
     let IN_PEERS = {};
     let OUT_PEERS = {};
     let BALANCED_PEERS = {};
     let SKIPPED_PEERS = {};
 
-    let classified = module.exports.classifyPeersSync(lndClient);
+    let classified = module.exports.classifyPeersSync(lndClient, days);
     classified.inbound.forEach(c => {
       IN_PEERS[c.peer] = { p: c.p };
     })

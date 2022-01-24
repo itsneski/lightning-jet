@@ -108,11 +108,12 @@ cap
 
   .command('peers', 'Lists peers classified into inbound, outbound and balanced based on routing history')
   .help('Notable columns: p - % of [inbound or outbound] routing by the peer out of total [inbound or outbound] across all peers; ppm - peer\'s current ppm rate; margin - rebalance ppm margin, rebalance will be profitable as long as its ppm is below this margin.')
+  .option('--days [days]', 'Depth of routing history in days')
   .action((args, options, logger) => {
     return new Promise(async (resolve, reject) => {
       if (!isLndAlive(lndClient)) return reject('lnd is offline');
 
-      let peers = listPeersFormattedSync();
+      let peers = listPeersFormattedSync(options.days);
       console.table(peers.all);
       console.log('inbound peers:');
       console.table(peers.inbound);
