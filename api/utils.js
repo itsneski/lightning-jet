@@ -20,7 +20,7 @@ const findProc = require('find-process');
 const date = require('date-and-time');
 
 const round = n => Math.round(n);
-const pThreshold = 2;
+const pThreshold = 1; // %
 
 module.exports = {
   rebalanceHistoryConsolidated(hours = 1) {
@@ -87,34 +87,35 @@ module.exports = {
     // classified balanced
     let balanced = {};
     let inbound = {};
-    let currTime = Math.floor(+new Date() / 1000);
-    let minlife = 7 * 24 * 60 * 60;
+    const currTime = Math.floor(+new Date() / 1000);
+    const minlife = 7 * 24 * 60 * 60; // one week
     history.inbound.forEach(h => {
       if (h.p >= pThreshold) {
         inbound[h.id] = h;
         delete balanced[h.id];
-      } else if (currTime - h.lifetime < minlife && h.name.indexOf('LNBIG.com') < 0) {
+      } else if (currTime - h.lifetime < minlife) {
         balanced[h.id] = h;
       }
     })
     let outbound = {};
     history.outbound.forEach(h => {
       if (h.p >= pThreshold) {
-        if (inbound[h.id]) {  // can a node be classified as both inbound & outbound?
+        if (inbound[h.id]) {
           if (h.sum > inbound[h.id].sum) {
             h.split = Math.round(100 * h.sum / (h.sum + inbound[h.id].sum));
             outbound[h.id] = h;
             delete inbound[h.id];
             delete balanced[h.id];
           } else {
+            // calculate % split between inbound and outbound routing
             inbound[h.id].split = Math.round(100 * inbound[h.id].sum / (h.sum + inbound[h.id].sum));
           }
         } else {
           outbound[h.id] = h;
           delete balanced[h.id];
         }
-      } else if (currTime - h.lifetime < minlife && h.name.indexOf('LNBIG.com') < 0) {
-        balanced[h.id] = h; // exception for KP (Yoda)
+      } else if (currTime - h.lifetime < minlife) {
+        balanced[h.id] = h;
       }
     })
 
@@ -123,16 +124,17 @@ module.exports = {
     let peers = listPeersMapSync(lndClient);
     let channels = listChannelsSync(lndClient);
     channels.forEach(c => {
-      if (inbound[c.chan_id] || outbound[c.chan_id] || balanced[c.chan_id]) return;
+      let entry = inbound[c.chan_id] || outbound[c.chan_id] || balanced[c.chan_id];
+      if (entry) {
+        entry.capacity = c.capacity;
+        entry.local = c.local_balance;
+        entry.remote = c.remote_balance;
+        return;
+      }
       let map;
-      if (peers[c.remote_pubkey].name.indexOf('LNBIG.com') >= 0) {  // find a better way
-        map = outbound;
-        c.p = c.p || 0; // must have p for outbound channels otherwise the sorting will be screwed up
-      } else if (c.capacity < minCapacity) {  // should we even have tiny nodes?
+      if (c.capacity < minCapacity) {  // should we even have tiny nodes?
         // skip tiny nodes
         map = skipped;
-      } else if (c.capacity <= 2000000) { // do smaller nodes given a chance to shine???
-        map = balanced; // what about stale nodes????
       } else {
         map = balanced;
       }
@@ -141,8 +143,12 @@ module.exports = {
           id: c.chan_id,
           peer: c.remote_pubkey,
           name: peers[c.remote_pubkey].name,
-          lifetime: c.lifetime
+          lifetime: c.lifetime,
+          capacity: c.capacity,
+          local: c.local_balance,
+          remote: c.remote_balance
         }
+
         if (c.p != undefined) map[c.chan_id].p = c.p;
       }
     })

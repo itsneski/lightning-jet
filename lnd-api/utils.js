@@ -115,7 +115,8 @@ module.exports = {
         peer: channels[n].remote_pubkey,
         name: peers[channels[n].remote_pubkey].name,
         sum: mapIn[n],
-        lifetime: channels[n].lifetime
+        lifetime: channels[n].lifetime,
+        capacity: channels[n].capacity
       })
     })
     inPeers.sort(function(a, b) {
@@ -133,7 +134,8 @@ module.exports = {
         peer: channels[n].remote_pubkey,
         name: peers[channels[n].remote_pubkey].name,
         sum: mapOut[n],
-        lifetime: channels[n].lifetime
+        lifetime: channels[n].lifetime,
+        capacity: channels[n].capacity
       })
     })
     outPeers.sort(function(a, b) {
