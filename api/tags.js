@@ -1,7 +1,7 @@
 // loads bos tags in case bos tool is present
 // this is optional, but nice to have if the user
 // already spend time configuring bos tags
-const config = require('./config')
+/*const config = require('./config')
 const {execSync} = require('child_process');
 
 // check if bos exists
@@ -14,11 +14,11 @@ try {
 if (!bosExists) {
   if (config.debugMode) console.log('didnt locate bos, skipping bos tags');
   return;
-}
+}*/
 
 var tags = {};
 
-if (config.debugMode) console.log('loading bos tags...');
+/*if (config.debugMode) console.log('loading bos tags...');
 try {
   let data = require('child_process').execSync('bos tags').toString();
   let alias;
@@ -40,6 +40,6 @@ function normalizeString(str) {
   let index = str.indexOf('[39m');
   if (index >= 0) str = str.substring(index + 4);
   return str.trim();
-}
+}*/
 
 module.exports = tags;
