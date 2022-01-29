@@ -30,6 +30,7 @@ const {analyzeFees} = require('../api/analyze-fees');
 const {removeEmojis} = require('../lnd-api/utils');
 const {stuckHtlcsSync} = require('../lnd-api/utils');
 const {exec} = require('child_process');
+const serviceUtils = require('./utils');
 const RebalanceQueue = require('./queue');
 
 const maxCount = config.rebalancer.maxInstances || constants.rebalancer.maxInstances;
@@ -80,11 +81,13 @@ function runLoop() {
 }
 
 function runLoopImpl() {
+  console.log('\n' + date.format(new Date, 'MM/DD hh:mm A'), 'run rebalancing loop');
+  serviceUtils.Rebalancer.recordHeartbeat();
   // build liquidity table: how much liquidity is available on the local side
   // for inbound nodes, how much liquidity outbound nodes need, do balanced
   // peers have at least the min local liquidity
   // note that classified peers are already sorted by p%
-  console.log('\nbuild liquidity table:');
+  console.log('build liquidity table:');
   let liquidityTable = {};
   liquidityTable.inbound = [];
   classified.inbound.forEach(n => {
@@ -366,7 +369,7 @@ function countForPeer(peer) {
 
 // kick off the loops
 
-const runLoopInterval = 2 * 60; // sec
+const runLoopInterval = constants.services.rebalancer.loopInterval;
 const processQueueInterval = 10; // sec
 const classifyInterval = 60 * 60; // sec
 

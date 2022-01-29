@@ -43,7 +43,7 @@ exports.feeAnalysis = {
 // services
 exports.services = {
   rebalancer: {
-    loopInterval: 5 * 60  // seconds
+    loopInterval: 2 * 60  // seconds
   },
   telegram: {
     feeInterval: 10 * 60,
