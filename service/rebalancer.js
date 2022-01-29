@@ -1,4 +1,4 @@
-// new auto rebalancer (old on in autorebalance.js)
+// new auto rebalancer (prev is in autorebalance.js)
 // start: jet start rebalancer
 // stop: jet stop rebalancer
 // log: /tmp/rebalancer.log
@@ -84,6 +84,7 @@ function runLoopImpl() {
   // for inbound nodes, how much liquidity outbound nodes need, do balanced
   // peers have at least the min local liquidity
   // note that classified peers are already sorted by p%
+  console.log('\nbuild liquidity table:');
   let liquidityTable = {};
   liquidityTable.inbound = [];
   classified.inbound.forEach(n => {
