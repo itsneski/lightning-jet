@@ -113,18 +113,24 @@ cap
     return new Promise(async (resolve, reject) => {
       if (!isLndAlive(lndClient)) return reject('lnd is offline');
 
-      let peers = listPeersFormattedSync(options.days);
-      console.table(peers.all);
+      const days = options.days || 1;
+      let peers = listPeersFormattedSync(days);
+      console.log('classification of peers based on past', days, 'day(s):');
       console.log('inbound peers:');
-      console.table(peers.inbound);
+      if (peers.inbound.length > 0) console.table(peers.inbound);
+      else 'no peers found'
       console.log('outbound peers:');
-      console.table(peers.outbound);
-      console.log('balanced peers:');
-      console.table(peers.balanced);
+      if (peers.outbound.length > 0) console.table(peers.outbound);
+      else 'no peers found';
+      console.log('other peers (low routing volume):');
+      if (peers.balanced.length > 0) console.table(peers.balanced);
+      else 'no peers found';
       if (peers.skipped.length > 0) {
         console.log('skipped peers:');
         console.table(peers.skipped);  
       }
+      console.log('all peers:');
+      console.table(peers.all);
     })
   })
 
