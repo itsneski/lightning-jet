@@ -90,30 +90,34 @@ jet help
 
 - [Install Docker](https://docs.docker.com/get-docker/) if not exists (`docker -v`)
 - [Install docker-compose](https://docs.docker.com/compose/install/) if not exists (`docker-compose -v`)
+- Add user id to the docker group; run `id` to see if its in the group
 
 ### Installation
 
 ```bash
 git clone https://github.com/itsneski/lightning-jet
 cd lightning-jet
+. docker/genconfig.sh
 ```
 
-Edit `config.json`: set correct paths for `macaroonPath` and `tlsCertPath`. On umbrel, macaroons are typically located at `~/umbrel/lnd/data/chain/bitcoin/mainnet/readonly.macaroon`, tls cert is at `~/umbrel/lnd/tls.cert`. Optional: you can list expensive nodes to avoid in the `avoid` section of the config file (can be done later).
+Edit `$HOME/.lightning-jet/config.json`: set correct paths for `macaroonPath` and `tlsCertPath`. On Umbrel, macaroons are typically located at `~/umbrel/lnd/data/chain/bitcoin/mainnet/readonly.macaroon`, tls cert is at `~/umbrel/lnd/tls.cert`. Optional: list expensive nodes to avoid in the `avoid` section.
+
 ```bash
-nano ~/.lightning-jet/config.json
+nano $HOME/.lightning-jet/config.json
 ```
 
-Edit the `.env`: set `LND_DIR` to your installation of LND (typically `/home/umbrel/umbrel/lnd`). Set `LND_HOSTNAME` and `LND_IP_ADDRESS` to match your instance of LND. On Umbrel you can leave default `LND_HOSTNAME` value. For `LND_IP_ADDRESS` run `ifconfig -a | grep inet` and select IP address that begins with `10.`.
+Edit the `docker/.env`: set `LND_DIR` to your installation of LND (typically `/home/umbrel/umbrel/lnd`). Set `LND_HOSTNAME` and `LND_IP_ADDRESS` to match your instance of LND. On Umbrel you can leave default `LND_HOSTNAME`. For `LND_IP_ADDRESS` run `ifconfig -a | grep inet` then select IP address that begins with `10.`. Make sure that `LND_CONFIG_FILE` path is correct.
+
 ```bash
-nano ./docker/.env
+nano docker/.env
 ```
 
 ### Build image
 
-Note: if the following fails due to permissions, run using `sudo`:
 ```bash
 docker-compose -f docker/docker-compose.yml build
 ```
+This make take a while, make sure not to interrupt the process.
 
 ### Start up daddy
 
