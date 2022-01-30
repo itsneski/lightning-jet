@@ -118,19 +118,16 @@ cap
       console.log('classification of peers based on past', days, 'day(s):');
       console.log('inbound peers:');
       if (peers.inbound.length > 0) console.table(peers.inbound);
-      else 'no peers found'
       console.log('outbound peers:');
       if (peers.outbound.length > 0) console.table(peers.outbound);
-      else 'no peers found';
       console.log('other peers (low routing volume):');
       if (peers.balanced.length > 0) console.table(peers.balanced);
-      else 'no peers found';
       if (peers.skipped.length > 0) {
         console.log('skipped peers:');
         console.table(peers.skipped);  
       }
       console.log('all peers:');
-      console.table(peers.all);
+      if (peers.all.length > 0) console.table(peers.all);
     })
   })
 
