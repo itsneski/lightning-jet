@@ -1,6 +1,8 @@
+const importLazy = require('import-lazy')(require);
 const date = require('date-and-time');
-const config = require('../api/config');
+const config = importLazy('../api/config');
 const constants = require('../api/constants');
+const lndClient = importLazy('../api/connect');
 const {exec} = require('child_process');
 const {isRunning} = require('./utils');
 const {isConfigured} = require('./utils');
@@ -14,12 +16,21 @@ const {sendTelegramMessageTimed} = require('../api/utils');
 const {getPropAndDateSync} = require('../db/utils');
 const {deleteProp} = require('../db/utils');
 const {reconnect} = require('../bos/reconnect');
+const {isLndAlive} = require('../lnd-api/utils');
 
 const loopInterval = 5;  // mins
 const bosReconnectInterval = 60;  // mins
 const cleanDbInterval = 24; // hours
+const lndPingInterval = 60; // seconds
+
+var lndOffline;
 
 function bosReconnect() {
+  if (lndOffline) {
+    console.log('lnd is offline, skipping peer reconnect');
+    return;
+  }
+
   const logger = {
     debug: (msg) => {
       console.log(msg);
@@ -36,10 +47,10 @@ function bosReconnect() {
   }
 
   try {
-    console.log('bos reconnect...');
+    console.log('reconnecting peers');
     reconnect(logger);
   } catch (error) {
-    console.error('error running bos reconnect:', error.toString());
+    console.error('error running peer reconnect:', error.message);
   }
 }
 
@@ -59,6 +70,25 @@ function runLoopExec() {
   console.log();
   console.log(date.format(new Date, 'MM/DD hh:mm A'));
 
+  // telegram
+  if (isRunning(TelegramBot.name)) {
+    console.log(`${TelegramBot.name} is already running`)
+  } else {
+    if (isConfigured(TelegramBot.name)) {
+      console.log(`starting ${TelegramBot.name} ...`);
+      startService(TelegramBot.name);
+    } else {
+      console.error('the telegram bot is not yet configured, cant start the service.', constants.telegramBotHelpPage);
+    }
+  }
+
+  // htlc logger & rebalancer need lnd, so it does not make
+  // sense to attempt to start em
+  if (lndOffline) {
+    console.log('lnd is offline, skipping the loop');
+    return;
+  }
+
   // htlc logger
   if (isRunning(HtlcLogger.name)) {
     console.log(`${HtlcLogger.name} is already running`)
@@ -73,18 +103,6 @@ function runLoopExec() {
   } else {
     console.log(`starting ${Rebalancer.name} ...`);
     startService(Rebalancer.name);
-  }
-
-  // telegram
-  if (isRunning(TelegramBot.name)) {
-    console.log(`${TelegramBot.name} is already running`)
-  } else {
-    if (isConfigured(TelegramBot.name)) {
-      console.log(`starting ${TelegramBot.name} ...`);
-      startService(TelegramBot.name);
-    } else {
-      console.error('the telegram bot is not yet configured, cant start the service.', constants.telegramBotHelpPage);
-    }
   }
 
   // check that the auto rebalancer isnt stuck
@@ -172,7 +190,35 @@ function runLoopExec() {
   }
 }
 
+function lndPingLoop() {
+  try {
+    lndPingLoopExec();
+  } catch(err) {
+    console.error('lndPingLoop:', err.message);
+  }
+}
+
+function lndPingLoopExec() {
+  const prop = 'lndOfflineTelegramNotify';
+  const frequency = constants.services.launcher.lndTelegramNotify;
+  let prev = lndOffline;
+  try {
+    lndOffline = !isLndAlive(lndClient);
+  } catch(err) {
+    console.error('error pinging lnd:', err.message, 'assuming lnd is offline');
+    lndOffline = true;
+  }
+  if (lndOffline) {
+    console.error(constants.colorRed, 'lnd is offline');
+    sendTelegramMessageTimed('lnd is offline', prop, frequency);
+  } else if (prev) {
+    console.log(constants.colorGreen, 'lnd is back online');
+  }
+}
+
+lndPingLoop();  // detect if lnd is offline
 runLoop();
 setInterval(runLoop, loopInterval * 60 * 1000);
 setInterval(bosReconnect, bosReconnectInterval * 60 * 1000);
 setInterval(cleanDb, cleanDbInterval * 60 * 60 * 1000);
+setInterval(lndPingLoop, lndPingInterval * 1000);

@@ -38,7 +38,12 @@ function logEvent(event) {
   }
   console.log(date.format(new Date, 'MM/DD hh:mm:ss A'));
   console.log('logging event:', event);
-  recordHtlc(event);
+
+  try {
+    recordHtlc(event);
+  } catch(err) {
+    console.log('error logging event:', err.message);
+  }
 }
 
 function processError(error) {

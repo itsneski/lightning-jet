@@ -37,12 +37,15 @@ function monitorFees() {
   try {
     monitorFeesExec();
   } catch(error) {
-    console.error('monitorFees:', error.toString());
+    console.error('monitorFees:', error.message);
   }
 }
 
 // monitor fee updates
 function monitorFeesExec() {
+  console.log(date.format(new Date, 'MM/DD hh:mm A'));
+  console.log('checking fee updates');
+
   serviceUtils.TelegramBot.recordHeartbeat('fees');
   let fees = listFeesSync(lndClient);
   let prev = getPropAndDateSync('fees');
@@ -132,8 +135,16 @@ if (global.bot) {
   setInterval(pollMessages, pollInterval * 1000);
 }
 
-// poll messages from the db
 function pollMessages() {
+  try {
+    pollMessagesExec();
+  } catch(err) {
+    console.log('pollMessages:', err.message);
+  }
+}
+
+// poll messages from the db
+function pollMessagesExec() {
   serviceUtils.TelegramBot.recordHeartbeat('poll');
   let list = fetchTelegramMessageSync();
   if (!list || list.length === 0) return;
@@ -163,6 +174,11 @@ function pollMessages() {
 }
 
 function initBot() {
+  console.log();
+  console.log('-----------------------------');
+  console.log(date.format(new Date, 'MM/DD hh:mm A'));
+  console.log('initializing bot');
+
   if (global.bot) return;
   const token = config.telegramToken;
   if (!token) return console.error('could not find telegram token. check your config file');
@@ -175,7 +191,7 @@ function initBot() {
     const chatId = msg.chat.id;
     setChatId(chatId);
 
-    const help = 'Welcome to the Lightning Jet telegram bot.  The bot will notify you of important events relevant to your node.';
+    const help = 'Welcome to the Lightning Jet telegram bot!';
 
     // send back the matched "whatever" to the chat
     global.bot.sendMessage(chatId, help);

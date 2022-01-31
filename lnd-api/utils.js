@@ -4,6 +4,19 @@ const deasync = require('deasync');
 const round = n => Math.round(n);
 
 module.exports = {
+  // return true if lnd is alive, false otherwise
+  isLndAlive: function(lndClient) {
+    if (!lndClient) throw new Error('isLndAlive: lndClient is null');
+    // do a simple ping (perhaps replace it with getVersion)
+    const {getInfoSync} = module.exports;
+    try {
+      const info = getInfoSync(lndClient);
+      return info !== undefined;
+    } catch(err) {
+      console.log('isLndAlive: error calling getInfo', err.message);
+      return false;
+    }
+  },
   withCommas: function(s) {
     return (s) ? s.toString().replace(/\B(?<!\.\d*)(?=(\d{3})+(?!\d))/g, ",") : s;
   },
@@ -63,7 +76,7 @@ module.exports = {
       num_max_events: 10000
     }, (err, response) => {
       if (err) {
-        return console.error('Error: ' + err);
+        return console.error('htlcHistorySync: ' + err);
       }
       history = response;
     })
@@ -102,7 +115,8 @@ module.exports = {
         peer: channels[n].remote_pubkey,
         name: peers[channels[n].remote_pubkey].name,
         sum: mapIn[n],
-        lifetime: channels[n].lifetime
+        lifetime: channels[n].lifetime,
+        capacity: channels[n].capacity
       })
     })
     inPeers.sort(function(a, b) {
@@ -120,7 +134,8 @@ module.exports = {
         peer: channels[n].remote_pubkey,
         name: peers[channels[n].remote_pubkey].name,
         sum: mapOut[n],
-        lifetime: channels[n].lifetime
+        lifetime: channels[n].lifetime,
+        capacity: channels[n].capacity
       })
     })
     outPeers.sort(function(a, b) {
@@ -174,17 +189,21 @@ module.exports = {
     return fee && fee.remote;
   },
   listFeesSync: function(lndClient, chans) {
-    let fees;
-    module.exports.listFees(lndClient, chans, function(result) {
-      if (!result) {
-        throw new Error('null result');
-      }
-      fees = result;
-    })
-    while(fees === undefined) {
+    let fees, done, error;
+    try {
+      module.exports.listFees(lndClient, chans, function(result) {
+        fees = result;
+        done = true;
+      })
+    } catch(err) {
+      error = err;
+      done = true;
+    }
+    while(done === undefined) {
       require('deasync').runLoopOnce();
     }
-    return fees;
+    if (error) throw new Error(error);
+    else return fees;
   },
   listFees: function(lndClient, chans, callback) {
     let info = module.exports.getInfoSync(lndClient);
@@ -248,17 +267,23 @@ module.exports = {
     })
   },
   getInfoSync: function(lndClient) {
-    let info;
-    lndClient.getInfo({}, function(err, response) {
-      if (err) {
-        throw new Error(err);
-      }
-      info = response;
-    })
-    while(info === undefined) {
+    var info, done, error;
+    try {
+      lndClient.getInfo({}, function(err, response) {
+        if (err) error = err;
+        else info = response;
+        done = true;
+      })
+    } catch(ex) {
+      error = ex;
+      done = true;
+    }
+    while(done === undefined) {
       require('deasync').runLoopOnce();
     }
-    return info;
+    if (error) throw new Error(error);
+    if (!info) throw new Error('error getting node info');
+    else return info;
   },
   listPeersMapSync: function(lndClient) {
     let map;
@@ -351,17 +376,6 @@ module.exports = {
     let info;
     module.exports.getNodesInfo(lndClient, nodes, function(result) {
       info = result;
-    })
-    while(info === undefined) {
-      require('deasync').runLoopOnce();
-    }
-    return info;
-  },
-  getInfoSync: function(lndClient) {
-    let info;
-    lndClient.getInfo({}, (err, response) => {
-      if (err) throw new Error(err);
-      info = response;
     })
     while(info === undefined) {
       require('deasync').runLoopOnce();

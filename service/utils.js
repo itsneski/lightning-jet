@@ -62,8 +62,8 @@ class Rebalancer extends Service {
   constructor() {
     super();
     this.name = Rebalancer.name;
-    this.proc = 'autorebalance.js';
-    this.log = '/tmp/autorebalance.log';
+    this.proc = 'rebalancer.js';
+    this.log = '/tmp/rebalancer.log';
   }
 }
 

@@ -5,7 +5,7 @@ trap "echo TRAPed signal" HUP INT QUIT TERM
 /app/jet start all
 result=$?
 
-echo "[hit enter to quit]"
+echo "[Ctrl-C to quit]"
 read
 
 echo "Stopping..."

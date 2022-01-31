@@ -1,0 +1,29 @@
+#!/usr/bin/env node
+
+const RebalanceQueue = require('../service/queue');
+
+global.testModeOn = true;
+
+require('../service/rebalancer');
+
+//testRebalanceQueue();
+
+function testRebalanceQueue() {
+  let queue = new RebalanceQueue();
+  const now = Date.now();
+  console.log(queue.pop());
+  queue.add('0000', '1111', 'd++', 'neski', 100000, 650, now);
+  queue.add('2222', '1111', 'wos', 'neski', 200000, 750, now + 5000);
+  console.log(queue.list());
+  queue.add('3333', '1111', 'gondo', 'neski', 250000, 500, now + 2500);
+  queue.add('4444', '1111', 'coin', 'neski', 350000, 800, now + 1000);
+  console.log(queue.list());
+  console.log(queue.count());
+  console.log('includes d++ neski', queue.includes('0000', '1111'));
+  console.log('includes neski d++', queue.includes('1111', '0000'));
+  console.log('includes no andno', queue.includes('no', 'andno'));
+  console.log(queue.pop());
+  setTimeout(() => {console.log(queue.pop())}, 1000);
+  setTimeout(() => {console.log(queue.pop())}, 2500);
+  setTimeout(() => {console.log(queue.pop())}, 5000);
+}

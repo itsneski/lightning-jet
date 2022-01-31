@@ -1,5 +1,6 @@
 services:
   app:
+    container_name: lightning-jet
     build:
       context: ..
       dockerfile: docker/Dockerfile
