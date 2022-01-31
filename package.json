@@ -20,7 +20,7 @@
     "run-parallel": "1.2.0",
     "sqlite3": "^4.2.0"
   },
-  "description": "A tool that helps Lighting (LND) node operators to rebalance their node, optimize fees, monitor stuck htlcs, etc.",
+  "description": "General-purpose automated rebalancer for LND Lightning nodes. Helps get an insight into peers' classification based on routing history, missed routing opportunities, and stuck htlcs.",
   "engines": {
     "node": ">=12"
   },
@@ -41,5 +41,5 @@
   "scripts": {
     "postinstall": "./tools/genconfig"
   },
-  "version": "1.3.0"
+  "version": "1.4.0"
 }
