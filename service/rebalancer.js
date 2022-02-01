@@ -128,8 +128,8 @@ function runLoopImpl() {
     const needs = min - n.local;
     //console.log(n, min, needs);
     if (needs < 0) {
-      // there is extra liquidity
-      const extra = n.local - minLocal;
+      // there is extra liquidity; dont overcommit liquidity, max it at 50% of capacity
+      const extra = Math.min(n.local, Math.round(n.capacity / 2)) - minLocal;
       if (extra < minToRebalance) return console.log('[balanced]', n.peer, n.name, 'has sats below threshold', extra);
       else {
         // check if excluded
