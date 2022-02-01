@@ -48,7 +48,6 @@ const colorYellow = constants.colorYellow;
 const backoff = x => 2 * Math.pow(2, x);
 
 var queue = new RebalanceQueue();
-var classified;
 
 // build exclude map
 let exclude = {};
@@ -87,6 +86,7 @@ function runLoopImpl() {
   // for inbound nodes, how much liquidity outbound nodes need, do balanced
   // peers have at least the min local liquidity
   // note that classified peers are already sorted by p%
+  let classified = classifyPeersSync(lndClient, 1);
   console.log('build liquidity table:');
   let liquidityTable = {};
   liquidityTable.inbound = [];
@@ -335,17 +335,6 @@ function processQueueImpl() {
   }
 }
 
-// classify peers; do we actually need a loop or ok to run it every time?
-
-function classifyLoop() {
-  try {
-    console.log(date.format(new Date, 'MM/DD hh:mm A'), 'classifying peers');
-    classified = classifyPeersSync(lndClient, 1);
-  } catch(err) {
-    console.error('classifyLoop error:', err.message);
-  }
-}
-
 // determine if a rebalance is already in-flight based on
 // peer pair. in-flight is either already running or in the
 // queue.
@@ -393,11 +382,8 @@ function countForPeer(peer) {
 
 const runLoopInterval = constants.services.rebalancer.loopInterval;
 const processQueueInterval = 10; // sec
-const classifyInterval = 60 * 60; // sec
 
 setInterval(runLoop, runLoopInterval * 1000);
 setInterval(processQueue, processQueueInterval * 1000);
-setInterval(classifyLoop, classifyInterval * 1000);
 
-classifyLoop();
 runLoop();
