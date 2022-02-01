@@ -91,23 +91,34 @@ function runLoopImpl() {
   let liquidityTable = {};
   liquidityTable.inbound = [];
   classified.inbound.forEach(n => {
+    // check if excluded
+    let type = exclude[n.peer];
+    if (type && ['all', 'inbound'].includes(type)) {
+      return console.log(colorYellow, '[inbound]', n.peer, n.name, 'excluded based on settings');
+    }
+
     const split = n.split/100 || 1;
     const max = Math.round(Math.min(split * n.capacity, n.sum));
     const min = n.capacity - max;
     const has = n.local - min;
     //console.log(n, max, min, has);
-    if (has < minToRebalance) return console.log('[inbound]', n.id, n.name, 'insufficient sats', has);
-    console.log('[inbound]', n.id, n.name, 'has', has, 'sats');
+    if (has < minToRebalance) return console.log('[inbound]', n.peer, n.name, 'insufficient sats', has);
+    console.log('[inbound]', n.peer, n.name, 'has', has, 'sats');
     liquidityTable.inbound.push({id: n.id, peer: n.peer, name: n.name, has});
   })
   liquidityTable.outbound = [];
   classified.outbound.forEach(n => {
+    let type = exclude[n.peer];
+    if (type && ['all', 'outbound'].includes(type)) {
+      return console.log(colorYellow, '[outbound]', n.peer, n.name, 'excluded based on settings');
+    }
+
     const split = n.split/100 || 1;
     const min = Math.round(Math.min(split * n.capacity, n.sum));
     const needs = min - n.local;
     //console.log(n, min, needs);
-    if (needs < minToRebalance) return console.log('[outbound]', n.id, n.name, 'insufficient sats');
-    console.log('[outbound]', n.id, n.name, 'needs', needs, 'sats');
+    if (needs < minToRebalance) return console.log('[outbound]', n.peer, n.name, 'insufficient sats');
+    console.log('[outbound]', n.peer, n.name, 'needs', needs, 'sats');
     liquidityTable.outbound.push({id: n.id, peer: n.peer, name: n.name, needs});
   })
   liquidityTable.balancedHas = [];
@@ -119,14 +130,25 @@ function runLoopImpl() {
     if (needs < 0) {
       // there is extra liquidity
       const extra = n.local - minLocal;
-      if (extra < minToRebalance) return console.log('[balanced]', n.id, n.name, 'has sats below threshold', extra);
+      if (extra < minToRebalance) return console.log('[balanced]', n.peer, n.name, 'has sats below threshold', extra);
       else {
+        // check if excluded
+        let type = exclude[n.peer];
+        if (type && ['all', 'inbound'].includes(type)) {
+          return console.log(colorYellow, '[balanced]', n.peer, n.name, 'excluded based on settings');
+        }
+
         liquidityTable.balancedHas.push({id: n.id, peer: n.peer, name: n.name, has: extra});
-        return console.log('[balanced]', n.id, n.name, 'has', extra, 'sats');
+        return console.log('[balanced]', n.peer, n.name, 'has', extra, 'sats');
       }
     }
-    if (needs < minToRebalance) return console.log('[balanced]', n.id, n.name, 'needs sats below threshold', needs);
-    console.log('[balanced]', n.id, n.name, 'needs', needs, 'sats');
+    if (needs < minToRebalance) return console.log('[balanced]', n.peer, n.name, 'needs sats below threshold', needs);
+    // check if excluded
+    let type = exclude[n.peer];
+    if (type && ['all', 'outbound'].includes(type)) {
+      return console.log(colorYellow, '[balanced]', n.peer, n.name, 'excluded based on settings');
+    }
+    console.log('[balanced]', n.peer, n.name, 'needs', needs, 'sats');
     liquidityTable.balancedNeeds.push({id: n.id, peer: n.peer, name: n.name, needs});
   })
 
