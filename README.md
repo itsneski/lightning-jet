@@ -1,5 +1,5 @@
 # Lightning Jet 🚀⚡️, or simply Jet
-General-purpose automated rebalancer for LND Lightning nodes. Helps get an insight into peers' classification based on routing history, missed routing opportunities, and stuck htlcs.
+Fully automated rebalancer for LND Lightning nodes. Helps get an insight into peers' classification based on routing history, missed routing opportunities, and stuck htlcs.
 
 Join [Lightning Jet telegram chat](https://t.me/lnjet).
 

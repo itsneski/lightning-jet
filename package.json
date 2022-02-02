@@ -20,7 +20,7 @@
     "run-parallel": "1.2.0",
     "sqlite3": "^4.2.0"
   },
-  "description": "General-purpose automated rebalancer for LND Lightning nodes. Helps get an insight into peers' classification based on routing history, missed routing opportunities, and stuck htlcs.",
+  "description": "Fully automated rebalancer for LND Lightning nodes. Helps get an insight into peers' classification based on routing history, missed routing opportunities, and stuck htlcs.",
   "engines": {
     "node": ">=12"
   },
