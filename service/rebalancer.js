@@ -86,6 +86,7 @@ function runLoopImpl() {
   // for inbound nodes, how much liquidity outbound nodes need, do balanced
   // peers have at least the min local liquidity
   // note that classified peers are already sorted by p%
+  initRunning();    // rebalances already in-flight
   let classified = classifyPeersSync(lndClient, 1);
   console.log('build liquidity table:');
   let liquidityTable = {};
@@ -124,36 +125,44 @@ function runLoopImpl() {
   liquidityTable.balancedHas = [];
   liquidityTable.balancedNeeds = [];
   classified.balanced.forEach(n => {
+    console.log('[balanced]', n.peer, n.name, 'capacity:', n.capacity);
+    const inflight = satsInFlight(n.peer);
+    console.log('  sats inflight:', inflight);
     const min = Math.min(minLocal, Math.round(n.capacity / 2));
-    const needs = min - n.local;
-    //console.log(n, min, needs);
-    if (needs < 0) {
-      // there is extra liquidity; dont overcommit liquidity, max it at 50% of capacity
-      const extra = Math.min(n.local, Math.round(n.capacity / 2)) - minLocal;
-      if (extra < minToRebalance) return console.log('[balanced]', n.peer, n.name, 'has sats below threshold', extra);
+
+    // calculate needs and has; take into account inflight sats
+    // dont overcommit liquidity, max it at 50% of capacity
+    const needs = min - (n.local + inflight.inbound);
+    const has = Math.min(n.local, Math.round(n.capacity / 2)) - minLocal - inflight.outbound;
+    console.log('  sats local:,', n.local, 'has:', has, 'needs:', needs);
+
+    if (has > 0) {
+      if (has < minToRebalance) return console.log('  has sats below threshold');
       else {
         // check if excluded
         let type = exclude[n.peer];
         if (type && ['all', 'inbound'].includes(type)) {
-          return console.log(colorYellow, '[balanced]', n.peer, n.name, 'excluded based on settings');
+          return console.log(colorYellow, '  excluded based on settings');
         }
 
-        liquidityTable.balancedHas.push({id: n.id, peer: n.peer, name: n.name, has: extra});
-        return console.log('[balanced]', n.peer, n.name, 'has', extra, 'sats');
+        liquidityTable.balancedHas.push({id: n.id, peer: n.peer, name: n.name, has: has});
+        return console.log('  has', has, 'sats');
       }
+    } else if (needs > 0) {
+      if (needs < minToRebalance) return console.log('  needs sats below threshold', needs);
+      // check if excluded
+      let type = exclude[n.peer];
+      if (type && ['all', 'outbound'].includes(type)) {
+        return console.log(colorYellow, '  excluded based on settings');
+      }
+      console.log('  needs', needs, 'sats');
+      liquidityTable.balancedNeeds.push({id: n.id, peer: n.peer, name: n.name, needs});
+    } else {
+      // neither has nor needs sats
+      return console.log('  neither has nor needs sats');
     }
-    if (needs < minToRebalance) return console.log('[balanced]', n.peer, n.name, 'needs sats below threshold', needs);
-    // check if excluded
-    let type = exclude[n.peer];
-    if (type && ['all', 'outbound'].includes(type)) {
-      return console.log(colorYellow, '[balanced]', n.peer, n.name, 'excluded based on settings');
-    }
-    console.log('[balanced]', n.peer, n.name, 'needs', needs, 'sats');
-    liquidityTable.balancedNeeds.push({id: n.id, peer: n.peer, name: n.name, needs});
   })
 
-  // initialize rebalances already in-flight
-  initRunning();
   let currCount = countInFlight();
   if (currCount >= maxCount) return console.log('already at max count');
 
@@ -339,12 +348,22 @@ function processQueueImpl() {
 // peer pair. in-flight is either already running or in the
 // queue.
 
-var running = {};
+var running;
 
 // is rebalance already running or in the queue
 function isInFlight(from, to) {
-  if (queue.includes(from, to)) return true;
-  return !!running && !!running[from] && !!running[from][to];
+  return queue.includes(from, to) || isRunning(from, to);
+}
+
+// count sats for peers in active rebalances or in the queue
+function satsInFlight(peer) {
+  let sats = queue.sats(peer);
+  if (!running) return sats;
+  running.forEach(entry => {
+    if (entry.from === peer) sats.outbound += entry.amount;
+    if (entry.to === peer) sats.inbound += entry.amount;
+  })
+  return sats;
 }
 
 function countInFlight() {
@@ -352,30 +371,21 @@ function countInFlight() {
 }
 
 function initRunning() {
-  running = {};
-  let list = listActiveRebalancesSync();
-  if (!list) return;
-  let map = {};
-  list.forEach(l => {
-    let entry = map[l.from];
-    if (!entry) { 
-      entry = {};
-      map[l.from] = entry;
-    }
-    entry[l.to] = true;
-  })
-  running = map;
+  running = listActiveRebalancesSync();
 }
 
 function countRunning() {
   if (!running) return 0;
-  let count = 0;
-  Object.keys(running).forEach(k => count += Object.keys(running[k]).length);
-  return count;
+  return running.length;
 }
 
-function countForPeer(peer) {
-  return (running && running[peer] && Object.keys(running[peer]).length) || 0;
+function isRunning(from, to) {
+  if (!running) return false;
+  let found = false;
+  running.forEach(r => {
+    if (r.from === from && r.to === to) found = true;
+  })
+  return found;
 }
 
 // kick off the loops

@@ -126,9 +126,9 @@ module.exports = {
     channels.forEach(c => {
       let entry = inbound[c.chan_id] || outbound[c.chan_id] || balanced[c.chan_id];
       if (entry) {
-        entry.capacity = c.capacity;
-        entry.local = c.local_balance;
-        entry.remote = c.remote_balance;
+        entry.capacity = parseInt(c.capacity);
+        entry.local = parseInt(c.local_balance);
+        entry.remote = parseInt(c.remote_balance);
         return;
       }
       let map;
@@ -144,9 +144,9 @@ module.exports = {
           peer: c.remote_pubkey,
           name: peers[c.remote_pubkey].name,
           lifetime: c.lifetime,
-          capacity: c.capacity,
-          local: c.local_balance,
-          remote: c.remote_balance
+          capacity: parseInt(c.capacity),
+          local: parseInt(c.local_balance),
+          remote: parseInt(c.remote_balance)
         }
 
         if (c.p != undefined) map[c.chan_id].p = c.p;
