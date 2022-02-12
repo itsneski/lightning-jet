@@ -230,7 +230,8 @@ function runLoopImpl() {
   if (currCount >= maxCount) return console.log('reached max rebalance count');
 
   // now process balanced peers; for now, rebalance between each other
-  // how should the peers be prioritized?
+  // sort peers by those that need the most sats
+  liquidityTable.balancedNeeds.sort((a, b) => {return b.needs - a.needs});
   const blen = liquidityTable.balancedNeeds.length;
   for(i = 0; i < blen; i++) {
     if (currCount >= maxCount) return;
