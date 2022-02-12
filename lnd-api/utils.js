@@ -242,6 +242,11 @@ module.exports = {
           id: r.peer,
           name: peers[r.peer].name,
         }
+        if (!r.node1_policy || !r.node2_policy) {
+          // likely that a channel has been added but fees haven't yet
+          // been propagated by gossip
+          return console.warn('undefined fee policy:', r);
+        }
         if (r.node1_pub === info.identity_pubkey) {
           fee.local = {
             base: parseInt(r.node1_policy.fee_base_msat),
