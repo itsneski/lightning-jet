@@ -126,6 +126,7 @@ module.exports = {
     channels.forEach(c => {
       let entry = inbound[c.chan_id] || outbound[c.chan_id] || balanced[c.chan_id];
       if (entry) {
+        entry.active = c.active;
         entry.capacity = parseInt(c.capacity);
         entry.local = parseInt(c.local_balance);
         entry.remote = parseInt(c.remote_balance);
@@ -140,6 +141,7 @@ module.exports = {
       }
       if (map) {
         map[c.chan_id] = {
+          active: c.active,
           id: c.chan_id,
           peer: c.remote_pubkey,
           name: peers[c.remote_pubkey].name,

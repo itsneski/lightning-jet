@@ -132,6 +132,7 @@ module.exports = {
         return;
       }
       inPeers.push({
+        active: channels[n].active,
         id: channels[n].chan_id,
         peer: channels[n].remote_pubkey,
         name: peers[channels[n].remote_pubkey].name,
@@ -151,6 +152,7 @@ module.exports = {
         return;
       }
       outPeers.push({
+        active: channels[n].active,
         id: channels[n].chan_id,
         peer: channels[n].remote_pubkey,
         name: peers[channels[n].remote_pubkey].name,

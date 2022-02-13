@@ -96,6 +96,10 @@ function runLoopImpl() {
   classified.inbound.forEach(n => {
     channelMap[n.id] = n;
 
+    if (!n.active) {
+      return console.log(colorYellow, '[inbound]', n.peer, n.name, 'is inactive, skip');
+    }
+
     // check if excluded
     let type = exclude[n.peer];
     if (type && ['all', 'inbound'].includes(type)) {
@@ -115,6 +119,10 @@ function runLoopImpl() {
   classified.outbound.forEach(n => {
     channelMap[n.id] = n;
 
+    if (!n.active) {
+      return console.log(colorYellow, '[outbound]', n.peer, n.name, 'is inactive, skip');
+    }
+
     let type = exclude[n.peer];
     if (type && ['all', 'outbound'].includes(type)) {
       return console.log(colorYellow, '[outbound]', n.peer, n.name, 'excluded based on settings');
@@ -132,6 +140,10 @@ function runLoopImpl() {
   liquidityTable.balancedNeeds = [];
   classified.balanced.forEach(n => {
     channelMap[n.id] = n;
+
+    if (!n.active) {
+      return console.log(colorYellow, '[balanced]', n.peer, n.name, 'is inactive, skip');
+    }
 
     console.log('[balanced]', n.peer, n.name, 'capacity:', n.capacity);
     const inflight = satsInFlight(n.peer);
