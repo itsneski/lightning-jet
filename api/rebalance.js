@@ -404,7 +404,7 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
         lastError = 'unknownError';
         lastMessage = 'unidentified error';
         console.log('\n-------------------------------------------');
-        console.log(lastMessage + ', retrying');
+        console.log(lastMessage, rbError, ' retrying');
         rep++;
       }
     } else {  // !stderr
