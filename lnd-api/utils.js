@@ -4,9 +4,30 @@ const deasync = require('deasync');
 const round = n => Math.round(n);
 
 module.exports = {
+  forwardHistorySync: function(lndClient, secs = 5 * 60, max = 1000) {
+    if (!lndClient) throw new Error('forwardHistorySync: need lndClient');
+    let done = false;
+    let response;
+    let error;
+    try {
+      const start = Math.floor(+new Date() / 1000) - secs;
+      const req = {start_time:start, num_max_events:max};
+      lndClient.forwardingHistory(req, (err, resp) => {
+        if (err) error = err; else response = resp;
+        done = true;
+      })
+    } catch(err) {
+      error = err;
+      done = true;
+    }
+    while(!done) {
+      require('deasync').runLoopOnce();
+    }
+    return {error, events:response && response.forwarding_events};
+  },
   // return true if lnd is alive, false otherwise
   isLndAlive: function(lndClient) {
-    if (!lndClient) throw new Error('isLndAlive: lndClient is null');
+    if (!lndClient) throw new Error('isLndAlive: need lndClient');
     // do a simple ping (perhaps replace it with getVersion)
     const {getInfoSync} = module.exports;
     try {

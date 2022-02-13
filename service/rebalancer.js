@@ -29,6 +29,7 @@ const {listFeesSync} = require('../lnd-api/utils');
 const {analyzeFees} = require('../api/analyze-fees');
 const {removeEmojis} = require('../lnd-api/utils');
 const {stuckHtlcsSync} = require('../lnd-api/utils');
+const {forwardHistorySync} = require('../lnd-api/utils');
 const {exec} = require('child_process');
 const serviceUtils = require('./utils');
 const RebalanceQueue = require('./queue');
@@ -75,7 +76,7 @@ function runLoop() {
   try {
     runLoopImpl();
   } catch(err) {
-    console.error('runLoop error:', err.message);
+    console.error('runLoop error:', err);
   }
 }
 
@@ -89,9 +90,12 @@ function runLoopImpl() {
   initRunning();    // rebalances already in-flight
   let classified = classifyPeersSync(lndClient, 1);
   console.log('build liquidity table:');
+  let channelMap = {};
   let liquidityTable = {};
   liquidityTable.inbound = [];
   classified.inbound.forEach(n => {
+    channelMap[n.id] = n;
+
     // check if excluded
     let type = exclude[n.peer];
     if (type && ['all', 'inbound'].includes(type)) {
@@ -109,6 +113,8 @@ function runLoopImpl() {
   })
   liquidityTable.outbound = [];
   classified.outbound.forEach(n => {
+    channelMap[n.id] = n;
+
     let type = exclude[n.peer];
     if (type && ['all', 'outbound'].includes(type)) {
       return console.log(colorYellow, '[outbound]', n.peer, n.name, 'excluded based on settings');
@@ -125,6 +131,8 @@ function runLoopImpl() {
   liquidityTable.balancedHas = [];
   liquidityTable.balancedNeeds = [];
   classified.balanced.forEach(n => {
+    channelMap[n.id] = n;
+
     console.log('[balanced]', n.peer, n.name, 'capacity:', n.capacity);
     const inflight = satsInFlight(n.peer);
     console.log('  sats inflight:', inflight);
@@ -225,6 +233,44 @@ function runLoopImpl() {
       remaining -= amount;
       currCount++;
     })
+  }
+
+  if (currCount >= maxCount) return console.log('reached max rebalance count');
+
+  // check if there are any forwards; use the same interval as the
+  // rebalance loop. this will ensure that we catch the latest forwards
+  // without duplicates
+  let forwards = forwardHistorySync(lndClient, constants.services.rebalancer.loopInterval);
+  if (forwards.error) {
+    console.error('error reading forward history:', forwards.error);
+  } else if (!forwards.events || forwards.events.length === 0) {
+    console.log('no forwards detected');
+  } else {
+    // sort based on the sats routed
+    forwards.events.forEach(e => { e.sats = parseInt(e.amt_out) });
+    forwards.events.sort((a, b) => { return b.sats - a.sats });
+    // limit the number of forwards to 25% of the total max
+    // revisit this, perhaps make it configurable?
+    let maxForwards = Math.round(.25 * maxCount);
+    forwards.events.forEach(e => {
+      if (maxForwards === 0) return;
+      if (currCount >= maxCount) return;
+      const from = channelMap[e.chan_id_in];
+      const to = channelMap[e.chan_id_out];
+
+      // attempt a rebalance
+      console.log('[forward]', 'from:', from.name, from.peer, 'to:', to.name, to.peer, 'sats:', e.sats);
+      const pref = '  ';
+      let maxPpm = checkPeers(from, to, pref);
+      if (maxPpm === undefined) return;
+      const amount = e.sats;
+      console.log(pref + 'adding to queue for', amount, 'sats, max ppm of', maxPpm);
+      queue.add(from.peer, to.peer, from.name, to.name, amount, maxPpm, Date.now());
+
+      maxForwards--;
+      currCount++;
+    })
+    if (maxForwards === 0) console.log('reached max of forwards');
   }
 
   if (currCount >= maxCount) return console.log('reached max rebalance count');

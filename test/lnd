@@ -1,0 +1,8 @@
+#!/usr/bin/env node
+
+global.testModeOn = true;
+
+const lndClient = require('../api/connect');
+const {forwardHistorySync} = require('../lnd-api/utils');
+
+console.log(forwardHistorySync(lndClient, 60 * 60));
