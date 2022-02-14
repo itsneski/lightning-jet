@@ -5,4 +5,4 @@ global.testModeOn = true;
 const lndClient = require('../api/connect');
 const {forwardHistorySync} = require('../lnd-api/utils');
 
-console.log(forwardHistorySync(lndClient, 60 * 60));
+console.log(forwardHistorySync(lndClient, 5 * 60 * 60));

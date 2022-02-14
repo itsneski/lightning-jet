@@ -30,6 +30,7 @@ const {analyzeFees} = require('../api/analyze-fees');
 const {removeEmojis} = require('../lnd-api/utils');
 const {stuckHtlcsSync} = require('../lnd-api/utils');
 const {forwardHistorySync} = require('../lnd-api/utils');
+const {cumulativeHtlcs} = require('../api/htlc-analyzer');
 const {exec} = require('child_process');
 const serviceUtils = require('./utils');
 const RebalanceQueue = require('./queue');
@@ -91,6 +92,7 @@ function runLoopImpl() {
   let classified = classifyPeersSync(lndClient, 1);
   console.log('build liquidity table:');
   let channelMap = {};
+  let peerMap = {};
   let liquidityTable = {};
   liquidityTable.inbound = [];
   classified.inbound.forEach(n => {
@@ -136,16 +138,17 @@ function runLoopImpl() {
     console.log('[outbound]', n.peer, n.name, 'needs', needs, 'sats');
     liquidityTable.outbound.push({id: n.id, peer: n.peer, name: n.name, needs});
   })
+  // low-volume peers
   liquidityTable.balancedHas = [];
   liquidityTable.balancedNeeds = [];
   classified.balanced.forEach(n => {
     channelMap[n.id] = n;
 
+    console.log('[low volume]', n.peer, n.name, 'capacity:', n.capacity);
     if (!n.active) {
-      return console.log(colorYellow, '[balanced]', n.peer, n.name, 'is inactive, skip');
+      return console.log(colorYellow, '  inactive, skip');
     }
 
-    console.log('[balanced]', n.peer, n.name, 'capacity:', n.capacity);
     const inflight = satsInFlight(n.peer);
     console.log('  sats inflight:', inflight);
     const min = Math.min(minLocal, Math.round(n.capacity / 2));
@@ -182,6 +185,41 @@ function runLoopImpl() {
       return console.log('  neither has nor needs sats');
     }
   })
+  // check peers with missed htlcs; limit the number of peers
+  // to those that missed more than chan capacity & up to
+  // a quarter of max instances
+  liquidityTable.missed = [];
+  let missed = cumulativeHtlcs(1);
+  if (missed) {
+    let maxMissed = Math.floor(.25 * maxCount);
+    missed.forEach(m => {
+      if (maxMissed === 0) return;
+      let chan = channelMap[m.chan];
+      if (!chan) return console.error(colorRed, 'couldnt locate channel data for', m.chan);
+
+      console.log('[missed]', chan.peer, chan.name, 'capacity:', chan.capacity, 'missed:', m.total);
+      if (!chan.active) return console.log(colorYellow, '  inactive, skip');
+      let type = exclude[chan.peer];
+      if (type && ['all', 'outbound'].includes(type)) {
+        return console.log(colorYellow, '  excluded based on settings');
+      }
+      if (m.total < chan.capacity) {
+        return console.log('  insufficient missed sats, skip');
+      }
+
+      // take into account in-flight sats, don't overcommit liquidity
+      const inflight = satsInFlight(chan.peer);
+      console.log('  sats inflight:', inflight);
+
+      // don't overcommit sats, up to half capacity
+      const needs = Math.round(chan.capacity/2) - inflight.inbound;
+      if (needs < minToRebalance) return console.log('  needs sats below threshod', needs);
+      console.log('  needs', needs, 'sats');
+      liquidityTable.missed.push({id:chan.id, peer:chan.peer, name:chan.name, needs});
+
+      maxMissed--;
+    })
+  }
 
   let currCount = countInFlight();
   if (currCount >= maxCount) return console.log('already at max count');
@@ -223,6 +261,7 @@ function runLoopImpl() {
   console.log('\nbuild rebalancing queue:');
   const len = liquidityTable.outbound.length;
   for(i = 0; i < len; i++) {
+    if (currCount >= maxCount) break; // reached max
     const to = liquidityTable.outbound[i];
     console.log('[outbound]', to.name, to.peer, 'needs', to.needs, 'sats');
     const delta = tickDuration * i; // time delta between rebalances
@@ -249,6 +288,40 @@ function runLoopImpl() {
 
   if (currCount >= maxCount) return console.log('reached max rebalance count');
 
+  const mlen = liquidityTable.missed.length;
+  for(i = 0; i < mlen; i++) {
+    if (currCount >= maxCount) break; // reached max
+    const to = liquidityTable.missed[i];
+    console.log('[missed]', to.name, to.peer, 'needs', to.needs, 'sats');
+    const delta = tickDuration * i; // time delta between rebalances
+    const inflight = satsInFlight(to.peer);
+    console.log(' sats inflight', inflight);
+    let remaining = to.needs - inflight.inbound; // tracks remaining sats needed
+    if (remaining < minToRebalance) {
+      console.log(' remaining sats below threshold', remaining);
+      continue;
+    }
+    liquidityTable.inbound.forEach(from => {
+      if (currCount >= maxCount) return;
+      console.log(' evaluating', from.name, from.peer, 'remaining sats', remaining);
+      if (remaining === 0) return;
+      const pref = '   ';
+
+      let maxPpm = checkPeers(from, to, pref);
+      if (maxPpm === undefined) return;
+
+      const amount = Math.min(from.has, remaining);
+      if (amount < minToRebalance) return console.log(pref, 'insufficient amount', amount);
+
+      console.log(pref + 'adding to queue for', amount, 'sats, max ppm of', maxPpm, 'to run in', delta, 'sec');
+      queue.add(from.peer, to.peer, from.name, to.name, amount, maxPpm, Date.now() + delta * 1000);
+      remaining -= amount;
+      currCount++;
+    })
+  }
+
+  if (currCount >= maxCount) return console.log('reached max rebalance count');
+
   // check if there are any forwards; use the same interval as the
   // rebalance loop. this will ensure that we catch the latest forwards
   // without duplicates
@@ -263,7 +336,7 @@ function runLoopImpl() {
     forwards.events.sort((a, b) => { return b.sats - a.sats });
     // limit the number of forwards to 25% of the total max
     // revisit this, perhaps make it configurable?
-    let maxForwards = Math.round(.25 * maxCount);
+    let maxForwards = Math.floor(.25 * maxCount);
     forwards.events.forEach(e => {
       if (maxForwards === 0) return;
       if (currCount >= maxCount) return;
@@ -287,14 +360,14 @@ function runLoopImpl() {
 
   if (currCount >= maxCount) return console.log('reached max rebalance count');
 
-  // now process balanced peers; for now, rebalance between each other
+  // now process low volume peers; for now, rebalance between each other
   // sort peers by those that need the most sats
   liquidityTable.balancedNeeds.sort((a, b) => {return b.needs - a.needs});
   const blen = liquidityTable.balancedNeeds.length;
   for(i = 0; i < blen; i++) {
     if (currCount >= maxCount) break;
     const to = liquidityTable.balancedNeeds[i];
-    console.log('[balanced]', to.name, to.peer, 'needs', to.needs, 'sats');
+    console.log('[low volume]', to.name, to.peer, 'needs', to.needs, 'sats');
     if (liquidityTable.balancedHas.length === 0) {
       console.log(' found no peers that have sats for rebalance, skip');
       continue;

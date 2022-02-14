@@ -197,6 +197,29 @@ module.exports = {
     }
     return res;
   },
+  cumulativeHtlcs(days = 1) {
+    let htlcs = listHtlcsSync({days:days});
+
+    if (htlcs.length === 0) return console.log('no htlc records found');
+    let channelMap = {};
+    htlcs.forEach(h => {
+      if (h.from_chan == '0') return;  // skip rebalances
+      let entry = channelMap[h.to_chan];
+      if (!entry) {
+        entry = { total:0, count:0 };
+        channelMap[h.to_chan] = entry;
+      }
+      entry.total += h.sats;
+      entry.count++;
+    })
+    let chans = [];
+    Object.keys(channelMap).forEach(c => {
+      let entry = channelMap[c];
+      chans.push({chan:c, total:entry.total, count:entry.count});
+    })
+    chans.sort((a, b) => {return b.total - a.total});
+    return chans;
+  },
   htlcAnalyzer(days = 1) {
     let curr;
     let htlcs = listHtlcsSync({days:days});

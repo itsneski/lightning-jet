@@ -3,11 +3,15 @@
 global.testModeOn = true;
 
 const RebalanceQueue = require('../service/queue');
+const {cumulativeHtlcs} = require('../api/htlc-analyzer');
+//const {listHtlcsSync} = require('../db/utils');
 //const {listActiveRebalancesSync} = require('../api/utils');
 
 //console.log(listActiveRebalancesSync());
 
 require('../service/rebalancer');
+
+//console.log(cumulativeHtlcs(1));
 
 //testRebalanceQueue();
 
