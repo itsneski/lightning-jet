@@ -292,9 +292,13 @@ function runLoopImpl() {
   liquidityTable.balancedNeeds.sort((a, b) => {return b.needs - a.needs});
   const blen = liquidityTable.balancedNeeds.length;
   for(i = 0; i < blen; i++) {
-    if (currCount >= maxCount) return;
+    if (currCount >= maxCount) break;
     const to = liquidityTable.balancedNeeds[i];
     console.log('[balanced]', to.name, to.peer, 'needs', to.needs, 'sats');
+    if (liquidityTable.balancedHas.length === 0) {
+      console.log(' found no peers that have sats for rebalance, skip');
+      continue;
+    }
     let remaining = to.needs;
     liquidityTable.balancedHas.forEach(from => {
       const has = (from.remaining === undefined) ? from.has : from.remaining;
@@ -346,7 +350,7 @@ function runLoopImpl() {
     console.log(`${pref}pending htlcs for ${from.name}:`, fromHtlcs);
     console.log(`${pref}pending htlcs for ${to.name}:`, toHtlcs);
     if (Math.max(fromHtlcs, toHtlcs) >= maxPendingHtlcs) {
-      return console.log(colorRed, pref + 'too many stuck htlcs, skip rebalance');
+      return console.log(colorRed, pref + 'too many pending htlcs, skip rebalance');
     }
 
     // determine max ppm
