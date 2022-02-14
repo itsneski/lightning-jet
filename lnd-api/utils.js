@@ -4,9 +4,30 @@ const deasync = require('deasync');
 const round = n => Math.round(n);
 
 module.exports = {
+  forwardHistorySync: function(lndClient, secs = 5 * 60, max = 1000) {
+    if (!lndClient) throw new Error('forwardHistorySync: need lndClient');
+    let done = false;
+    let response;
+    let error;
+    try {
+      const start = Math.floor(+new Date() / 1000) - secs;
+      const req = {start_time:start, num_max_events:max};
+      lndClient.forwardingHistory(req, (err, resp) => {
+        if (err) error = err; else response = resp;
+        done = true;
+      })
+    } catch(err) {
+      error = err;
+      done = true;
+    }
+    while(!done) {
+      require('deasync').runLoopOnce();
+    }
+    return {error, events:response && response.forwarding_events};
+  },
   // return true if lnd is alive, false otherwise
   isLndAlive: function(lndClient) {
-    if (!lndClient) throw new Error('isLndAlive: lndClient is null');
+    if (!lndClient) throw new Error('isLndAlive: need lndClient');
     // do a simple ping (perhaps replace it with getVersion)
     const {getInfoSync} = module.exports;
     try {
@@ -111,6 +132,7 @@ module.exports = {
         return;
       }
       inPeers.push({
+        active: channels[n].active,
         id: channels[n].chan_id,
         peer: channels[n].remote_pubkey,
         name: peers[channels[n].remote_pubkey].name,
@@ -130,6 +152,7 @@ module.exports = {
         return;
       }
       outPeers.push({
+        active: channels[n].active,
         id: channels[n].chan_id,
         peer: channels[n].remote_pubkey,
         name: peers[channels[n].remote_pubkey].name,
@@ -241,6 +264,11 @@ module.exports = {
           chan: r.channel_id,
           id: r.peer,
           name: peers[r.peer].name,
+        }
+        if (!r.node1_policy || !r.node2_policy) {
+          // likely that a channel has been added but fees haven't yet
+          // been propagated by gossip
+          return console.warn('undefined fee policy:', r);
         }
         if (r.node1_pub === info.identity_pubkey) {
           fee.local = {

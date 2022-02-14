@@ -225,6 +225,7 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
 
     // record for jet monitor
     const rebalanceId = recordActiveRebalanceSync({from: outId, to: inId, amount: remainingAmount, ppm, mins: timeLeft});
+    if (rebalanceId === undefined) console.error('rebalance db record id is undefined');
 
     // call bos rebalance in sync mode
     let rbSuccess, rbError;
@@ -239,7 +240,7 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
       continue;
     } finally {
       // remove the record
-      deleteActiveRebalance(rebalanceId);
+      if (rebalanceId != undefined) deleteActiveRebalance(rebalanceId);
     }
 
     if (rbError) {
@@ -403,7 +404,7 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
         lastError = 'unknownError';
         lastMessage = 'unidentified error';
         console.log('\n-------------------------------------------');
-        console.log(lastMessage + ', retrying');
+        console.log(lastMessage, rbError, ' retrying');
         rep++;
       }
     } else {  // !stderr

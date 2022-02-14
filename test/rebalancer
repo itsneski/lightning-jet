@@ -1,10 +1,17 @@
 #!/usr/bin/env node
 
-const RebalanceQueue = require('../service/queue');
-
 global.testModeOn = true;
 
+const RebalanceQueue = require('../service/queue');
+const {cumulativeHtlcs} = require('../api/htlc-analyzer');
+//const {listHtlcsSync} = require('../db/utils');
+//const {listActiveRebalancesSync} = require('../api/utils');
+
+//console.log(listActiveRebalancesSync());
+
 require('../service/rebalancer');
+
+//console.log(cumulativeHtlcs(1));
 
 //testRebalanceQueue();
 
@@ -19,6 +26,8 @@ function testRebalanceQueue() {
   queue.add('4444', '1111', 'coin', 'neski', 350000, 800, now + 1000);
   console.log(queue.list());
   console.log(queue.count());
+  console.log('d++ sats:', queue.sats('0000'));
+  console.log('neski sats:', queue.sats('1111'));
   console.log('includes d++ neski', queue.includes('0000', '1111'));
   console.log('includes neski d++', queue.includes('1111', '0000'));
   console.log('includes no andno', queue.includes('no', 'andno'));

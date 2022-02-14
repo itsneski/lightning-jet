@@ -31,6 +31,15 @@ module.exports = class RebalanceQueue {
     })
     return included;
   }
+  sats(peer) {  // returns outstanding sats for the peer, inbound and outbound
+    let inbound = 0;
+    let outbound = 0;
+    this.queue.forEach(entry => {
+      if (entry.from === peer) outbound += entry.amount;
+      if (entry.to === peer) inbound += entry.amount;
+    })
+    return {inbound, outbound};
+  }
   list() { return this.queue; }
   count() { return this.queue.length; }
 }
