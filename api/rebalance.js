@@ -165,290 +165,293 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
   if (config.debugMode) console.log('debug mode: enabled');
   console.log('----------------------------------------\n')
 
+  // record for jet monitor
+  const rebalanceId = recordActiveRebalanceSync({from: outId, to: inId, amount: AMOUNT, ppm, mins: maxRuntime});
+  if (rebalanceId === undefined) console.error('rebalance db record id is undefined');
+
   // run the loop for bos rebalance
-  for (let rep = 0; rep < REPS; ) {
-    let timeRunning = Math.round((Date.now() - startTime) / 1000 / 60);
-    let timeLeft = maxRuntime - timeRunning;
-    if (timeLeft < 0) {
-      console.log('Ran out of time');
-      lastMessage = 'Ran out of time';
-      break;
-    }
-
-    let remainingAmount = AMOUNT - amountRebalanced;
-    maxFee = Math.round(remainingAmount * ppm / 1000000);
-
-    console.log('\n-------------------------------------------');
-    console.log(`* rebalancing from ${outName} to ${inName}`);
-    if (amountRebalanced > 0) console.log('* targeted amount:', numberWithCommas(AMOUNT));
-    console.log('* remaining amount:', numberWithCommas(remainingAmount));
-    console.log('* time left:', timeLeft, 'mins');
-
-    // call bos rebalance; async logger will be notified about route evals and log messages
-    let lastRoute; // last route that was evaluated
-    const rebalanceLogger = {
-      eval: (route) => {
-        console.log('\nprobing route:', route);
-        lastRoute = route;
-
-        // record the node for sats
-        route.forEach(node => {
-          if (nodeStats[node.id]) {
-            let n = nodeStats[node.id];
-            n.ppms.push(node.ppm);
-          } else {
-            nodeStats[node.id] = {
-              name: node.name,
-              id: node.id,
-              ppms: [node.ppm]
-            }
-          }
-
-          if (node.ppm > ppm_per_hop && canAvoidNode(node.id)) {
-            console.log('identified expensive node:', stringify(node));
-          }
-        })
-      },
-      debug: (msg) => {
-        if (config.debugMode) console.log(msg);
-      },
-      info: (msg) => {
-        if (config.debugMode) console.log(msg);
-      },
-      warn: (msg) => {
-        console.warn(msg);
-      },
-      error: (msg) => {
-        console.error(msg);
+  try {
+    for (let rep = 0; rep < REPS; ) {
+      let timeRunning = Math.round((Date.now() - startTime) / 1000 / 60);
+      let timeLeft = maxRuntime - timeRunning;
+      if (timeLeft < 0) {
+        console.log('Ran out of time');
+        lastMessage = 'Ran out of time';
+        break;
       }
-    }
 
-    // record for jet monitor
-    const rebalanceId = recordActiveRebalanceSync({from: outId, to: inId, amount: remainingAmount, ppm, mins: timeLeft});
-    if (rebalanceId === undefined) console.error('rebalance db record id is undefined');
+      let remainingAmount = AMOUNT - amountRebalanced;
+      maxFee = Math.round(remainingAmount * ppm / 1000000);
 
-    // call bos rebalance in sync mode
-    let rbSuccess, rbError;
-    try {
-      let rbSync = rebalanceSync({logger: rebalanceLogger, from: outId, to: inId, amount: remainingAmount.toString(), maxFeeRate: ppm, maxFee, mins: timeLeft, avoid: Object.keys(avoidNodes)});
-      rbSuccess = rbSync.result;
-      rbError = rbSync.error;
-    } catch(err) {
-      console.error('error calling bos rebalance:', err.message);
-      // force to exit the loop, otherwise may get into infinite loop
-      rep = REPS;
-      continue;
-    } finally {
-      // remove the record
-      if (rebalanceId != undefined) deleteActiveRebalance(rebalanceId);
-    }
+      console.log('\n-------------------------------------------');
+      console.log(`* rebalancing from ${outName} to ${inName}`);
+      if (amountRebalanced > 0) console.log('* targeted amount:', numberWithCommas(AMOUNT));
+      console.log('* remaining amount:', numberWithCommas(remainingAmount));
+      console.log('* time left:', timeLeft, 'mins');
 
-    if (rbError) {
-      let rebalanceFeeTooHigh = ['RebalanceTotalFeeTooHigh', 'RebalanceFeeRateTooHigh'].includes(rbError.error);
-      let failedToFindPath = rbError.error === 'FailedToFindPathBetweenPeers';
-      let lowRebalanceAmount = rbError.error === 'LowRebalanceAmount';
-      let failedToFindPeer = rbError.error === 'FailedToFindPeerAliasMatch';
-      let noSufficientBalance = rbError.error === 'NoOutboundPeerWithSufficientBalance';
-      let probeTimeout = rbError.error === 'ProbeTimeout';
-      let failedToParseAmount = rbError.error === 'FailedToParseSpecifiedAmount';
+      // call bos rebalance; async logger will be notified about route evals and log messages
+      let lastRoute; // last route that was evaluated
+      const rebalanceLogger = {
+        eval: (route) => {
+          console.log('\nprobing route:', route);
+          lastRoute = route;
 
-      if (rebalanceFeeTooHigh) {
-        // find nodes that exceed the per hop ppm in the last
-        // segment of the output
-        lastError = 'rebalanceFeeTooHigh';
-        console.log('\n-------------------------------------------');
-        console.log('found a prospective route, but the fee is too high');
-        //console.log('evaluating output:', stdout);
-        //let index = stdout.lastIndexOf('evaluating:');
-        if (lastRoute) {
-          let nodes = lastRoute;
-          if (nodes) {
-            // find a node with max ppm that's not already on the avoid list
-            // its enough to select one node to unblock the route
-            let max;
-            let maxIndex;
-            let ppmsum = 0;
-            let count = 0;
-            nodes.forEach(n => {
-              ppmsum += n.ppm;
-              if (canAvoidNode(n.id) && (!max || n.ppm > max.ppm)) {
-                max = n;
-                maxIndex = count;
+          // record the node for sats
+          route.forEach(node => {
+            if (nodeStats[node.id]) {
+              let n = nodeStats[node.id];
+              n.ppms.push(node.ppm);
+            } else {
+              nodeStats[node.id] = {
+                name: node.name,
+                id: node.id,
+                ppms: [node.ppm]
               }
-              count++;
-            })
-            console.log('the route has', nodes.length, 'nodes:', stringify(nodes));
-            console.log('the route has a [cumulative] ppm of', ppmsum, 'vs', ppm, 'targeted');
-            minFailedPpm = Math.min(minFailedPpm, ppmsum);
-            if (max) {
-              console.log('identified expensive node to exclude:', stringify(max));
-              if (max.ppm > ppm_per_hop) {
-                let entry = nodeStats[max.id];
-                console.log('identified corresponding nodeStats entry:', nodeToString(entry));
+            }
 
-                // in addressive more just skip the node, as opposed to
-                // giving the node more chances to prove that it's not
-                // expensive
-                if (aggresiveMode) {
-                  console.log('aggressive mode: on');
-                  console.log('excluding node:', max.id);
-                  avoidNodes[max.id] = true;
-                  avoid += ' --avoid ' + max.id;
-                  // record in the db
-                  recordRebalanceAvoid(outId, inId, ppm, max.id);
-                } else {
-                  // see if the node is a repeat offender
-                  // basically give the node a few chances to show that it's
-                  // not an expensive node before excluding it
-                  if (entry.ppms.length >= MIN_PPMS_TRIES && arrAvg(entry.ppms) > ppm_per_hop) {
-                    console.log('the node was part of', entry.ppms.length, 'routes with an average ppm of', Math.round(arrAvg(entry.ppms)));
+            if (node.ppm > ppm_per_hop && canAvoidNode(node.id)) {
+              console.log('identified expensive node:', stringify(node));
+            }
+          })
+        },
+        debug: (msg) => {
+          if (config.debugMode) console.log(msg);
+        },
+        info: (msg) => {
+          if (config.debugMode) console.log(msg);
+        },
+        warn: (msg) => {
+          console.warn(msg);
+        },
+        error: (msg) => {
+          console.error(msg);
+        }
+      }
+
+      // call bos rebalance in sync mode
+      let rbSuccess, rbError;
+      try {
+        let rbSync = rebalanceSync({logger: rebalanceLogger, from: outId, to: inId, amount: remainingAmount.toString(), maxFeeRate: ppm, maxFee, mins: timeLeft, avoid: Object.keys(avoidNodes)});
+        rbSuccess = rbSync.result;
+        rbError = rbSync.error;
+      } catch(err) {
+        console.error('error calling bos rebalance:', err.message);
+        // force to exit the loop, otherwise may get into infinite loop
+        rep = REPS;
+        continue;
+      }
+
+      if (rbError) {
+        let rebalanceFeeTooHigh = ['RebalanceTotalFeeTooHigh', 'RebalanceFeeRateTooHigh'].includes(rbError.error);
+        let failedToFindPath = rbError.error === 'FailedToFindPathBetweenPeers';
+        let lowRebalanceAmount = rbError.error === 'LowRebalanceAmount';
+        let failedToFindPeer = rbError.error === 'FailedToFindPeerAliasMatch';
+        let noSufficientBalance = rbError.error === 'NoOutboundPeerWithSufficientBalance';
+        let probeTimeout = rbError.error === 'ProbeTimeout';
+        let failedToParseAmount = rbError.error === 'FailedToParseSpecifiedAmount';
+
+        if (rebalanceFeeTooHigh) {
+          // find nodes that exceed the per hop ppm in the last
+          // segment of the output
+          lastError = 'rebalanceFeeTooHigh';
+          console.log('\n-------------------------------------------');
+          console.log('found a prospective route, but the fee is too high');
+          //console.log('evaluating output:', stdout);
+          //let index = stdout.lastIndexOf('evaluating:');
+          if (lastRoute) {
+            let nodes = lastRoute;
+            if (nodes) {
+              // find a node with max ppm that's not already on the avoid list
+              // its enough to select one node to unblock the route
+              let max;
+              let maxIndex;
+              let ppmsum = 0;
+              let count = 0;
+              nodes.forEach(n => {
+                ppmsum += n.ppm;
+                if (canAvoidNode(n.id) && (!max || n.ppm > max.ppm)) {
+                  max = n;
+                  maxIndex = count;
+                }
+                count++;
+              })
+              console.log('the route has', nodes.length, 'nodes:', stringify(nodes));
+              console.log('the route has a [cumulative] ppm of', ppmsum, 'vs', ppm, 'targeted');
+              minFailedPpm = Math.min(minFailedPpm, ppmsum);
+              if (max) {
+                console.log('identified expensive node to exclude:', stringify(max));
+                if (max.ppm > ppm_per_hop) {
+                  let entry = nodeStats[max.id];
+                  console.log('identified corresponding nodeStats entry:', nodeToString(entry));
+
+                  // in addressive more just skip the node, as opposed to
+                  // giving the node more chances to prove that it's not
+                  // expensive
+                  if (aggresiveMode) {
+                    console.log('aggressive mode: on');
                     console.log('excluding node:', max.id);
                     avoidNodes[max.id] = true;
                     avoid += ' --avoid ' + max.id;
                     // record in the db
                     recordRebalanceAvoid(outId, inId, ppm, max.id);
                   } else {
-                    // give the node a few more tries, but don't exclude it
-                    if (isSkippedHop(max.id, nodes[maxIndex + 1].id)) {
-                      lastMessage = 'hop already skipped';
-                      console.log('hop from', max.name, 'to', nodes[maxIndex + 1].name, 'already skipped, exiting');
-                      rep = REPS;
+                    // see if the node is a repeat offender
+                    // basically give the node a few chances to show that it's
+                    // not an expensive node before excluding it
+                    if (entry.ppms.length >= MIN_PPMS_TRIES && arrAvg(entry.ppms) > ppm_per_hop) {
+                      console.log('the node was part of', entry.ppms.length, 'routes with an average ppm of', Math.round(arrAvg(entry.ppms)));
+                      console.log('excluding node:', max.id);
+                      avoidNodes[max.id] = true;
+                      avoid += ' --avoid ' + max.id;
+                      // record in the db
+                      recordRebalanceAvoid(outId, inId, ppm, max.id);
                     } else {
-                      lastMessage = 'skipping the hop';
-                      skipHop(max.id, nodes[maxIndex + 1].id);
-                      console.log('skipping the hop from', max.name, 'to', nodes[maxIndex + 1].name);
-                      avoid += ' --avoid "FEE_RATE>' + computeFeeRate(max.ppm) + '/' + nodes[maxIndex + 1].id + '"';
+                      // give the node a few more tries, but don't exclude it
+                      if (isSkippedHop(max.id, nodes[maxIndex + 1].id)) {
+                        lastMessage = 'hop already skipped';
+                        console.log('hop from', max.name, 'to', nodes[maxIndex + 1].name, 'already skipped, exiting');
+                        rep = REPS;
+                      } else {
+                        lastMessage = 'skipping the hop';
+                        skipHop(max.id, nodes[maxIndex + 1].id);
+                        console.log('skipping the hop from', max.name, 'to', nodes[maxIndex + 1].name);
+                        avoid += ' --avoid "FEE_RATE>' + computeFeeRate(max.ppm) + '/' + nodes[maxIndex + 1].id + '"';
+                      }
                     }
                   }
+                } else {  // max.ppm <= ppm_per_hop
+                  // ppm is not greater than max; don't exclude the node
+                  // but rather skip the hop
+                  if (isSkippedHop(max.id, nodes[maxIndex + 1].id)) {
+                    lastMessage = 'hop already skipped';
+                    console.log('hop from', max.name, 'to', nodes[maxIndex + 1].name, 'already skipped, exiting');
+                    rep = REPS;
+                  } else {
+                    lastMessage = 'ppm is not greater than max, skipping the hop';
+                    skipHop(max.id, nodes[maxIndex + 1].id);
+                    console.log(lastMessage, 'from', max.name, 'to', nodes[maxIndex + 1].name);
+                    avoid += ' --avoid "FEE_RATE>' + computeFeeRate(max.ppm) + '/' + nodes[maxIndex + 1].id + '"';
+                  }
                 }
-              } else {  // max.ppm <= ppm_per_hop
-                // ppm is not greater than max; don't exclude the node
-                // but rather skip the hop
-                if (isSkippedHop(max.id, nodes[maxIndex + 1].id)) {
-                  lastMessage = 'hop already skipped';
-                  console.log('hop from', max.name, 'to', nodes[maxIndex + 1].name, 'already skipped, exiting');
-                  rep = REPS;
-                } else {
-                  lastMessage = 'ppm is not greater than max, skipping the hop';
-                  skipHop(max.id, nodes[maxIndex + 1].id);
-                  console.log(lastMessage, 'from', max.name, 'to', nodes[maxIndex + 1].name);
-                  avoid += ' --avoid "FEE_RATE>' + computeFeeRate(max.ppm) + '/' + nodes[maxIndex + 1].id + '"';
-                }
+              } else {  // !max
+                lastMessage = 'couldnt exclude any nodes, likely already on the avoid list';
+                console.log(lastMessage + ', retrying');
+                rep++;
               }
-            } else {  // !max
-              lastMessage = 'couldnt exclude any nodes, likely already on the avoid list';
+            } else {  // !nodes
+              lastMessage = 'couldnt exclude any nodes';
               console.log(lastMessage + ', retrying');
               rep++;
             }
-          } else {  // !nodes
-            lastMessage = 'couldnt exclude any nodes';
+          } else {
+            lastMessage = 'couldnt locate the segment of the output to analyze';
             console.log(lastMessage + ', retrying');
             rep++;
           }
-        } else {
-          lastMessage = 'couldnt locate the segment of the output to analyze';
-          console.log(lastMessage + ', retrying');
-          rep++;
-        }
-      } else if (failedToFindPath) {
-        // didn't find a route; last ditch effort - exclude all expensive nodes
-        // that have not yet been excluded and retry
-        lastError = 'failedToFindPath';
-        lastMessage = 'failed to find a route';
-        console.log('\n-------------------------------------------');
-        console.log(lastMessage);
-        console.log('exclude all expensive nodes and retry');
-        let count = 0;
-        Object.keys(nodeStats).forEach(id => {
-          if (canAvoidNode(id) && arrAvg(nodeStats[id].ppms) > ppm_per_hop) {
-            console.log('excluding node:', nodeToString(nodeStats[id]));
-            avoidNodes[id] = true;
-            avoid += ' --avoid ' + id;
-            count++;
+        } else if (failedToFindPath) {
+          // didn't find a route; last ditch effort - exclude all expensive nodes
+          // that have not yet been excluded and retry
+          lastError = 'failedToFindPath';
+          lastMessage = 'failed to find a route';
+          console.log('\n-------------------------------------------');
+          console.log(lastMessage);
+          console.log('exclude all expensive nodes and retry');
+          let count = 0;
+          Object.keys(nodeStats).forEach(id => {
+            if (canAvoidNode(id) && arrAvg(nodeStats[id].ppms) > ppm_per_hop) {
+              console.log('excluding node:', nodeToString(nodeStats[id]));
+              avoidNodes[id] = true;
+              avoid += ' --avoid ' + id;
+              count++;
+            }
+          })
+          if (count > 0) {
+            console.log('excluded', count, 'nodes');
+          } else {
+            lastMessage += ', didnt find any nodes to exclude';
+            console.log('didnt find any nodes to exclude, retrying');
+            rep++;
           }
-        })
-        if (count > 0) {
-          console.log('excluded', count, 'nodes');
+        } else if (lowRebalanceAmount) {
+          lastError = 'lowRebalanceAmount';
+          lastMessage = 'low rebalance amount';
+          console.log('\n-------------------------------------------');
+          console.log(lastMessage + ', exiting');
+          rep = REPS; // force to exit the loop
+        } else if (failedToFindPeer) {
+          lastError = 'failedToFindPeer';
+          lastMessage = 'failed to find peer'
+          console.log(lastMessage + ', exiting');
+          rep = REPS; // force to exit the loop
+        } else if (noSufficientBalance) {
+          lastError = 'noSufficientBalance';
+          lastMessage = 'insufficient local balance';
+          console.log(lastMessage + ', exiting');
+          rep = REPS;
+        } else if (probeTimeout) {
+          lastError = 'probeTimeout';
+          lastMessage = 'ran out of time';
+          console.log(lastMessage + ', exiting');
+          rep = REPS;
+        } else if (failedToParseAmount) {
+          lastError = 'FailedToParseSpecifiedAmount';
+          lastMessage = 'failed to parse amount';
+          console.log(lastMessage + ', exiting');
+          rep = REPS;
         } else {
-          lastMessage += ', didnt find any nodes to exclude';
-          console.log('didnt find any nodes to exclude, retrying');
+          lastError = 'unknownError';
+          lastMessage = 'unidentified error';
+          console.log('\n-------------------------------------------');
+          console.log(lastMessage, rbError, ' retrying');
           rep++;
         }
-      } else if (lowRebalanceAmount) {
-        lastError = 'lowRebalanceAmount';
-        lastMessage = 'low rebalance amount';
+      } else {  // !stderr
         console.log('\n-------------------------------------------');
-        console.log(lastMessage + ', exiting');
-        rep = REPS; // force to exit the loop
-      } else if (failedToFindPeer) {
-        lastError = 'failedToFindPeer';
-        lastMessage = 'failed to find peer'
-        console.log(lastMessage + ', exiting');
-        rep = REPS; // force to exit the loop
-      } else if (noSufficientBalance) {
-        lastError = 'noSufficientBalance';
-        lastMessage = 'insufficient local balance';
-        console.log(lastMessage + ', exiting');
-        rep = REPS;
-      } else if (probeTimeout) {
-        lastError = 'probeTimeout';
-        lastMessage = 'ran out of time';
-        console.log(lastMessage + ', exiting');
-        rep = REPS;
-      } else if (failedToParseAmount) {
-        lastError = 'FailedToParseSpecifiedAmount';
-        lastMessage = 'failed to parse amount';
-        console.log(lastMessage + ', exiting');
-        rep = REPS;
-      } else {
-        lastError = 'unknownError';
-        lastMessage = 'unidentified error';
-        console.log('\n-------------------------------------------');
-        console.log(lastMessage, rbError, ' retrying');
-        rep++;
-      }
-    } else {  // !stderr
-      console.log('\n-------------------------------------------');
-      lastMessage = 'successful rebalance';
-      // determine amount rebalanced
-      let amount = rbSuccess.amount;
-      let fees = rbSuccess.fees;
-      if (amount > 0) {
-        console.log('* amount rebalanced:', numberWithCommas(amount));
-        amountRebalanced += amount;
+        lastMessage = 'successful rebalance';
+        // determine amount rebalanced
+        let amount = rbSuccess.amount;
+        let fees = rbSuccess.fees;
+        if (amount > 0) {
+          console.log('* amount rebalanced:', numberWithCommas(amount));
+          amountRebalanced += amount;
 
-        // record result in the db for further optimation
-        recordRebalance(outId, inId, AMOUNT, amount, Math.round(1000000 * fees / amount));
+          // record result in the db for further optimation
+          recordRebalance(outId, inId, AMOUNT, amount, Math.round(1000000 * fees / amount));
 
-        console.log('* total amount rebalanced:', numberWithCommas(amountRebalanced));
-        if (fees > 0) {
-          console.log('* fees spent:', fees);
-          feesSpent += fees;
-          console.log('* total fees spent:', feesSpent);
-          console.log('* ppm:', Math.round(1000000 * feesSpent / amountRebalanced));
+          console.log('* total amount rebalanced:', numberWithCommas(amountRebalanced));
+          if (fees > 0) {
+            console.log('* fees spent:', fees);
+            feesSpent += fees;
+            console.log('* total fees spent:', feesSpent);
+            console.log('* ppm:', Math.round(1000000 * feesSpent / amountRebalanced));
+          } else {
+            lastMessage = 'couldnt parse fees';
+            console.log(lastMessage + ', retrying');
+          }
+          if (amountRebalanced > AMOUNT) {
+            console.log('* amount rebalanced exceeds targeted, exiting the loop');
+            rep = REPS;
+          } else if (AMOUNT - amountRebalanced < 50000) {
+            console.log('* less than 50k to rebalance, exiting the loop');
+            rep = REPS;
+          }
         } else {
-          lastMessage = 'couldnt parse fees';
-          console.log(lastMessage + ', retrying');
+          lastMessage = 'successful rebalance, but couldnt extract amount rebalanced';
+          console.log(lastMessage + ', exiting');
+          rep = REPS; // force to exit the loop
         }
-        if (amountRebalanced > AMOUNT) {
-          console.log('* amount rebalanced exceeds targeted, exiting the loop');
-          rep = REPS;
-        } else if (AMOUNT - amountRebalanced < 50000) {
-          console.log('* less than 50k to rebalance, exiting the loop');
-          rep = REPS;
-        }
-      } else {
-        lastMessage = 'successful rebalance, but couldnt extract amount rebalanced';
-        console.log(lastMessage + ', exiting');
-        rep = REPS; // force to exit the loop
-      }
-    } // if stderr
+      } // if stderr
 
-    // helper function
-    function canAvoidNode(id) {
-      return !avoidNodes[id] && id !== outId && id !== inId && id !== OUT && id !== IN && id !== tags[OUT] && id !== tags[IN];
-    }
-  } // for
+      // helper function
+      function canAvoidNode(id) {
+        return !avoidNodes[id] && id !== outId && id !== inId && id !== OUT && id !== IN && id !== tags[OUT] && id !== tags[IN];
+      }
+    } // for
+  } catch(err) {
+    console.error('error running rebalance loop:', err);
+  } finally {
+    if (rebalanceId != undefined) deleteActiveRebalance(rebalanceId);
+  }
 
   // record rebalance failure, success has already been recorded
   if (amountRebalanced <= 0 && ['rebalanceFeeTooHigh', 'failedToFindPath'].indexOf(lastError) >= 0) {
