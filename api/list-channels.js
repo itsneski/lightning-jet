@@ -55,6 +55,7 @@ module.exports = {
     let pendingInfo = getNodesInfoSync(lndClient, pendingPeers);
     let pendingMap = {};
     pendingInfo.forEach(i => {
+      if (!i) return console.error('failed to get pending peer info');
       pendingMap[i.node.pub_key] = i.node.alias;
     })
 
