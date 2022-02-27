@@ -121,6 +121,10 @@ module.exports = {
       channels[c.chan_id] = c;
     })
 
+    let fees = module.exports.listFeesSync(lndClient);
+    let feeMap = {};
+    fees.forEach(f => feeMap[f.chan] = f);
+
     //console.log(channels);
     //console.log(mapIn);
     let unknown = [];
@@ -131,7 +135,7 @@ module.exports = {
         //console.log('couldnt find channel data for', n);
         return;
       }
-      inPeers.push({
+      let entry = {
         active: channels[n].active,
         id: channels[n].chan_id,
         peer: channels[n].remote_pubkey,
@@ -139,7 +143,11 @@ module.exports = {
         sum: mapIn[n],
         lifetime: channels[n].lifetime,
         capacity: channels[n].capacity
-      })
+      }
+      let ppm = feeMap[n] && feeMap[n].local && feeMap[n].local.rate;
+      if (ppm == undefined) console.warn('couldnt locate fees for', n);
+      else entry.ppm = ppm;
+      inPeers.push(entry);
     })
     inPeers.sort(function(a, b) {
       return b.sum - a.sum;
@@ -151,7 +159,7 @@ module.exports = {
         //console.log('couldnt find channel data for', n);
         return;
       }
-      outPeers.push({
+      let entry = {
         active: channels[n].active,
         id: channels[n].chan_id,
         peer: channels[n].remote_pubkey,
@@ -159,7 +167,11 @@ module.exports = {
         sum: mapOut[n],
         lifetime: channels[n].lifetime,
         capacity: channels[n].capacity
-      })
+      }
+      let ppm = feeMap[n] && feeMap[n].local && feeMap[n].local.rate;
+      if (ppm == undefined) console.warn('couldnt locate fees for', n);
+      else entry.ppm = ppm;
+      outPeers.push(entry);
     })
     outPeers.sort(function(a, b) {
       return b.sum - a.sum;
