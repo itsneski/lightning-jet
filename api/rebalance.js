@@ -249,6 +249,7 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
         let noSufficientBalance = rbError.error === 'NoOutboundPeerWithSufficientBalance';
         let probeTimeout = rbError.error === 'ProbeTimeout';
         let failedToParseAmount = rbError.error === 'FailedToParseSpecifiedAmount';
+        let unexpectedError = rbError.error === 'UnexpectedErrInGetRouteToDestination';
 
         if (rebalanceFeeTooHigh) {
           // find nodes that exceed the per hop ppm in the last
@@ -398,12 +399,18 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
           lastMessage = 'failed to parse amount';
           console.log(lastMessage + ', exiting');
           rep = REPS;
+        } else if (unexpectedError) {
+          lastError = 'unexpectedError';
+          lastMessage = 'unexpected error';
+          console.log('\n-------------------------------------------');
+          console.log(lastMessage, JSON.stringify(rbError, null, 2), ' exiting');
+          rep = REPS;
         } else {
-          lastError = 'unknownError';
+          lastError = 'unidentifiedError';
           lastMessage = 'unidentified error';
           console.log('\n-------------------------------------------');
-          console.log(lastMessage, rbError, ' retrying');
-          rep++;
+          console.log(lastMessage, JSON.stringify(rbError, null, 2), ' exiting');
+          rep = REPS;
         }
       } else {  // !stderr
         console.log('\n-------------------------------------------');
@@ -454,7 +461,7 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
   }
 
   // record rebalance failure, success has already been recorded
-  if (amountRebalanced <= 0 && ['rebalanceFeeTooHigh', 'failedToFindPath'].indexOf(lastError) >= 0) {
+  if (amountRebalanced <= 0 && ['rebalanceFeeTooHigh', 'failedToFindPath', 'unexpectedError', 'unidentifiedError'].indexOf(lastError) >= 0) {
     if (minFailedPpm < Number.MAX_SAFE_INTEGER) recordRebalanceFailure(outId, inId, AMOUNT, lastError, ppm, minFailedPpm);
     else recordRebalanceFailure(outId, inId, AMOUNT, lastError, ppm);
   }
