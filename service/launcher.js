@@ -47,10 +47,13 @@ function bosReconnect() {
   }
 
   try {
-    console.log('reconnecting peers');
-    reconnect(logger);
+    console.log('\n' + date.format(new Date, 'MM/DD hh:mm:ss A'), 'reconnecting peers');
+    const res = reconnect(logger);
+    res.catch((err) => {
+      console.error('error during peer reconnect:', err);
+    })
   } catch (error) {
-    console.error('error running peer reconnect:', error.message);
+    console.error('error launching peer reconnect:', error);
   }
 }
 
@@ -67,8 +70,7 @@ function runLoop() {
 }
 
 function runLoopExec() {
-  console.log();
-  console.log(date.format(new Date, 'MM/DD hh:mm A'));
+  console.log('\n' + date.format(new Date, 'MM/DD hh:mm:ss A'));
 
   // telegram
   if (isRunning(TelegramBot.name)) {
