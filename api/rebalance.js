@@ -37,6 +37,7 @@ const {rebalanceSync} = require('../bos/rebalance');
 
 const arrAvg = arr => arr.reduce((a,b) => a + b, 0) / arr.length;
 const stringify = obj => JSON.stringify(obj, null, 2);
+const errcode = err => err.err && err.err[2] && err.err[2].err && err.err[2].err[1];
 
 
 // keep track of nodes to report stats
@@ -224,7 +225,9 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
           console.warn('bos rebalance warn:', stringify(msg));
         },
         error: (msg) => {
-          console.error('bos rebalance error:', stringify(msg));
+          const code = errcode(msg);
+          if (code === 'TemporaryChannelFailure') console.log('(TemporaryChannelFailure) insufficient liquidity on one of the route hops, skip');
+          else console.error('bos rebalance error:', stringify(msg));
         }
       }
 
