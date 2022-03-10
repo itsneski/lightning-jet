@@ -48,6 +48,28 @@ module.exports = {
     return {total: history.length, failures: countFailures, map};
   },
 
+  // resolve channel based on a chan id, a partial node alias or a pub id
+  resolveChannel(str) {
+    if (!str) return new Error('str is missing');
+    let chans = listChannelsSync(lndClient);
+    if (!chans) return new Error('couldnt get chans');
+    let matches = [];
+    // see if there are any channel matches
+    chans.forEach(c => {
+      if (c.chan_id === str) matches.push(c.chan_id);
+    })
+    if (matches.length > 0) return matches;
+    // see if there are any peer matches
+    const pmatches = module.exports.resolveNode(str);
+    if (!pmatches) return undefined;  // couldnt find any peer matches
+    pmatches.forEach(p => {
+      chans.forEach(c => {
+        if (c.remote_pubkey === p.id) matches.push(c.chan_id);
+      })
+    })
+    return (matches.length > 0) ? matches : undefined;
+  },
+
   // resolve a node based on a partial alias or a tag
   resolveNode(str, peers) {
     if (!str) return new Error('str is missing');

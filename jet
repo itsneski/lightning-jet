@@ -21,6 +21,7 @@ const {htlcAnalyzerFormatted} = importLazy('./api/htlc-analyzer');
 const {htlcAnalyzerNode} = importLazy('./api/htlc-analyzer');
 const {classifyPeersSync} = importLazy('./api/utils');
 const {resolveNode} = importLazy('./api/utils');
+const {resolveChannel} = importLazy('./api/utils');
 const {feeHistorySync} = importLazy('./db/utils');
 
 const {statSync} = require('fs');
@@ -520,7 +521,12 @@ cap
     return new Promise(async (resolve, reject) => {
       if (!isLndAlive(lndClient)) return reject('lnd is offline');
 
-      updateChannelSync(lndClient, {chan: args.chan, base: options.base, ppm: options.ppm});
+      const matches = resolveChannel(args.chan);
+      if (!matches) return console.error('found no matches');
+      if (matches.length > 1) return console.error('found multiple matches: ' + matches);
+
+      console.log('updating', matches[0]);
+      updateChannelSync(lndClient, {chan: matches[0], base: options.base, ppm: options.ppm});
       console.log('updated');
     })
   })
