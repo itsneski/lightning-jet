@@ -215,16 +215,16 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
           })
         },
         debug: (msg) => {
-          if (config.debugMode) console.log(msg);
+          if (config.debugMode) console.log('bos rebalance debug:', stringify(msg));
         },
         info: (msg) => {
-          if (config.debugMode) console.log(msg);
+          if (config.debugMode) console.log('bos rebalance info:', stringify(msg));
         },
         warn: (msg) => {
-          console.warn(msg);
+          console.warn('bos rebalance warn:', stringify(msg));
         },
         error: (msg) => {
-          console.error(msg);
+          console.error('bos rebalance error:', stringify(msg));
         }
       }
 
