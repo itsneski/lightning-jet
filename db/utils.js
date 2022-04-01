@@ -433,7 +433,7 @@ module.exports = {
       return err;
     }
   },
-  recordRebalance(from, to, amount, rebalanced, ppm) {
+  recordRebalance(startDate, from, to, amount, rebalanced, ppm) {
     if (doIt()) {
       // retry in case of an error
       console.log('recordRebalance: retrying due to an error');
@@ -445,8 +445,8 @@ module.exports = {
       let db = getHandle();
       try {
         db.serialize(function() {
-          let values = constructInsertString([Date.now(), from, to, amount, rebalanced, ppm, 1]);
-          let cmd = 'INSERT INTO ' + REBALANCE_HISTORY_TABLE + '(date, from_node, to_node, amount, rebalanced, ppm, status) VALUES (' + values + ')';
+          let values = constructInsertString([Date.now(), startDate, from, to, amount, rebalanced, ppm, 1]);
+          let cmd = 'INSERT INTO ' + REBALANCE_HISTORY_TABLE + '(date, start_date, from_node, to_node, amount, rebalanced, ppm, status) VALUES (' + values + ')';
           executeDb(db, cmd);
         })
       } catch(error) {
@@ -458,7 +458,7 @@ module.exports = {
       return err;
     }
   },
-  recordRebalanceFailure(from, to, amount, errorMsg, ppm, min) {
+  recordRebalanceFailure(startDate, from, to, amount, errorMsg, ppm, min) {
     if (doIt()) {
       // retry in case of an error
       console.log('recordRebalanceFailure: retrying due to an error');
@@ -470,8 +470,8 @@ module.exports = {
       let db = getHandle();
       try {
         db.serialize(function() {
-          let props = [Date.now(), from, to, amount, 0, errorMsg, ppm];
-          let names = 'date, from_node, to_node, amount, status, extra, ppm';
+          let props = [Date.now(), startDate, from, to, amount, 0, errorMsg, ppm];
+          let names = 'date, start_date, from_node, to_node, amount, status, extra, ppm';
           if (min > 0) {
             props.push(min);
             names += ', min';
@@ -512,6 +512,7 @@ module.exports = {
         list.push({
           row: row.id,
           date: row.date,
+          start: row.start_date,
           from: row.from_node,
           to: row.to_node,
           amount: row.amount,
@@ -616,6 +617,7 @@ function createRebalanceHistoryTable(db) {
   // add a column, it'll error out if the column already exists
   executeDbSync(db, "ALTER TABLE " + REBALANCE_HISTORY_TABLE + " ADD COLUMN ppm INTEGER");
   executeDbSync(db, "ALTER TABLE " + REBALANCE_HISTORY_TABLE + " ADD COLUMN min INTEGER");
+  executeDbSync(db, "ALTER TABLE " + REBALANCE_HISTORY_TABLE + " ADD COLUMN start_date INTEGER");
 }
 
 function createNamevalListTable(db) {

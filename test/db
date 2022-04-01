@@ -1,16 +1,16 @@
 #!/usr/bin/env node
 
 const dbUtils = require('../db/utils');
-const fs = require('fs');
-const file = '/tmp/jet_test.db';
-const findProc = require('find-process');
 
+//const fs = require('fs');
+//const file = '/tmp/jet_test.db';
 //if (fs.existsSync(file)) fs.unlinkSync(file);
+
 dbUtils.enableTestMode();
 
 const timeout = 2 * 1000; // msec
 
-return testActiveRebalance();
+return testRebalanceHistory();
 
 function testActiveRebalance() {
   let ret = dbUtils.recordActiveRebalanceSync({
@@ -205,10 +205,11 @@ function testHtlcs() {
 }
 
 function testRebalanceHistory() {
-  dbUtils.recordRebalance('node_a', 'node_b', 1000000, 350000, 350);
-  dbUtils.recordRebalance('node_a', 'node_c', 2000000, 550000, 675);
-  dbUtils.recordRebalanceFailure('node_a', 'node_c', 1000000, 'ops', 550, 950);
-  dbUtils.recordRebalanceFailure('node_a', 'node_c', 2000000, 'ops again', 675);
+  const startDate = Date.now();
+  dbUtils.recordRebalance(startDate, 'node_a', 'node_b', 1000000, 350000, 350);
+  dbUtils.recordRebalance(startDate, 'node_a', 'node_c', 2000000, 550000, 675);
+  dbUtils.recordRebalanceFailure(startDate, 'node_a', 'node_c', 1000000, 'ops', 550, 950);
+  dbUtils.recordRebalanceFailure(startDate, 'node_a', 'node_c', 2000000, 'ops again', 675);
   setTimeout(() => {
     console.log(dbUtils.listRebalancesSync()); 
   }, timeout);

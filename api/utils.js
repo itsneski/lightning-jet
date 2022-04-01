@@ -396,12 +396,12 @@ module.exports = {
 
     let formatted = [];
     list.forEach(l => {
-      let item = {
-        date: parseInt(l.date),
-        from: (peers[l.from]) ? peers[l.from].name : l.from,
-        to: (peers[l.to]) ? peers[l.to].name : l.to,
-        amount: withCommas(l.amount),
-      }
+      let item = {};
+      if (l.start) item.start = parseInt(l.start);
+      item.end = parseInt(l.date);
+      item.from =(peers[l.from]) ? peers[l.from].name : l.from,
+      item.to = (peers[l.to]) ? peers[l.to].name : l.to,
+      item.amount = withCommas(l.amount)
       if (l.rebalanced) item.rebalanced = withCommas(l.rebalanced);
       item.status = (l.status === 1) ? 'success' : 'failed';
       if (l.extra) item.error = l.extra;
@@ -410,10 +410,11 @@ module.exports = {
       formatted.push(item);
     })
     formatted.sort(function(a, b) {
-      return b.date - a.date;
+      return (a.start && b.start) ? b.start - a.start : b.end - a.end;
     })
     formatted.forEach(f => {
-      f.date = date.format(new Date(f.date), 'MM/DD hh:mm A');
+      if (f.start) f.start = date.format(new Date(f.start), 'MM/DD hh:mm A');
+      f.end = date.format(new Date(f.end), 'MM/DD hh:mm A');
     })
     return formatted;
   },
