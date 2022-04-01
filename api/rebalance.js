@@ -170,12 +170,11 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
   if (rebalanceId === undefined) console.error('rebalance db record id is undefined');
 
   const startTime = Date.now();
-  let iterationStart;
 
   // run the loop for bos rebalance
   try {
     for (let rep = 0; rep < REPS; ) {
-      iterationStart = Date.now();
+      const iterationStart = Date.now();
       let timeRunning = Math.round((Date.now() - startTime) / 1000 / 60);
       let timeLeft = maxRuntime - timeRunning;
       if (timeLeft < 0) {
@@ -468,8 +467,8 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
 
   // record rebalance failure, success has already been recorded
   if (amountRebalanced <= 0 && ['rebalanceFeeTooHigh', 'failedToFindPath', 'unexpectedError', 'unidentifiedError'].indexOf(lastError) >= 0) {
-    if (minFailedPpm < Number.MAX_SAFE_INTEGER) recordRebalanceFailure(iterationStart, outId, inId, AMOUNT, lastError, ppm, minFailedPpm);
-    else recordRebalanceFailure(iterationStart, outId, inId, AMOUNT, lastError, ppm);
+    if (minFailedPpm < Number.MAX_SAFE_INTEGER) recordRebalanceFailure(startTime, outId, inId, AMOUNT, lastError, ppm, minFailedPpm);
+    else recordRebalanceFailure(startTime, outId, inId, AMOUNT, lastError, ppm);
   }
 
   printStats(lndClient, nodeStats, nodeInfo);
