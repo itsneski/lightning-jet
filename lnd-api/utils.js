@@ -391,7 +391,7 @@ module.exports = {
       calls.push(function(cb) {
         lndClient.getNodeInfo({pub_key: n}, (err, response) => {
           if (err) {
-            console.error('node: ' + n + ', error: ' + err);
+            console.error('getNodesInfo: ' + n + ', error: ' + err);
             return cb(null, null);
           }
           return cb(null, response);
