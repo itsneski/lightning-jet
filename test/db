@@ -10,7 +10,15 @@ dbUtils.enableTestMode();
 
 const timeout = 2 * 1000; // msec
 
-return testRebalanceHistory();
+return testChannelEvents();
+
+function testChannelEvents() {
+  dbUtils.recordChannelEvent('INACTIVE_CHANNEL', '177a96f52b7e80d73e41e4d724c52ff8133e82fc2930fa95dcfa2094122c303e', 0);
+  dbUtils.recordChannelEvent('ACTIVE_CHANNEL', '0a5da800f865d65cfca158794f592acf57e608f9a5b54c5cb160d3cd11865c93', 1);
+  setTimeout(() => {
+    console.log(dbUtils.listChannelEvents());
+  }, timeout);
+}
 
 function testActiveRebalance() {
   let ret = dbUtils.recordActiveRebalanceSync({

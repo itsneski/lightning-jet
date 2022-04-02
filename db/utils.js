@@ -16,6 +16,7 @@ const NAMEVAL_LIST_TABLE = 'nameval_list';
 const TELEGRAM_MESSAGES_TABLE = 'telegram_messages';
 const FEE_HISTORY_TABLE = 'fee_history';
 const ACTIVE_REBALANCE_TABLE = 'active_rebalance';
+const CHANNEL_EVENTS_TABLE = 'channel_events';
 
 var testMode = false;
 
@@ -32,6 +33,40 @@ const uniqueArr = arr => arr.filter(function(elem, pos) {
 })
 
 module.exports = {
+  listChannelEvents() {
+    let db = getHandle();
+    let done;
+    let list = [];
+    db.serialize(function() {
+      let q = 'SELECT rowid, * FROM ' + CHANNEL_EVENTS_TABLE + ' ORDER BY date DESC';
+      if (testMode) console.log(q);
+      db.each(q, function(err, row) {
+        list.push(row);
+      }, (err) => {
+        done = true;
+      })
+    })
+    while(!done) {
+      require('deasync').runLoopOnce();
+    }
+    closeHandle(db);
+    return list;
+  },
+  recordChannelEvent(type, txid, index) {
+    let db = getHandle();
+    try {
+      db.serialize(function() {
+        const vals = constructInsertString([Date.now(), type, txid, index]);
+        const cols = '(date, type, txid, ind)';
+        let cmd = 'INSERT INTO ' + CHANNEL_EVENTS_TABLE + ' ' + cols + ' VALUES (' + vals + ')';
+        executeDb(db, cmd);
+      })
+    } catch(error) {
+      console.error('recordChannelEvent:', error.message);
+    } finally {
+      closeHandle(db);
+    }
+  },
   deleteActiveRebalance(rowid) {
     let db = getHandle();
     try {
@@ -588,8 +623,13 @@ function createTables() {
     createTelegramMessagesTable(db);
     createFeeHistoryTable(db);
     createActiveRebalanceTable(db);
+    createChannelEventsTable(db);
   })
   closeHandle(db);
+}
+
+function createChannelEventsTable(db) {
+  executeDbSync(db, "CREATE TABLE IF NOT EXISTS " + CHANNEL_EVENTS_TABLE + " (date INTEGER NOT NULL, type TEXT NOT NULL, txid TEXT NOT NULL, ind INTEGER NOT NULL, extra TEXT)");
 }
 
 function createActiveRebalanceTable(db) {

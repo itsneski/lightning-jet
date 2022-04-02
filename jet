@@ -14,6 +14,8 @@ const {readLastLineSync} = importLazy('./api/utils');
 const {withCommas} = importLazy('./lnd-api/utils');
 const {listFeesSync} = importLazy('./lnd-api/utils');
 const {listPeersSync} = importLazy('./lnd-api/utils');
+const {listPeersMapSync} = importLazy('./lnd-api/utils');
+const {listChannelsSync} = importLazy('./lnd-api/utils');
 const {updateChannelSync} = importLazy('./lnd-api/update-channel');
 const {listChannels} = importLazy('./api/list-channels');
 const {htlcHistoryFormatted} = importLazy('./api/htlc-history');
@@ -23,6 +25,7 @@ const {classifyPeersSync} = importLazy('./api/utils');
 const {resolveNode} = importLazy('./api/utils');
 const {resolveChannel} = importLazy('./api/utils');
 const {feeHistorySync} = importLazy('./db/utils');
+const {listChannelEvents} = importLazy('./db/utils');
 
 const {statSync} = require('fs');
 const date = require('date-and-time');
@@ -487,6 +490,37 @@ cap
         formatted.push(entry);
       })
       console.log('count:', history.length, 'min:', min, 'max:', max, 'avg:', (sum/history.length).toFixed(1));
+      console.table(formatted);
+    })
+  })
+
+  .command('channel-events', 'Prints channel events')
+  .action((args, options, logger) => {
+    return new Promise(async (resolve, reject) => {
+      if (!isLndAlive(lndClient)) return reject('lnd is offline');
+
+      const list = listChannelEvents();
+      if (!list || list.length === 0) return console.log('no events found');
+      let chanMap = {};
+      const chans = listChannelsSync(lndClient);
+      chans.forEach(c => {
+        chanMap[c.channel_point] = c;
+      })
+      const peerMap = listPeersMapSync(lndClient);
+      let formatted = [];
+      list.forEach(event => {
+        const key = event.txid + ':' + event.ind;
+        const chan = chanMap[key];
+        if (!chan) return console.warn('didnt find channel for', key);
+        const peer = peerMap[chan.remote_pubkey];
+        let item = {};
+        item.date = date.format(new Date(event.date), 'MM/DD hh:mm:ss A');
+        item.type = event.type;
+        item.chan = chan.chan_id;
+        item.peer = peer.id;
+        item.name = peer.name;
+        formatted.push(item);
+      })
       console.table(formatted);
     })
   })
