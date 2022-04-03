@@ -580,9 +580,14 @@ cap.parse(process.argv);
 
 
 function runMonitorStatusLoop() {
-  let arr = rebalanceStatus();
   console.clear();
   console.log(date.format(new Date, 'MM/DD hh:mm:ss A'));
+
+  if (!serviceUtils.Rebalancer.isRunning()) {
+    return console.log('rebalancer isnt running');
+  }
+
+  let arr = rebalanceStatus();
   if (arr.outbound.length === 0)  {
     console.log('no [outbound] peers found');
   } else {
