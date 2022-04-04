@@ -1,3 +1,4 @@
+
 # Lightning Jet 🚀⚡️, or simply Jet
 Fully automated rebalancer for LND Lightning nodes. Helps get an insight into peers' classification based on routing history, missed routing opportunities, and stuck htlcs.
 
@@ -5,8 +6,7 @@ Join [Lightning Jet telegram chat](https://t.me/lnjet).
 
 ## Prerequisites
 
-You can install Lighting Jet on your laptop or desktop (this section), or run it in Docker. For installation on Docker refer to [Docker](
-#docker).
+You can install Lighting Jet on a laptop, desktop, Raspberry Pi, RaspiBlitz, myNode and other platforms (this section). You can aslo run it in Docker - for advanced users with prior Docker experience. For installation on Docker refer to [Docker](#docker).
 
 Make sure `node` is up to date (version 16.x) by running `node -v`. Update `node` in case of an old version (this will also update `npm`).
 ```bash
@@ -85,6 +85,8 @@ jet help
 |`jet reconnect`|Reconnects to disconnected peers (via BalancesOfSatoshis (bos) api)|
 
 ## Docker
+
+This installation is for advanced users with prior Docker experiece. Refer [here](#prerequisites) for a host-based installation on a laptop, desktop, Raspberry Pi, RaspiBlitz, myNode and other platforms.
 
 ### Prerequisites
 
