@@ -73,6 +73,8 @@ function logChannelUpdate(event) {
   } else if (event.type === 'ACTIVE_CHANNEL') {
     txid = getTxid(event.active_channel.funding_txid_bytes);
     index = event.active_channel.output_index;
+  } else {
+    return console.warn(pref, 'unprocessed event', event);
   }
   if (!txid) return console.error(pref, 'error: could not identify transaction id');
   
