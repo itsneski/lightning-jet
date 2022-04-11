@@ -508,10 +508,17 @@ cap
       })
       const peerMap = listPeersMapSync(lndClient);
       let formatted = [];
+      let notFound = {};
       list.forEach(event => {
         const key = event.txid + ':' + event.ind;
         const chan = chanMap[key];
-        if (!chan) return console.warn('didnt find channel for', key);
+        if (!chan) {
+          if (!notFound[key]) {
+            console.warn('did not find channel for channel point ' + key + '; the channel was likely closed');
+            notFound[key] = true;
+          }
+          return;
+        }
         const peer = peerMap[chan.remote_pubkey];
         let item = {};
         item.date = date.format(new Date(event.date), 'MM/DD hh:mm:ss A');
