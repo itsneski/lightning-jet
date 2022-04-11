@@ -346,6 +346,9 @@ function runLoopImpl() {
       // attempt a rebalance
       console.log('[forward]', 'from:', from.name, from.peer, 'to:', to.name, to.peer, 'sats:', e.sats);
       const pref = '  ';
+
+      if (e.sats < minToRebalance) return console.log(pref, 'forwarded sats are below threshold', minToRebalance);
+
       let maxPpm = checkPeers(from, to, pref);
       if (maxPpm === undefined) return;
       const amount = e.sats;
