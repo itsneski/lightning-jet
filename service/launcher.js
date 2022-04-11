@@ -17,6 +17,7 @@ const {getPropAndDateSync} = require('../db/utils');
 const {deleteProp} = require('../db/utils');
 const {reconnect} = require('../bos/reconnect');
 const {isLndAlive} = require('../lnd-api/utils');
+const {inactiveChannels} = require('../api/list-channels');
 
 const loopInterval = 5;  // mins
 const bosReconnectInterval = 60;  // mins
@@ -70,6 +71,7 @@ function runLoop() {
 }
 
 function runLoopExec() {
+  const pref = 'runLoopExec:';
   console.log('\n' + date.format(new Date, 'MM/DD hh:mm:ss A'));
 
   // telegram
@@ -189,6 +191,22 @@ function runLoopExec() {
   } else if (res.priority === priority.warning) {
     console.error(res.msg);
     sendTelegramMessageTimed(res.msg, telegramNotify.category, telegramNotify.warning);
+  }
+
+  // check for inactive channels
+  const inactive = inactiveChannels();
+  if (inactive) {
+    inactive.forEach(c => {
+      // typical node maintenance shouldn't take longer than 60 minutes; notify if a node
+      // is inactive for longer.
+      if (c.mins >= 60) {   // mins
+        const msg = 'channel ' + c.chan + ' with ' + (c.name || c.peer) + ' has been inactive for ' + c.mins + ' minutes';
+        const cat = 'telegram.notify.channel.inactive';
+        const int = 60 * 60;  // an hour
+        console.log(msg);
+        sendTelegramMessageTimed(msg, cat, int);
+      }
+    })
   }
 }
 

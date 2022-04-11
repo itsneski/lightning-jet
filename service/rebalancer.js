@@ -65,7 +65,7 @@ if (config.rebalancer.exclude) {
     if (['all', 'inbound', 'outbound'].includes(type)) {
       exclude[id] = type;
     } else {
-      console.error(colorRed, 'unknow exclude for ' + id + ': ' + type + ', skipping');
+      console.error(colorRed, 'unknown exclude for ' + id + ': ' + type + ', skipping');
     }
   })
   console.log('exclude:', exclude);
