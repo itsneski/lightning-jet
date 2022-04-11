@@ -397,12 +397,20 @@ cap
     return new Promise(async (resolve, reject) => {
       if (!isLndAlive(lndClient)) return reject('lnd is offline');
 
-      let chans = listChannels();
+      const chans = listChannels();
       if (!chans) return console.log('no channels found, likely due to an error');
       if (chans.active && chans.active.length > 0) {
         console.log('active channels:');
         console.table(chans.active);
       }
+
+      // list inactive channels if any
+      const inactive = inactiveChannels();
+      if (inactive && inactive.length > 0) {
+        console.log('\nlist inactive channels; mins column denotes how long a channel has been inactive in minutes (based on recorded channel events)');
+        console.table(inactive);
+      }
+
       if (chans.updates && chans.updates.length > 0) {
         console.log('\ntop channels based on updates:');
         console.log('-updates: number of channel state updates');
