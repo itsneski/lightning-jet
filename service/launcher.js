@@ -201,7 +201,7 @@ function runLoopExec() {
       // is inactive for longer.
       if (c.mins >= 60) {   // mins
         const msg = 'channel ' + c.chan + ' with ' + (c.name || c.peer) + ' has been inactive for ' + c.mins + ' minutes';
-        const cat = 'telegram.notify.channel.inactive';
+        const cat = 'telegram.notify.channel.inactive.' + c.chan;
         const int = 60 * 60;  // an hour
         console.log(msg);
         sendTelegramMessageTimed(msg, cat, int);
