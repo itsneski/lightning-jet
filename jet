@@ -26,6 +26,7 @@ const {resolveNode} = importLazy('./api/utils');
 const {resolveChannel} = importLazy('./api/utils');
 const {feeHistorySync} = importLazy('./db/utils');
 const {listChannelEvents} = importLazy('./db/utils');
+const {latestChannelEvents} = importLazy('./db/utils');
 
 const {statSync} = require('fs');
 const date = require('date-and-time');
@@ -43,6 +44,7 @@ const config = importLazy('./api/config');
 const rebalanceApi = importLazy('./api/rebalance');
 const {reconnect} = importLazy('./bos/reconnect');
 const {isLndAlive} = importLazy('./lnd-api/utils');
+const {inactiveChannels} = importLazy('./api/list-channels');
 
 // service names, plus all for restart
 const serviceNames = getServiceNames();
@@ -494,13 +496,16 @@ cap
     })
   })
 
-  .command('channel-events', 'Prints channel events')
+  .command('channel-events', 'Lists channel events')
+  .option('--hours [hours]', 'Depth of history in hours')
   .action((args, options, logger) => {
     return new Promise(async (resolve, reject) => {
       if (!isLndAlive(lndClient)) return reject('lnd is offline');
 
-      const list = listChannelEvents();
+      const hours = options.hours || 24;
+      const list = listChannelEvents({hours});
       if (!list || list.length === 0) return console.log('no events found');
+
       let chanMap = {};
       const chans = listChannelsSync(lndClient);
       chans.forEach(c => {
@@ -528,6 +533,15 @@ cap
         item.name = peer.name;
         formatted.push(item);
       })
+      
+      const inactive = inactiveChannels();
+      if (inactive && inactive.length > 0) {
+        console.log('\nlist of inactive channels; mins column denotes how long a channel has been inactive in minutes (based on recorded channel events)');
+        console.table(inactive);
+      }
+      let msg = 'list of channel events';
+      if (hours) msg += ' over the past ' + hours + ' hours';
+      console.log('\n' + msg);
       console.table(formatted);
     })
   })

@@ -33,12 +33,33 @@ const uniqueArr = arr => arr.filter(function(elem, pos) {
 })
 
 module.exports = {
-  listChannelEvents() {
+  latestChannelEvents() {
+    let db = getHandle();
+    let done;
+    let list = [];
+    db.serialize(() => {
+      let q = 'SELECT type, txid, ind, MAX(date) as date FROM ' + CHANNEL_EVENTS_TABLE + ' GROUP BY txid';
+      if (testMode) console.log(q);
+      db.each(q, (err, row) => {
+        list.push(row);
+      }, (err) => {
+        done = true;
+      })
+    })
+    while(!done) {
+      require('deasync').runLoopOnce();
+    }
+    closeHandle(db);
+    return list;
+  },
+  listChannelEvents({hours = 24}) {
     let db = getHandle();
     let done;
     let list = [];
     db.serialize(function() {
-      let q = 'SELECT rowid, * FROM ' + CHANNEL_EVENTS_TABLE + ' ORDER BY date DESC';
+      let q = 'SELECT rowid, * FROM ' + CHANNEL_EVENTS_TABLE;
+      if (hours) q += ' WHERE date > ' + (Date.now() - hours * 60 * 60 * 1000);
+      q += ' ORDER BY date DESC';
       if (testMode) console.log(q);
       db.each(q, function(err, row) {
         list.push(row);
