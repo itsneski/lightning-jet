@@ -10,7 +10,7 @@ dbUtils.enableTestMode();
 
 const timeout = 2 * 1000; // msec
 
-return testChannelEvents();
+return testRebalanceHistory();
 
 function testChannelEvents() {
   dbUtils.recordChannelEvent('INACTIVE_CHANNEL', '177a96f52b7e80d73e41e4d724c52ff8133e82fc2930fa95dcfa2094122c303e', 0);
@@ -216,8 +216,12 @@ function testRebalanceHistory() {
   const startDate = Date.now();
   dbUtils.recordRebalance(startDate, 'node_a', 'node_b', 1000000, 350000, 350);
   dbUtils.recordRebalance(startDate, 'node_a', 'node_c', 2000000, 550000, 675);
+  dbUtils.recordRebalance(startDate, 'node_a', 'node_c', 2000000, 550000, 675, 'regular');
+  dbUtils.recordRebalance(startDate, 'node_a', 'node_c', 2000000, 550000, 675, 'missed');
   dbUtils.recordRebalanceFailure(startDate, 'node_a', 'node_c', 1000000, 'ops', 550, 950);
+  dbUtils.recordRebalanceFailure(startDate, 'node_a', 'node_c', 1000000, 'ops', 550, 950, 'forward');
   dbUtils.recordRebalanceFailure(startDate, 'node_a', 'node_c', 2000000, 'ops again', 675);
+  dbUtils.recordRebalanceFailure(startDate, 'node_a', 'node_c', 2000000, 'ops again', 675, 0, 'missed');
   setTimeout(() => {
     console.log(dbUtils.listRebalancesSync()); 
   }, timeout);

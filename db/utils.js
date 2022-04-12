@@ -489,7 +489,7 @@ module.exports = {
       return err;
     }
   },
-  recordRebalance(startDate, from, to, amount, rebalanced, ppm) {
+  recordRebalance(startDate, from, to, amount, rebalanced, ppm, type) {
     if (doIt()) {
       // retry in case of an error
       console.log('recordRebalance: retrying due to an error');
@@ -501,8 +501,13 @@ module.exports = {
       let db = getHandle();
       try {
         db.serialize(function() {
-          let values = constructInsertString([Date.now(), startDate, from, to, amount, rebalanced, ppm, 1]);
-          let cmd = 'INSERT INTO ' + REBALANCE_HISTORY_TABLE + '(date, start_date, from_node, to_node, amount, rebalanced, ppm, status) VALUES (' + values + ')';
+          let vals = [Date.now(), startDate, from, to, amount, rebalanced, ppm, 1];
+          let cols = 'date, start_date, from_node, to_node, amount, rebalanced, ppm, status';
+          if (type) {
+            vals.push(type);
+            cols += ', type';
+          }
+          let cmd = 'INSERT INTO ' + REBALANCE_HISTORY_TABLE + '(' + cols + ') VALUES (' + constructInsertString(vals) + ')';
           executeDb(db, cmd);
         })
       } catch(error) {
@@ -514,7 +519,7 @@ module.exports = {
       return err;
     }
   },
-  recordRebalanceFailure(startDate, from, to, amount, errorMsg, ppm, min) {
+  recordRebalanceFailure(startDate, from, to, amount, errorMsg, ppm, min, type) {
     if (doIt()) {
       // retry in case of an error
       console.log('recordRebalanceFailure: retrying due to an error');
@@ -531,6 +536,10 @@ module.exports = {
           if (min > 0) {
             props.push(min);
             names += ', min';
+          }
+          if (type) {
+            props.push(type);
+            names += ', type';
           }
           let values = constructInsertString(props);
           let cmd = 'INSERT INTO ' + REBALANCE_HISTORY_TABLE + '(' + names + ') VALUES (' + values + ')';
@@ -576,6 +585,7 @@ module.exports = {
           ppm: row.ppm,
           min: row.min,
           status: row.status,
+          type: row.type,
           extra: row.extra
         })
       }, function(err) {
@@ -679,6 +689,7 @@ function createRebalanceHistoryTable(db) {
   executeDbSync(db, "ALTER TABLE " + REBALANCE_HISTORY_TABLE + " ADD COLUMN ppm INTEGER");
   executeDbSync(db, "ALTER TABLE " + REBALANCE_HISTORY_TABLE + " ADD COLUMN min INTEGER");
   executeDbSync(db, "ALTER TABLE " + REBALANCE_HISTORY_TABLE + " ADD COLUMN start_date INTEGER");
+  executeDbSync(db, "ALTER TABLE " + REBALANCE_HISTORY_TABLE + " ADD COLUMN type TEXT");
 }
 
 function createNamevalListTable(db) {

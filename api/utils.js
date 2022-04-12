@@ -407,6 +407,7 @@ module.exports = {
       if (l.extra) item.error = l.extra;
       if (l.ppm > 0) item.ppm  = l.ppm;
       if (l.min > 0) item.min = l.min;
+      if (l.type) item.type = l.type;
       formatted.push(item);
     })
     formatted.sort(function(a, b) {

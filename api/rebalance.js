@@ -1,4 +1,4 @@
-// rebalance build on top of https://github.com/alexbosworth/balanceofsatoshis
+// rebalance built on top of https://github.com/alexbosworth/balanceofsatoshis
 //
 // calls 'bos rebalance' in a loop, until the target amount is met or until all
 // possible routes is exhausted.  dynamically builds a list of nodes to avoid
@@ -47,7 +47,7 @@ const MIN_PPMS_TRIES = 4; // min ppm occurances before attempting to exclude a n
                           // the greater the number, the more chances nodes get
                           // to prove they are not expensive before being excluded
 
-module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants.rebalancer.maxPpm, mins, avoidArr = config.avoid || []}) => {
+module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants.rebalancer.maxPpm, mins, avoidArr = config.avoid || [], type}) => {
   if (!from || !to || !amount) {
     throw new Error('from, to and amount are mandatory arguments');
   }
@@ -159,6 +159,7 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
   console.log('amount:', numberWithCommas(AMOUNT));
   console.log('max ppm:', ppm);
   console.log('max fee:', maxFee);
+  if (type) console.log('type:', type);
   console.log('ppm per hop:', ppm_per_hop);
   console.log('time left:', maxRuntime, 'mins');
   if (aggresiveMode) console.log('aggressive mode: on');
@@ -428,7 +429,7 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
           amountRebalanced += amount;
 
           // record result in the db for further optimation
-          recordRebalance(iterationStart, outId, inId, AMOUNT, amount, Math.round(1000000 * fees / amount));
+          recordRebalance(iterationStart, outId, inId, AMOUNT, amount, Math.round(1000000 * fees / amount), type);
 
           console.log('* total amount rebalanced:', numberWithCommas(amountRebalanced));
           if (fees > 0) {
@@ -467,8 +468,8 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
 
   // record rebalance failure, success has already been recorded
   if (amountRebalanced <= 0 && ['rebalanceFeeTooHigh', 'failedToFindPath', 'unexpectedError', 'unidentifiedError'].indexOf(lastError) >= 0) {
-    if (minFailedPpm < Number.MAX_SAFE_INTEGER) recordRebalanceFailure(startTime, outId, inId, AMOUNT, lastError, ppm, minFailedPpm);
-    else recordRebalanceFailure(startTime, outId, inId, AMOUNT, lastError, ppm);
+    if (minFailedPpm < Number.MAX_SAFE_INTEGER) recordRebalanceFailure(startTime, outId, inId, AMOUNT, lastError, ppm, minFailedPpm, type);
+    else recordRebalanceFailure(startTime, outId, inId, AMOUNT, lastError, ppm, 0, type);
   }
 
   printStats(lndClient, nodeStats, nodeInfo);
