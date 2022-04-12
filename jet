@@ -365,6 +365,10 @@ cap
       if (options.mins) msg += ' over the past ' + options.mins + ' mins';
       if (options.hours) msg += ' over the past ' + options.hours + ' hours';
       if (name) msg += ' for ' + name;
+      msg += '\n  date  - when rebalance started';
+      msg += '\n  secs  - how long rebalance ran in seconds';
+      msg += '\n  min   - minimum max ppm required for rebalance to go through';
+      msg += '\n  type  - rebalance type: regular (from inbound to outbound peers), low volume (between low volume peers), missed (based on missed htlcs), forward (ad-hock on forwards)';
       console.log(msg);
       if (!formatted || formatted.length === 0) console.log('no entries found');
       else console.table(formatted);
