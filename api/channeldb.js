@@ -3,16 +3,17 @@ const {execSync} = require('child_process');
 const {withCommas} = require('../lnd-api/utils');
 const constants = require('./constants');
 const config = require('./config');
+const path = require('path');
 
 const priority = constants.channeldb.sizeThreshold;
+
+global.channelDbFile = global.channelDbFile || config.channelDbPath;
 
 // channel.db size
 if (!global.channelDbFile) {
   const conf = config.macaroonPath;
   if (!conf) return console.error('macaroonPath is not defined in the config.json');
-  let i = conf.indexOf('lnd');
-  if (i <= 0) return console.error('couldnt local lnd in the macaroonPath');
-  let base = conf.substring(0, i + 3);
+  const base = path.normalize(path.dirname(conf) + '/../../../');
   let cmd = 'find ' + base + ' -name channel.db';
   try {
     global.channelDbFile = execSync(cmd).toString().trim();

@@ -16,6 +16,7 @@ const NAMEVAL_LIST_TABLE = 'nameval_list';
 const TELEGRAM_MESSAGES_TABLE = 'telegram_messages';
 const FEE_HISTORY_TABLE = 'fee_history';
 const ACTIVE_REBALANCE_TABLE = 'active_rebalance';
+const CHANNEL_EVENTS_TABLE = 'channel_events';
 
 var testMode = false;
 
@@ -32,6 +33,61 @@ const uniqueArr = arr => arr.filter(function(elem, pos) {
 })
 
 module.exports = {
+  latestChannelEvents() {
+    let db = getHandle();
+    let done;
+    let list = [];
+    db.serialize(() => {
+      let q = 'SELECT type, txid, ind, MAX(date) as date FROM ' + CHANNEL_EVENTS_TABLE + ' GROUP BY txid';
+      if (testMode) console.log(q);
+      db.each(q, (err, row) => {
+        list.push(row);
+      }, (err) => {
+        done = true;
+      })
+    })
+    while(!done) {
+      require('deasync').runLoopOnce();
+    }
+    closeHandle(db);
+    return list;
+  },
+  listChannelEvents({hours = 24}) {
+    let db = getHandle();
+    let done;
+    let list = [];
+    db.serialize(function() {
+      let q = 'SELECT rowid, * FROM ' + CHANNEL_EVENTS_TABLE;
+      if (hours) q += ' WHERE date > ' + (Date.now() - hours * 60 * 60 * 1000);
+      q += ' ORDER BY date DESC';
+      if (testMode) console.log(q);
+      db.each(q, function(err, row) {
+        list.push(row);
+      }, (err) => {
+        done = true;
+      })
+    })
+    while(!done) {
+      require('deasync').runLoopOnce();
+    }
+    closeHandle(db);
+    return list;
+  },
+  recordChannelEvent(type, txid, index) {
+    let db = getHandle();
+    try {
+      db.serialize(function() {
+        const vals = constructInsertString([Date.now(), type, txid, index]);
+        const cols = '(date, type, txid, ind)';
+        let cmd = 'INSERT INTO ' + CHANNEL_EVENTS_TABLE + ' ' + cols + ' VALUES (' + vals + ')';
+        executeDb(db, cmd);
+      })
+    } catch(error) {
+      console.error('recordChannelEvent:', error.message);
+    } finally {
+      closeHandle(db);
+    }
+  },
   deleteActiveRebalance(rowid) {
     let db = getHandle();
     try {
@@ -433,7 +489,7 @@ module.exports = {
       return err;
     }
   },
-  recordRebalance(from, to, amount, rebalanced, ppm) {
+  recordRebalance(startDate, from, to, amount, rebalanced, ppm, type) {
     if (doIt()) {
       // retry in case of an error
       console.log('recordRebalance: retrying due to an error');
@@ -445,8 +501,13 @@ module.exports = {
       let db = getHandle();
       try {
         db.serialize(function() {
-          let values = constructInsertString([Date.now(), from, to, amount, rebalanced, ppm, 1]);
-          let cmd = 'INSERT INTO ' + REBALANCE_HISTORY_TABLE + '(date, from_node, to_node, amount, rebalanced, ppm, status) VALUES (' + values + ')';
+          let vals = [Date.now(), startDate, from, to, amount, rebalanced, ppm, 1];
+          let cols = 'date, start_date, from_node, to_node, amount, rebalanced, ppm, status';
+          if (type) {
+            vals.push(type);
+            cols += ', type';
+          }
+          let cmd = 'INSERT INTO ' + REBALANCE_HISTORY_TABLE + '(' + cols + ') VALUES (' + constructInsertString(vals) + ')';
           executeDb(db, cmd);
         })
       } catch(error) {
@@ -458,7 +519,7 @@ module.exports = {
       return err;
     }
   },
-  recordRebalanceFailure(from, to, amount, errorMsg, ppm, min) {
+  recordRebalanceFailure(startDate, from, to, amount, errorMsg, ppm, min, type) {
     if (doIt()) {
       // retry in case of an error
       console.log('recordRebalanceFailure: retrying due to an error');
@@ -470,11 +531,15 @@ module.exports = {
       let db = getHandle();
       try {
         db.serialize(function() {
-          let props = [Date.now(), from, to, amount, 0, errorMsg, ppm];
-          let names = 'date, from_node, to_node, amount, status, extra, ppm';
+          let props = [Date.now(), startDate, from, to, amount, 0, errorMsg, ppm];
+          let names = 'date, start_date, from_node, to_node, amount, status, extra, ppm';
           if (min > 0) {
             props.push(min);
             names += ', min';
+          }
+          if (type) {
+            props.push(type);
+            names += ', type';
           }
           let values = constructInsertString(props);
           let cmd = 'INSERT INTO ' + REBALANCE_HISTORY_TABLE + '(' + names + ') VALUES (' + values + ')';
@@ -512,6 +577,7 @@ module.exports = {
         list.push({
           row: row.id,
           date: row.date,
+          start: row.start_date,
           from: row.from_node,
           to: row.to_node,
           amount: row.amount,
@@ -519,6 +585,7 @@ module.exports = {
           ppm: row.ppm,
           min: row.min,
           status: row.status,
+          type: row.type,
           extra: row.extra
         })
       }, function(err) {
@@ -587,8 +654,13 @@ function createTables() {
     createTelegramMessagesTable(db);
     createFeeHistoryTable(db);
     createActiveRebalanceTable(db);
+    createChannelEventsTable(db);
   })
   closeHandle(db);
+}
+
+function createChannelEventsTable(db) {
+  executeDbSync(db, "CREATE TABLE IF NOT EXISTS " + CHANNEL_EVENTS_TABLE + " (date INTEGER NOT NULL, type TEXT NOT NULL, txid TEXT NOT NULL, ind INTEGER NOT NULL, extra TEXT)");
 }
 
 function createActiveRebalanceTable(db) {
@@ -616,6 +688,8 @@ function createRebalanceHistoryTable(db) {
   // add a column, it'll error out if the column already exists
   executeDbSync(db, "ALTER TABLE " + REBALANCE_HISTORY_TABLE + " ADD COLUMN ppm INTEGER");
   executeDbSync(db, "ALTER TABLE " + REBALANCE_HISTORY_TABLE + " ADD COLUMN min INTEGER");
+  executeDbSync(db, "ALTER TABLE " + REBALANCE_HISTORY_TABLE + " ADD COLUMN start_date INTEGER");
+  executeDbSync(db, "ALTER TABLE " + REBALANCE_HISTORY_TABLE + " ADD COLUMN type TEXT");
 }
 
 function createNamevalListTable(db) {

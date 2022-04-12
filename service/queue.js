@@ -9,8 +9,8 @@ module.exports = class RebalanceQueue {
     if (this.queue[0].time < Date.now()) return this.queue.shift();
     return;
   }
-  add(from, to, fromName, toName, amount, maxPpm, time = new Date) {
-    let item = {from, to, fromName, toName, amount, maxPpm, time};
+  add(from, to, fromName, toName, amount, maxPpm, time = new Date, type) {
+    let item = {from, to, fromName, toName, amount, maxPpm, time, type};
     if (this.queue.length === 0) {
       this.queue.push(item);
     } else {

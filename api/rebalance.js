@@ -1,4 +1,4 @@
-// rebalance build on top of https://github.com/alexbosworth/balanceofsatoshis
+// rebalance built on top of https://github.com/alexbosworth/balanceofsatoshis
 //
 // calls 'bos rebalance' in a loop, until the target amount is met or until all
 // possible routes is exhausted.  dynamically builds a list of nodes to avoid
@@ -37,6 +37,7 @@ const {rebalanceSync} = require('../bos/rebalance');
 
 const arrAvg = arr => arr.reduce((a,b) => a + b, 0) / arr.length;
 const stringify = obj => JSON.stringify(obj, null, 2);
+const errcode = err => err.err && err.err[2] && err.err[2].err && err.err[2].err[1];
 
 
 // keep track of nodes to report stats
@@ -46,7 +47,7 @@ const MIN_PPMS_TRIES = 4; // min ppm occurances before attempting to exclude a n
                           // the greater the number, the more chances nodes get
                           // to prove they are not expensive before being excluded
 
-module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants.rebalancer.maxPpm, mins, avoidArr = config.avoid || []}) => {
+module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants.rebalancer.maxPpm, mins, avoidArr = config.avoid || [], type}) => {
   if (!from || !to || !amount) {
     throw new Error('from, to and amount are mandatory arguments');
   }
@@ -104,7 +105,6 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
   var skippedHops = {};
 
   const maxRuntime = mins || config.rebalancer.maxTime || constants.rebalancer.maxTime;
-  const startTime = Date.now();
 
   // it takes time for the rebalancer to properly explore routes. the less time
   // its given, the less is the opportunity to find the cheapest route.
@@ -159,6 +159,7 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
   console.log('amount:', numberWithCommas(AMOUNT));
   console.log('max ppm:', ppm);
   console.log('max fee:', maxFee);
+  if (type) console.log('type:', type);
   console.log('ppm per hop:', ppm_per_hop);
   console.log('time left:', maxRuntime, 'mins');
   if (aggresiveMode) console.log('aggressive mode: on');
@@ -169,9 +170,12 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
   const rebalanceId = recordActiveRebalanceSync({from: outId, to: inId, amount: AMOUNT, ppm, mins: maxRuntime});
   if (rebalanceId === undefined) console.error('rebalance db record id is undefined');
 
+  const startTime = Date.now();
+
   // run the loop for bos rebalance
   try {
     for (let rep = 0; rep < REPS; ) {
+      const iterationStart = Date.now();
       let timeRunning = Math.round((Date.now() - startTime) / 1000 / 60);
       let timeLeft = maxRuntime - timeRunning;
       if (timeLeft < 0) {
@@ -215,16 +219,18 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
           })
         },
         debug: (msg) => {
-          if (config.debugMode) console.log(msg);
+          if (config.debugMode) console.log('bos rebalance debug:', stringify(msg));
         },
         info: (msg) => {
-          if (config.debugMode) console.log(msg);
+          if (config.debugMode) console.log('bos rebalance info:', stringify(msg));
         },
         warn: (msg) => {
-          console.warn(msg);
+          console.warn('bos rebalance warn:', stringify(msg));
         },
         error: (msg) => {
-          console.error(msg);
+          const code = errcode(msg);
+          if (code === 'TemporaryChannelFailure') console.log('(TemporaryChannelFailure) insufficient liquidity on one of the route hops, skip');
+          else console.error('bos rebalance error:', stringify(msg));
         }
       }
 
@@ -249,6 +255,7 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
         let noSufficientBalance = rbError.error === 'NoOutboundPeerWithSufficientBalance';
         let probeTimeout = rbError.error === 'ProbeTimeout';
         let failedToParseAmount = rbError.error === 'FailedToParseSpecifiedAmount';
+        let unexpectedError = rbError.error === 'UnexpectedErrInGetRouteToDestination';
 
         if (rebalanceFeeTooHigh) {
           // find nodes that exceed the per hop ppm in the last
@@ -398,12 +405,18 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
           lastMessage = 'failed to parse amount';
           console.log(lastMessage + ', exiting');
           rep = REPS;
+        } else if (unexpectedError) {
+          lastError = 'unexpectedError';
+          lastMessage = 'unexpected error';
+          console.log('\n-------------------------------------------');
+          console.log(lastMessage, JSON.stringify(rbError, null, 2), ' exiting');
+          rep = REPS;
         } else {
-          lastError = 'unknownError';
+          lastError = 'unidentifiedError';
           lastMessage = 'unidentified error';
           console.log('\n-------------------------------------------');
-          console.log(lastMessage, rbError, ' retrying');
-          rep++;
+          console.log(lastMessage, JSON.stringify(rbError, null, 2), ' exiting');
+          rep = REPS;
         }
       } else {  // !stderr
         console.log('\n-------------------------------------------');
@@ -416,7 +429,7 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
           amountRebalanced += amount;
 
           // record result in the db for further optimation
-          recordRebalance(outId, inId, AMOUNT, amount, Math.round(1000000 * fees / amount));
+          recordRebalance(iterationStart, outId, inId, AMOUNT, amount, Math.round(1000000 * fees / amount), type);
 
           console.log('* total amount rebalanced:', numberWithCommas(amountRebalanced));
           if (fees > 0) {
@@ -454,9 +467,9 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
   }
 
   // record rebalance failure, success has already been recorded
-  if (amountRebalanced <= 0 && ['rebalanceFeeTooHigh', 'failedToFindPath'].indexOf(lastError) >= 0) {
-    if (minFailedPpm < Number.MAX_SAFE_INTEGER) recordRebalanceFailure(outId, inId, AMOUNT, lastError, ppm, minFailedPpm);
-    else recordRebalanceFailure(outId, inId, AMOUNT, lastError, ppm);
+  if (amountRebalanced <= 0 && ['rebalanceFeeTooHigh', 'failedToFindPath', 'unexpectedError', 'unidentifiedError'].indexOf(lastError) >= 0) {
+    if (minFailedPpm < Number.MAX_SAFE_INTEGER) recordRebalanceFailure(startTime, outId, inId, AMOUNT, lastError, ppm, minFailedPpm, type);
+    else recordRebalanceFailure(startTime, outId, inId, AMOUNT, lastError, ppm, 0, type);
   }
 
   printStats(lndClient, nodeStats, nodeInfo);

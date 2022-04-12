@@ -14,6 +14,8 @@ const {readLastLineSync} = importLazy('./api/utils');
 const {withCommas} = importLazy('./lnd-api/utils');
 const {listFeesSync} = importLazy('./lnd-api/utils');
 const {listPeersSync} = importLazy('./lnd-api/utils');
+const {listPeersMapSync} = importLazy('./lnd-api/utils');
+const {listChannelsSync} = importLazy('./lnd-api/utils');
 const {updateChannelSync} = importLazy('./lnd-api/update-channel');
 const {listChannels} = importLazy('./api/list-channels');
 const {htlcHistoryFormatted} = importLazy('./api/htlc-history');
@@ -21,7 +23,10 @@ const {htlcAnalyzerFormatted} = importLazy('./api/htlc-analyzer');
 const {htlcAnalyzerNode} = importLazy('./api/htlc-analyzer');
 const {classifyPeersSync} = importLazy('./api/utils');
 const {resolveNode} = importLazy('./api/utils');
+const {resolveChannel} = importLazy('./api/utils');
 const {feeHistorySync} = importLazy('./db/utils');
+const {listChannelEvents} = importLazy('./db/utils');
+const {latestChannelEvents} = importLazy('./db/utils');
 
 const {statSync} = require('fs');
 const date = require('date-and-time');
@@ -39,6 +44,7 @@ const config = importLazy('./api/config');
 const rebalanceApi = importLazy('./api/rebalance');
 const {reconnect} = importLazy('./bos/reconnect');
 const {isLndAlive} = importLazy('./lnd-api/utils');
+const {inactiveChannels} = importLazy('./api/list-channels');
 
 // service names, plus all for restart
 const serviceNames = getServiceNames();
@@ -359,8 +365,13 @@ cap
       if (options.mins) msg += ' over the past ' + options.mins + ' mins';
       if (options.hours) msg += ' over the past ' + options.hours + ' hours';
       if (name) msg += ' for ' + name;
+      msg += '\n  date  - when rebalance started';
+      msg += '\n  secs  - how long rebalance ran in seconds';
+      msg += '\n  min   - minimum max ppm required for rebalance to go through';
+      msg += '\n  type  - rebalance type: regular (from inbound to outbound peers), low volume (between low volume peers), missed (based on missed htlcs), forward (ad-hock on forwards)';
       console.log(msg);
-      console.table(formatted);
+      if (!formatted || formatted.length === 0) console.log('no entries found');
+      else console.table(formatted);
     })
   })
 
@@ -390,12 +401,20 @@ cap
     return new Promise(async (resolve, reject) => {
       if (!isLndAlive(lndClient)) return reject('lnd is offline');
 
-      let chans = listChannels();
+      const chans = listChannels();
       if (!chans) return console.log('no channels found, likely due to an error');
       if (chans.active && chans.active.length > 0) {
         console.log('active channels:');
         console.table(chans.active);
       }
+
+      // list inactive channels if any
+      const inactive = inactiveChannels();
+      if (inactive && inactive.length > 0) {
+        console.log('\nlist inactive channels; mins column denotes how long a channel has been inactive in minutes (based on recorded channel events)');
+        console.table(inactive);
+      }
+
       if (chans.updates && chans.updates.length > 0) {
         console.log('\ntop channels based on updates:');
         console.log('-updates: number of channel state updates');
@@ -489,6 +508,56 @@ cap
     })
   })
 
+  .command('channel-events', 'Lists channel events')
+  .option('--hours [hours]', 'Depth of history in hours')
+  .action((args, options, logger) => {
+    return new Promise(async (resolve, reject) => {
+      if (!isLndAlive(lndClient)) return reject('lnd is offline');
+
+      const hours = options.hours || 24;
+      const list = listChannelEvents({hours});
+      if (!list || list.length === 0) return console.log('no events found');
+
+      let chanMap = {};
+      const chans = listChannelsSync(lndClient);
+      chans.forEach(c => {
+        chanMap[c.channel_point] = c;
+      })
+      const peerMap = listPeersMapSync(lndClient);
+      let formatted = [];
+      let notFound = {};
+      list.forEach(event => {
+        const key = event.txid + ':' + event.ind;
+        const chan = chanMap[key];
+        if (!chan) {
+          if (!notFound[key]) {
+            console.warn('did not find channel for channel point ' + key + '; the channel was likely closed');
+            notFound[key] = true;
+          }
+          return;
+        }
+        const peer = peerMap[chan.remote_pubkey];
+        let item = {};
+        item.date = date.format(new Date(event.date), 'MM/DD hh:mm:ss A');
+        item.type = event.type;
+        item.chan = chan.chan_id;
+        item.peer = peer.id;
+        item.name = peer.name;
+        formatted.push(item);
+      })
+      
+      const inactive = inactiveChannels();
+      if (inactive && inactive.length > 0) {
+        console.log('\nlist of inactive channels; mins column denotes how long a channel has been inactive in minutes (based on recorded channel events)');
+        console.table(inactive);
+      }
+      let msg = 'list of channel events';
+      if (hours) msg += ' over the past ' + hours + ' hours';
+      console.log('\n' + msg);
+      console.table(formatted);
+    })
+  })
+
   .command('channeldb', 'Prints stats about the channel.db')
   .action((args, options, logger) => {
     return new Promise(async (resolve, reject) => {
@@ -520,7 +589,12 @@ cap
     return new Promise(async (resolve, reject) => {
       if (!isLndAlive(lndClient)) return reject('lnd is offline');
 
-      updateChannelSync(lndClient, {chan: args.chan, base: options.base, ppm: options.ppm});
+      const matches = resolveChannel(args.chan);
+      if (!matches) return console.error('found no matches');
+      if (matches.length > 1) return console.error('found multiple matches: ' + matches);
+
+      console.log('updating', matches[0]);
+      updateChannelSync(lndClient, {chan: matches[0], base: options.base, ppm: options.ppm});
       console.log('updated');
     })
   })
@@ -539,9 +613,14 @@ cap.parse(process.argv);
 
 
 function runMonitorStatusLoop() {
-  let arr = rebalanceStatus();
   console.clear();
   console.log(date.format(new Date, 'MM/DD hh:mm:ss A'));
+
+  if (!serviceUtils.Rebalancer.isRunning()) {
+    return console.log('rebalancer isnt running');
+  }
+
+  let arr = rebalanceStatus();
   if (arr.outbound.length === 0)  {
     console.log('no [outbound] peers found');
   } else {

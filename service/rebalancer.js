@@ -65,7 +65,7 @@ if (config.rebalancer.exclude) {
     if (['all', 'inbound', 'outbound'].includes(type)) {
       exclude[id] = type;
     } else {
-      console.error(colorRed, 'unknow exclude for ' + id + ': ' + type + ', skipping');
+      console.error(colorRed, 'unknown exclude for ' + id + ': ' + type + ', skipping');
     }
   })
   console.log('exclude:', exclude);
@@ -280,7 +280,7 @@ function runLoopImpl() {
       if (amount < minToRebalance) return console.log(pref, 'insufficient amount', amount);
 
       console.log(pref + 'adding to queue for', amount, 'sats, max ppm of', maxPpm, 'to run in', delta, 'sec');
-      queue.add(from.peer, to.peer, from.name, to.name, amount, maxPpm, Date.now() + delta * 1000);
+      queue.add(from.peer, to.peer, from.name, to.name, amount, maxPpm, Date.now() + delta * 1000, 'regular');
       remaining -= amount;
       currCount++;
     })
@@ -314,7 +314,7 @@ function runLoopImpl() {
       if (amount < minToRebalance) return console.log(pref, 'insufficient amount', amount);
 
       console.log(pref + 'adding to queue for', amount, 'sats, max ppm of', maxPpm, 'to run in', delta, 'sec');
-      queue.add(from.peer, to.peer, from.name, to.name, amount, maxPpm, Date.now() + delta * 1000);
+      queue.add(from.peer, to.peer, from.name, to.name, amount, maxPpm, Date.now() + delta * 1000, 'missed');
       remaining -= amount;
       currCount++;
     })
@@ -346,11 +346,14 @@ function runLoopImpl() {
       // attempt a rebalance
       console.log('[forward]', 'from:', from.name, from.peer, 'to:', to.name, to.peer, 'sats:', e.sats);
       const pref = '  ';
+
+      if (e.sats < minToRebalance) return console.log(pref, 'forwarded sats are below threshold', minToRebalance);
+
       let maxPpm = checkPeers(from, to, pref);
       if (maxPpm === undefined) return;
       const amount = e.sats;
       console.log(pref + 'adding to queue for', amount, 'sats, max ppm of', maxPpm);
-      queue.add(from.peer, to.peer, from.name, to.name, amount, maxPpm, Date.now());
+      queue.add(from.peer, to.peer, from.name, to.name, amount, maxPpm, Date.now(), 'forward');
 
       maxForwards--;
       currCount++;
@@ -385,7 +388,7 @@ function runLoopImpl() {
 
       const amount = Math.min(has, remaining);
       console.log(pref + 'adding to queue for', amount, 'sats, max ppm of', maxPpm);
-      queue.add(from.peer, to.peer, from.name, to.name, amount, maxPpm, Date.now());
+      queue.add(from.peer, to.peer, from.name, to.name, amount, maxPpm, Date.now(), 'low volume');
       from.remaining = has - amount;
       remaining -= amount;
       currCount++;
@@ -455,7 +458,7 @@ function runLoopImpl() {
 // process rebalancing queue
 // restart the service to reset the queue (jet restart rebalancer)
 
-const jetExecPath = __dirname + '/../jet';
+const jetExecPath = __dirname + '/utils/rebalance-proc';
 
 function processQueue() {
   try {
@@ -474,7 +477,7 @@ function processQueueImpl() {
     let item = queue.pop();
     if (!item) break;
     console.log('\n' + date.format(new Date, 'MM/DD hh:mm A'), 'rebalancing queue: processing', item);
-    let cmd = 'nohup ' + jetExecPath + ' rebalance ' + item.from + ' ' + item.to + ' ' + item.amount + ' --ppm ' + item.maxPpm + ' >> /tmp/rebalance_' + normalizeName(item.fromName) + '_' + normalizeName(item.toName) + '.log 2>&1 & disown';
+    let cmd = 'nohup ' + jetExecPath + ' --from ' + item.from + ' --to ' + item.to + ' --amount ' + item.amount + ' --ppm ' + item.maxPpm + ' --type "' + item.type + '" >> /tmp/rebalance_' + normalizeName(item.fromName) + '_' + normalizeName(item.toName) + '.log 2>&1 & disown';
     console.log('rebalancing queue:', cmd);
     if (!testModeOn) exec(cmd);
   }

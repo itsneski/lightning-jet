@@ -48,6 +48,28 @@ module.exports = {
     return {total: history.length, failures: countFailures, map};
   },
 
+  // resolve channel based on a chan id, a partial node alias or a pub id
+  resolveChannel(str) {
+    if (!str) return new Error('str is missing');
+    let chans = listChannelsSync(lndClient);
+    if (!chans) return new Error('couldnt get chans');
+    let matches = [];
+    // see if there are any channel matches
+    chans.forEach(c => {
+      if (c.chan_id === str) matches.push(c.chan_id);
+    })
+    if (matches.length > 0) return matches;
+    // see if there are any peer matches
+    const pmatches = module.exports.resolveNode(str);
+    if (!pmatches) return undefined;  // couldnt find any peer matches
+    pmatches.forEach(p => {
+      chans.forEach(c => {
+        if (c.remote_pubkey === p.id) matches.push(c.chan_id);
+      })
+    })
+    return (matches.length > 0) ? matches : undefined;
+  },
+
   // resolve a node based on a partial alias or a tag
   resolveNode(str, peers) {
     if (!str) return new Error('str is missing');
@@ -374,17 +396,18 @@ module.exports = {
 
     let formatted = [];
     list.forEach(l => {
-      let item = {
-        date: parseInt(l.date),
-        from: (peers[l.from]) ? peers[l.from].name : l.from,
-        to: (peers[l.to]) ? peers[l.to].name : l.to,
-        amount: withCommas(l.amount),
-      }
+      let item = {};
+      item.date = (l.start) ? parseInt(l.start) : parseInt(l.date);
+      if (l.start) item.secs = Math.round((l.date - l.start) / 1000); 
+      item.from =(peers[l.from]) ? peers[l.from].name : l.from,
+      item.to = (peers[l.to]) ? peers[l.to].name : l.to,
+      item.amount = withCommas(l.amount)
       if (l.rebalanced) item.rebalanced = withCommas(l.rebalanced);
       item.status = (l.status === 1) ? 'success' : 'failed';
       if (l.extra) item.error = l.extra;
       if (l.ppm > 0) item.ppm  = l.ppm;
       if (l.min > 0) item.min = l.min;
+      if (l.type) item.type = l.type;
       formatted.push(item);
     })
     formatted.sort(function(a, b) {
