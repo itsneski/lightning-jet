@@ -362,8 +362,8 @@ cap
 
       let formatted = rebalanceHistoryFormattedSync(secs, options.filter, id);
       let msg = 'rebalance history';
-      if (options.mins) msg += ' over the past ' + options.mins + ' mins';
-      if (options.hours) msg += ' over the past ' + options.hours + ' hours';
+      if (options.mins) msg += ' over the past ' + options.mins + ' min(s)';
+      if (options.hours) msg += ' over the past ' + options.hours + ' hour(s)';
       if (name) msg += ' for ' + name;
       msg += '\n  date  - when rebalance started';
       msg += '\n  secs  - how long rebalance ran in seconds';
@@ -411,7 +411,7 @@ cap
       // list inactive channels if any
       const inactive = inactiveChannels();
       if (inactive && inactive.length > 0) {
-        console.log('\nlist inactive channels; mins column denotes how long a channel has been inactive in minutes (based on recorded channel events)');
+        console.log('\ninactive channels:\n-mins: shows how long a channel has been inactive in minutes (based on recorded channel events)');
         console.table(inactive);
       }
 
