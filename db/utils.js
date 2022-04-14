@@ -614,8 +614,6 @@ function getHandle() {
   let handle;
   if (testMode) handle = new sqlite3.Database(testDbFile); 
   else handle = new sqlite3.Database(dbFile);
-  // increase the number of listeners to avoid a warning
-  handle.setMaxListeners(20);
   return handle;
 }
 
@@ -636,15 +634,6 @@ function executeDbSync(db, cmd) {
   db.run(cmd, [], (err) => {
     if (err) {
       if (testMode) console.error(pref, 'db.run:', cmd, 'err:', err);
-      error = err;
-    }
-    finished = true;
-  })
-  // listen to errors; assumes new db handle per db request, otherwise the number
-  // of listeners will exceed the max allowed
-  db.on("error", (err) => {
-    if (err) {
-      if (testMode) console.error(pref, 'db.on:', cmd, 'err:', err);
       error = err;
     }
     finished = true;
