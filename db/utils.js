@@ -458,10 +458,11 @@ module.exports = {
     closeHandle(db);
     return htlcs;
   },
-  recordHtlc(htlc, sync) {
+  recordHtlc(htlc) {
+    const pref = 'recordHtlc:';
     if (doIt()) {
       // retry in case of an error
-      console.log('recordHtlc: retrying due to an error');
+      console.log(pref, 'retrying due to an error');
       doIt();
     }
 
@@ -477,12 +478,16 @@ module.exports = {
             Math.round(htlc.link_fail_event.info.incoming_amt_msat / 1000),
             JSON.stringify(htlc)
           ]);
-          let cmd = 'INSERT INTO ' + FAILED_HTLC_TABLE + ' VALUES (' + values + ')';
-          if (sync) executeDbSync(db, cmd); else executeDb(db, cmd);
+          const cmd = 'INSERT INTO ' + FAILED_HTLC_TABLE + ' VALUES (' + values + ')';
+          const error = executeDbSync(db, cmd);
+          if (error) {
+            err = error;
+            console.error(pref, err);
+          }
         })
       } catch(error) {
         err = error;
-        console.error('recordHtlc:', error);
+        console.error(pref, error);
       } finally {
         closeHandle(db);          
       }
@@ -606,8 +611,12 @@ module.exports = {
 }
 
 function getHandle() {
-  if (testMode) return new sqlite3.Database(testDbFile); 
-  return new sqlite3.Database(dbFile);
+  let handle;
+  if (testMode) handle = new sqlite3.Database(testDbFile); 
+  else handle = new sqlite3.Database(dbFile);
+  // increase the number of listeners to avoid a warning
+  handle.setMaxListeners(20);
+  return handle;
 }
 
 function closeHandle(handle) {
@@ -621,11 +630,21 @@ function executeDb(db, cmd) {
 
 function executeDbSync(db, cmd) {
   if (testMode) console.log(cmd);
-  let finished;
-  db.run(cmd, function() { finished = true; })
+  let finished = false;
+  let error;
+  db.run(cmd, () => { 
+    finished = true;
+  })
+  // listen to errors; assumes new db handle per db request, otherwise the number
+  // of listeners will exceed the max allowed
+  db.on("error", (err) => {
+    error = err;
+    finished = true;
+  })
   while(!finished) {
     require('deasync').runLoopOnce();
   }
+  return error;
 }
 
 function execInsertDbSync(db, cmd) {
