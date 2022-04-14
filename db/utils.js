@@ -629,16 +629,24 @@ function executeDb(db, cmd) {
 }
 
 function executeDbSync(db, cmd) {
+  const pref = 'executeDbSync:';
   if (testMode) console.log(cmd);
   let finished = false;
   let error;
-  db.run(cmd, () => { 
+  db.run(cmd, [], (err) => {
+    if (err) {
+      console.error(pref, 'db.run:', cmd, 'err:', err);
+      error = err;
+    }
     finished = true;
   })
   // listen to errors; assumes new db handle per db request, otherwise the number
   // of listeners will exceed the max allowed
   db.on("error", (err) => {
-    error = err;
+    if (err) {
+      console.error(pref, 'db.on:', cmd, 'err:', err);
+      error = err;
+    }
     finished = true;
   })
   while(!finished) {
