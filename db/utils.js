@@ -635,7 +635,7 @@ function executeDbSync(db, cmd) {
   let error;
   db.run(cmd, [], (err) => {
     if (err) {
-      console.error(pref, 'db.run:', cmd, 'err:', err);
+      if (testMode) console.error(pref, 'db.run:', cmd, 'err:', err);
       error = err;
     }
     finished = true;
@@ -644,7 +644,7 @@ function executeDbSync(db, cmd) {
   // of listeners will exceed the max allowed
   db.on("error", (err) => {
     if (err) {
-      console.error(pref, 'db.on:', cmd, 'err:', err);
+      if (testMode) console.error(pref, 'db.on:', cmd, 'err:', err);
       error = err;
     }
     finished = true;
