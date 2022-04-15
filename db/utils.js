@@ -74,18 +74,33 @@ module.exports = {
     return list;
   },
   recordChannelEvent(type, txid, index) {
-    let db = getHandle();
-    try {
-      db.serialize(function() {
-        const vals = constructInsertString([Date.now(), type, txid, index]);
-        const cols = '(date, type, txid, ind)';
-        let cmd = 'INSERT INTO ' + CHANNEL_EVENTS_TABLE + ' ' + cols + ' VALUES (' + vals + ')';
-        executeDb(db, cmd);
-      })
-    } catch(error) {
-      console.error('recordChannelEvent:', error.message);
-    } finally {
-      closeHandle(db);
+    const pref = 'recordChannelEvent:';
+    if (doIt()) {
+      // retry in case of an error
+      console.log(pref, 'retrying due to an error');
+      doIt();
+    }
+
+    function doIt() {
+      let db = getHandle();
+      let error;
+      try {
+        db.serialize(function() {
+          const vals = constructInsertString([Date.now(), type, txid, index]);
+          const cols = '(date, type, txid, ind)';
+          let cmd = 'INSERT INTO ' + CHANNEL_EVENTS_TABLE + ' ' + cols + ' VALUES (' + vals + ')';
+          const err = executeDbSync(db, cmd);
+          if (err) {
+            error = err;
+            console.error(pref, err);
+          }
+        })
+      } catch(err) {
+        console.error(pref, err.message);
+      } finally {
+        closeHandle(db);
+      }
+      return error;
     }
   },
   deleteActiveRebalance(rowid) {
@@ -621,9 +636,13 @@ function closeHandle(handle) {
   handle.close();
 }
 
-function executeDb(db, cmd) {
+function executeDb(db, cmd, cbk) {
+  const pref = 'executeDb:';
   if (testMode) console.log(cmd);
-  db.run(cmd);
+  db.run(cmd, [], (err) => {
+    if (err & testMode) console.error(pref, cmd, 'err:', err);
+    if (cbk) return cbk(err);
+  })
 }
 
 function executeDbSync(db, cmd) {
@@ -632,10 +651,8 @@ function executeDbSync(db, cmd) {
   let finished = false;
   let error;
   db.run(cmd, [], (err) => {
-    if (err) {
-      if (testMode) console.error(pref, 'db.run:', cmd, 'err:', err);
-      error = err;
-    }
+    if (err && testMode) console.error(pref, cmd, 'err:', err);
+    error = err;
     finished = true;
   })
   while(!finished) {
