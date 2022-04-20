@@ -104,11 +104,14 @@ module.exports = {
     }
   },
   deleteActiveRebalance(rowid) {
+    const pref = 'deleteActiveRebalance:';
     let db = getHandle();
     try {
       db.serialize(function() {
         let cmd = 'DELETE FROM ' + ACTIVE_REBALANCE_TABLE + ' WHERE rowid = ' + rowid;
-        executeDb(db, cmd);
+        executeDb(db, cmd, (err) => {
+          if (err) console.error(pref, 'error:', err);
+        })
       })
     } catch(error) {
       console.error('deleteActiveRebalance:', error.message);
