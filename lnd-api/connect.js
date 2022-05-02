@@ -22,11 +22,10 @@ module.exports = {
     let client = new routerrpc.Router('localhost:10009', descriptor.creds);
     return client;
   },
-  lnrpc(protoPath, macaroonPath, tlsCertPath) {
+  lnrpc(protoPath, macaroonPath, tlsCertPath, serverAddress = 'localhost:10009') {
     let descriptor = generateDescriptor(protoPath, macaroonPath, tlsCertPath);
     let lnrpc = descriptor.desc.lnrpc;
-    let client = new lnrpc.Lightning('localhost:10009', descriptor.creds);
-    return client;
+    return new lnrpc.Lightning(serverAddress, descriptor.creds);
   }
 }
 
@@ -46,15 +45,15 @@ function generateDescriptor(protoPath, macaroonPath, tlsCertPath) {
   });
 
   // build ssl credentials using the cert the same as before
-  let lndCert = fs.readFileSync(tlsCertPath);
-  let sslCreds = grpc.credentials.createSsl(lndCert);
+  const lndCert = (tlsCertPath) ? fs.readFileSync(tlsCertPath) : '';
+  const sslCreds = grpc.credentials.createSsl(lndCert);
 
   // combine the cert credentials and the macaroon auth credentials
   // such that every call is properly encrypted and authenticated
-  let credentials = grpc.credentials.combineChannelCredentials(sslCreds, macaroonCreds);
+  const credentials = grpc.credentials.combineChannelCredentials(sslCreds, macaroonCreds);
 
   // Pass the crendentials when creating a channel
-  let descriptor = grpc.loadPackageDefinition(packageDefinition);
+  const descriptor = grpc.loadPackageDefinition(packageDefinition);
 
   return { desc: descriptor, creds: credentials };
 }
