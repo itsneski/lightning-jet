@@ -74,26 +74,44 @@ module.exports = {
     return list;
   },
   recordChannelEvent(type, txid, index) {
-    let db = getHandle();
-    try {
-      db.serialize(function() {
-        const vals = constructInsertString([Date.now(), type, txid, index]);
-        const cols = '(date, type, txid, ind)';
-        let cmd = 'INSERT INTO ' + CHANNEL_EVENTS_TABLE + ' ' + cols + ' VALUES (' + vals + ')';
-        executeDb(db, cmd);
-      })
-    } catch(error) {
-      console.error('recordChannelEvent:', error.message);
-    } finally {
-      closeHandle(db);
+    const pref = 'recordChannelEvent:';
+    if (doIt()) {
+      // retry in case of an error
+      console.log(pref, 'retrying due to an error');
+      doIt();
+    }
+
+    function doIt() {
+      let db = getHandle();
+      let error;
+      try {
+        db.serialize(function() {
+          const vals = constructInsertString([Date.now(), type, txid, index]);
+          const cols = '(date, type, txid, ind)';
+          let cmd = 'INSERT INTO ' + CHANNEL_EVENTS_TABLE + ' ' + cols + ' VALUES (' + vals + ')';
+          const err = executeDbSync(db, cmd);
+          if (err) {
+            error = err;
+            console.error(pref, err);
+          }
+        })
+      } catch(err) {
+        console.error(pref, err.message);
+      } finally {
+        closeHandle(db);
+      }
+      return error;
     }
   },
   deleteActiveRebalance(rowid) {
+    const pref = 'deleteActiveRebalance:';
     let db = getHandle();
     try {
       db.serialize(function() {
         let cmd = 'DELETE FROM ' + ACTIVE_REBALANCE_TABLE + ' WHERE rowid = ' + rowid;
-        executeDb(db, cmd);
+        executeDb(db, cmd, (err) => {
+          if (err) console.error(pref, 'error:', err);
+        })
       })
     } catch(error) {
       console.error('deleteActiveRebalance:', error.message);
@@ -458,10 +476,11 @@ module.exports = {
     closeHandle(db);
     return htlcs;
   },
-  recordHtlc(htlc, sync) {
+  recordHtlc(htlc) {
+    const pref = 'recordHtlc:';
     if (doIt()) {
       // retry in case of an error
-      console.log('recordHtlc: retrying due to an error');
+      console.log(pref, 'retrying due to an error');
       doIt();
     }
 
@@ -477,12 +496,16 @@ module.exports = {
             Math.round(htlc.link_fail_event.info.incoming_amt_msat / 1000),
             JSON.stringify(htlc)
           ]);
-          let cmd = 'INSERT INTO ' + FAILED_HTLC_TABLE + ' VALUES (' + values + ')';
-          if (sync) executeDbSync(db, cmd); else executeDb(db, cmd);
+          const cmd = 'INSERT INTO ' + FAILED_HTLC_TABLE + ' VALUES (' + values + ')';
+          const error = executeDbSync(db, cmd);
+          if (error) {
+            err = error;
+            console.error(pref, err);
+          }
         })
       } catch(error) {
         err = error;
-        console.error('recordHtlc:', error);
+        console.error(pref, error);
       } finally {
         closeHandle(db);          
       }
@@ -606,26 +629,39 @@ module.exports = {
 }
 
 function getHandle() {
-  if (testMode) return new sqlite3.Database(testDbFile); 
-  return new sqlite3.Database(dbFile);
+  let handle;
+  if (testMode) handle = new sqlite3.Database(testDbFile); 
+  else handle = new sqlite3.Database(dbFile);
+  return handle;
 }
 
 function closeHandle(handle) {
   handle.close();
 }
 
-function executeDb(db, cmd) {
+function executeDb(db, cmd, cbk) {
+  const pref = 'executeDb:';
   if (testMode) console.log(cmd);
-  db.run(cmd);
+  db.run(cmd, [], (err) => {
+    if (err & testMode) console.error(pref, cmd, 'err:', err);
+    if (cbk) return cbk(err);
+  })
 }
 
 function executeDbSync(db, cmd) {
+  const pref = 'executeDbSync:';
   if (testMode) console.log(cmd);
-  let finished;
-  db.run(cmd, function() { finished = true; })
+  let finished = false;
+  let error;
+  db.run(cmd, [], (err) => {
+    if (err && testMode) console.error(pref, cmd, 'err:', err);
+    error = err;
+    finished = true;
+  })
   while(!finished) {
     require('deasync').runLoopOnce();
   }
+  return error;
 }
 
 function execInsertDbSync(db, cmd) {

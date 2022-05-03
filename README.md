@@ -1,21 +1,35 @@
 
 # Lightning Jet 🚀⚡️, or simply Jet
+
 Fully automated rebalancer for LND Lightning nodes. Helps get an insight into peers' classification based on routing history, missed routing opportunities, and stuck htlcs.
+
+The mission of Lighting Jet is to help independent node operators compete in the ever-changing landscape of the Lighting Network, especially as big institutional players enter the space.
 
 Join [Lightning Jet telegram chat](https://t.me/lnjet).
 
+## Supported Platforms
+
+You can [install Lighting Jet](#prerequisites) on a laptop, desktop, Raspberry Pi, RaspiBlitz, myNode and other platforms.
+
+You can use Lighting Jet to rebalance your node in [Voltage Cloud](#voltage-cloud). In this setup, Jet will connect to your node remotely via a secure connection.
+
+You can also run Lighting Jet in [Docker](#docker) - for advanced users with prior Docker experience.
+
 ## Prerequisites
 
-You can install Lighting Jet on a laptop, desktop, Raspberry Pi, RaspiBlitz, myNode and other platforms (this section). You can aslo run it in Docker - for advanced users with prior Docker experience. For installation on Docker refer to [Docker](#docker).
-
-Make sure `node` is up to date (version 16.x) by running `node -v`. Update `node` in case of an old version (this will also update `npm`).
+Make sure to [install node](https://nodejs.org/en/download/) if you don't have it already. Run `node -v` to check if you have `node` and whether it is up to date (version 16.x+). Update `node` in case of an old version (this will also update `npm`).  
 ```bash
 curl -sL https://deb.nodesource.com/setup_16.x | sudo -E bash -
 sudo apt-get install -y nodejs
 ```
-Make sure `npm` is up to date (version 8.x) by running `npm -v`. Update `npm` in case of an old version; refer to `node` update steps above. Note that you may run into an issue of having multiple copies of `npm` installed if you update `npm` separately from `node`. Re-run `npm -v` after the update to ensure that your path is picking the update version. Note: you may have multiple `npm` copies present if your path isn't picking it up; locate mnultiple copies by `find / -name npm 2> /dev/null`; identify the updated copy and update `PATH` in `~/.profile`.
+> The above command updates node binaries. Alternatively, you can [download an installable](https://nodejs.org/en/download/) for your platform.
+
+Make sure `npm` is up to date (version 8.x) by running `npm -v`. Update `npm` in case of an old version; refer to `node` update steps above.
+
+> You may run into an issue of having multiple copies of `npm` installed if you update `npm` separately from `node`. Re-run `npm -v` after the update to ensure that your path is picking the update version. You can locate multiple copies by `find / -name npm 2> /dev/null`; identify the right copy of `npm` and update `PATH` in `~/.profile` accordingly.
 
 ## Installation
+
 ```bash
 git clone https://github.com/itsneski/lightning-jet
 cd lightning-jet
@@ -134,6 +148,47 @@ Prepend [all commands](#how-to-run) with `docker exec -it lightning-jet`:
 docker exec -it lightning-jet jet help
 ```
 
+## Voltage Cloud
+
+Lightning Jet can rebalance your node in Voltage Cloud by connecting to it remotely via a secure grpc connection. You can select any platform (host-based or cloud, like AWS) to install Jet as long as it supports [Node](https://nodejs.org/en/download/). Jet runs as a daemon (background process), so its best to select a platform that supports running Jet 24/7.
+
+1. Download `admin.macaroon` from Voltage Cloud, the option is visible on the front page when you log into the dashboard. Remember the location where you downloaded the file.
+
+2. [Install Jet](#prerequisites), skip the section that edits `config.json`. Run `jet -v` to ensure you get a valid response.
+
+3. Create a folder under lighting-jet, say `voltage`, and move `admin.macaroon` there. This will ensure that the macaroon file won't get accidentally deleted.
+
+Next, update `config.json` by `nano api/config.json`:
+
+1. Set `macaroonPath` to the absolute path of `admin.macaroon` file from the previous step, e.g. `/home/umbrel/lightning-jet/voltage/admin.macaroon` if on umbrel.
+
+2. Remove `tlsCertPath` from the config.
+
+3. Add `serverAddress` to config that points at API Endpoint, you can find it on the front page of Voltage Cloud dashboard. The value should be in the following format: `<node alias>.m.voltageapp.io:10009`.
+
+Example of config file:
+
+```json
+{
+  "avoid": [
+  ],
+  "macaroonPath": "/home/umbrel/lightning-jet/voltage/admin.macaroon",
+  "serverAddress": "<node alias>.m.voltageapp.io:10009",
+  "debugMode": false,
+  "rebalancer": {
+    "maxTime": 30,
+    "maxPpm": 650,
+    "maxAutoPpm": 500,
+    "maxInstances": 40,
+    "maxPendingHtlcs": 4,
+    "enforceMaxPpm": false,
+    "exclude": [
+    ]
+  }
+}
+```
+
+Run `jet peers` once installation is completed and ensure you get a correct answer as opposed to an error. `jet start daddy` to kick off Jet's automated rebalancer.
 
 ## Telegram bot
 Lightning Jet telegram bot (jet bot) will notify you about important events such as changes in fees for your remote peers.
@@ -143,6 +198,8 @@ To create jet bot: initiate a conversation with [BotFather](https://core.telegra
 Copy the telegram token from the Telegram app chat with BotFather (right under 'Use this token to access the HTTP API:'). `nano ./api/config.json` to add the `telegramToken` setting with the above value (see config file example below).
 
 `jet start telegram` to kick off the service. Make sure there are no errors. Then open a chat with the bot you just created in your Telegram app and type `/start`. This will kick off the communication between the Telegram bot with Jet. You only need to do this step once.
+
+> Make sure to restart the telegram service if it was already running prior to updating the config file: `jet restart telegram`.
 
 ## Config file
 A list of config settings under `./api/config.json`:
