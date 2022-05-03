@@ -3,17 +3,17 @@
 
 Fully automated rebalancer for LND Lightning nodes. Helps get an insight into peers' classification based on routing history, missed routing opportunities, and stuck htlcs.
 
-The mission of Lighting Jet is to help independent node operators compete in the ever-changing landscape of the Lighting Network, especially as big institutional players enter the space.
+The mission of Lightning Jet is to help independent node operators compete in the ever-changing landscape of the Lightning Network, especially as big institutional players enter the space.
 
 Join [Lightning Jet telegram chat](https://t.me/lnjet).
 
 ## Supported Platforms
 
-You can [install Lighting Jet](#prerequisites) on a laptop, desktop, Raspberry Pi, RaspiBlitz, myNode and other platforms.
+You can [install Lightning Jet](#prerequisites) on a laptop, desktop, Raspberry Pi, RaspiBlitz, myNode and other platforms.
 
-You can use Lighting Jet to rebalance your node in [Voltage Cloud](#voltage-cloud). In this setup, Jet will connect to your node remotely via a secure connection.
+You can use Lightning Jet to rebalance your node in [Voltage Cloud](#voltage-cloud). In this setup, Jet will connect to your node remotely via a secure connection.
 
-You can also run Lighting Jet in [Docker](#docker) - for advanced users with prior Docker experience.
+You can also run Lightning Jet in [Docker](#docker) - for advanced users with prior Docker experience.
 
 ## Prerequisites
 
@@ -156,7 +156,7 @@ Lightning Jet can rebalance your node in Voltage Cloud by connecting to it remot
 
 2. [Install Jet](#prerequisites), skip the section that edits `config.json`. Run `jet -v` to ensure you get a valid response.
 
-3. Create a folder under lighting-jet, say `voltage`, and move `admin.macaroon` there. This will ensure that the macaroon file won't get accidentally deleted.
+3. Create a folder under lightning-jet, say `voltage`, and move `admin.macaroon` there. This will ensure that the macaroon file won't get accidentally deleted.
 
 Next, update `config.json` by `nano api/config.json`:
 
