@@ -200,7 +200,9 @@ function runLoopExec() {
       // typical node maintenance shouldn't take longer than 60 minutes; notify if a node
       // is inactive for longer.
       if (c.mins >= 60) {   // mins
-        const msg = 'channel ' + c.chan + ' with ' + (c.name || c.peer) + ' has been inactive for ' + c.mins + ' minutes';
+        let msg = 'channel ' + c.chan + ' with ' + (c.name || c.peer) + ' has been inactive for ';
+        if (c.mins > 60) msg += Math.floor(c.mins/60) + ' hours ' + c.mins % 60 + ' mins';
+        else msg += c.mins + ' mins';
         const cat = 'telegram.notify.channel.inactive.' + c.chan;
         const int = 60 * 60;  // an hour
         console.log(msg);
