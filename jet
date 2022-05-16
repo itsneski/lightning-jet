@@ -431,20 +431,20 @@ cap
   .command('monitor', 'Prints information about ongoing rebalances and stuck htlcs')
   .argument('[secs]', 'Refresh delay in seconds')
   .option('--status', 'Prints rebalance status for peers')
-  .option('--inprogress', 'Lists rebalances in progress')
+  .option('--current', 'Lists rebalances in progress')
   .action((args, options, logger) => {
     return new Promise(async (resolve, reject) => {
       if (!isLndAlive(lndClient)) return reject('lnd is offline');
 
       const delay = args.secs || constants.monitor.refresh;  // in seconds
-      const inProgress = !!options.inprogress;
+      const inProgress = !!options.current;
       console.log('loading data...');
       if (options.status) {
         runMonitorStatusLoop();
         setInterval(runMonitorStatusLoop, delay * 1000);
       } else {
         runMonitorLoop(inProgress);
-        setInterval(runMonitorLoop, delay * 1000);
+        setInterval(runMonitorLoop, delay * 1000, inProgress);
       }
     })
   })
