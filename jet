@@ -431,17 +431,19 @@ cap
   .command('monitor', 'Prints information about ongoing rebalances and stuck htlcs')
   .argument('[secs]', 'Refresh delay in seconds')
   .option('--status', 'Prints rebalance status for peers')
+  .option('--inprogress', 'Lists rebalances in progress')
   .action((args, options, logger) => {
     return new Promise(async (resolve, reject) => {
       if (!isLndAlive(lndClient)) return reject('lnd is offline');
 
       const delay = args.secs || constants.monitor.refresh;  // in seconds
+      const inProgress = !!options.inprogress;
       console.log('loading data...');
       if (options.status) {
         runMonitorStatusLoop();
         setInterval(runMonitorStatusLoop, delay * 1000);
       } else {
-        runMonitorLoop();
+        runMonitorLoop(inProgress);
         setInterval(runMonitorLoop, delay * 1000);
       }
     })
@@ -635,14 +637,18 @@ function runMonitorStatusLoop() {
   }
 }
 
-function runMonitorLoop() {
+function runMonitorLoop(inProgress) {
   const hours = 4;
 
   // load data before clearing screen
-  let htlcs = pendingHtlcsFormattedSync();
   let list = listActiveRebalancesFormattedSync();
-  let history = rebalanceHistoryFormattedSync(hours * 60 * 60).filter(r => r.status === 'success');
-  let closed = listForcedClosingFormattedSync();
+
+  let htlcs, history, closed;
+  if (!inProgress) {
+    htlcs = pendingHtlcsFormattedSync();
+    history = rebalanceHistoryFormattedSync(hours * 60 * 60).filter(r => r.status === 'success');
+    closed = listForcedClosingFormattedSync();
+  }
 
   console.clear();
 
@@ -656,6 +662,8 @@ function runMonitorLoop() {
   } else {
     console.log('no active rebalances');
   }
+
+  if (inProgress) return; // show only in-progress rebalances
 
   // rebalance history
   const maxHistoryLines = constants.monitor.rebalanceHistoryLines;
