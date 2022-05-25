@@ -20,7 +20,13 @@ module.exports = {
         done = true;
       }
     }
-    module.exports.rebalance(args, callback);
+    // async rebalance returns a promise. make sure to catch exceptions
+    // and gracefully exit the deasync loop
+    module.exports.rebalance(args, callback).catch((err) => {
+      console.error('rebalanceSync: error calling rebalance:', err);
+      error = err;
+      done = true;
+    })
     while(done === undefined) {
       require('deasync').runLoopOnce();
     }
@@ -77,25 +83,21 @@ module.exports = {
     }
 
     return new Promise((resolve, reject) => {
-      try {
-        if (global.testModeOn) console.log('rebalance from:', args.from, 'to:', args.to, 'amount:', args.amount, 'max fee:', args.maxFee, 'max fee rate:', args.maxFeeRate, 'mins:', args.mins);
-        if (global.testModeOn) console.log('avoid:', args.avoid);
+      if (global.testModeOn) console.log('rebalance from:', args.from, 'to:', args.to, 'amount:', args.amount, 'max fee:', args.maxFee, 'max fee rate:', args.maxFeeRate, 'mins:', args.mins);
+      if (global.testModeOn) console.log('avoid:', args.avoid);
 
-        swaps.manageRebalance({
-          logger: mylogger,
-          avoid: args.avoid,
-          fs: {getFile: readFile},
-          out_through: args.from,
-          in_through: args.to,
-          lnd: lndHandle.lnd,
-          max_fee: args.maxFee,
-          max_fee_rate: args.maxFeeRate,
-          max_rebalance: args.amount,
-          timeout_minutes: args.mins,
-        }, callback)
-      } catch(err) {
-        reject(mylogger.error({err}));
-      }
+      swaps.manageRebalance({
+        logger: mylogger,
+        avoid: args.avoid,
+        fs: {getFile: readFile},
+        out_through: args.from,
+        in_through: args.to,
+        lnd: lndHandle.lnd,
+        max_fee: args.maxFee,
+        max_fee_rate: args.maxFeeRate,
+        max_rebalance: args.amount,
+        timeout_minutes: args.mins,
+      }, callback);
     })
   }
 }
