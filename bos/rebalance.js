@@ -1,9 +1,8 @@
 const importLazy = require('import-lazy')(require);
 const swaps = importLazy('balanceofsatoshis/swaps');
 const {readFile} = require('fs');
-const lnd = importLazy('balanceofsatoshis/lnd');
-const lndForNode = (logger, node) => lnd.authenticatedLnd({logger, node});
 const {parseResult, parseError, parseNodes} = require('./parser');
+const lndHandle = importLazy('./connect');
 
 module.exports = {
   rebalanceSync(args) {
@@ -70,7 +69,6 @@ module.exports = {
       warn: (msg) => { return args.logger.warn(msg) },
       error: (msg) => { return args.logger.error(msg) }
     }
-    const lndHandle = await lndForNode(mylogger);
 
     const callback = (err, res) => {
       try {
@@ -92,7 +90,7 @@ module.exports = {
         fs: {getFile: readFile},
         out_through: args.from,
         in_through: args.to,
-        lnd: lndHandle.lnd,
+        lnd: lndHandle,
         max_fee: args.maxFee,
         max_fee_rate: args.maxFeeRate,
         max_rebalance: args.amount,
