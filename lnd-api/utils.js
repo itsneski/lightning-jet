@@ -351,7 +351,9 @@ module.exports = {
     channels.forEach(c => peerIds.push(c.remote_pubkey));
     let peerInfo = {};
     module.exports.getNodesInfoSync(lndClient, peerIds).forEach(p => {
-      peerInfo[p.node.pub_key] = p;
+      // !p means an error getting peer info, already reported in
+      // getNodesInfoSync; continue
+      if (p) peerInfo[p.node.pub_key] = p;
     })
     let peers = [];
     channels.forEach(c => {
