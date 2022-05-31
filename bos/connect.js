@@ -9,7 +9,7 @@ const lnService = require('ln-service');
 
 const macaroon = fs.readFileSync(config.macaroonPath).toString('base64');
 const tlsCert = fs.readFileSync(config.tlsCertPath).toString('base64');
-const address = config.serverAddress | 'localhost:10009';
+const address = config.serverAddress || 'localhost:10009';
 
 const {lnd} = lnService.authenticatedLndGrpc({
   cert: tlsCert,
