@@ -103,12 +103,12 @@ module.exports = {
       return error;
     }
   },
-  deleteActiveRebalance(rowid) {
+  deleteActiveRebalance(pid) {
     const pref = 'deleteActiveRebalance:';
     let db = getHandle();
     try {
       db.serialize(function() {
-        let cmd = 'DELETE FROM ' + ACTIVE_REBALANCE_TABLE + ' WHERE rowid = ' + rowid;
+        let cmd = 'DELETE FROM ' + ACTIVE_REBALANCE_TABLE + ' WHERE pid = ' + pid;
         executeDb(db, cmd, (err) => {
           if (err) console.error(pref, 'error:', err);
         })
@@ -140,22 +140,33 @@ module.exports = {
   },
   // pid is optional, used for testing
   recordActiveRebalanceSync({from, to, amount, ppm, mins}, pid) {
-    let db = getHandle();
-    let rowid;
-    try {
-      const proc = pid || require('process').pid;
-      db.serialize(() => {
-        const vals = constructInsertString([Date.now(), from, to, amount, ppm, mins, proc]);
-        const cols = '(date, from_node, to_node, amount, ppm, mins, pid)';
-        let cmd = 'INSERT INTO ' + ACTIVE_REBALANCE_TABLE + ' ' + cols + ' VALUES (' + vals + ')';
-        rowid = execInsertDbSync(db, cmd); // rowid
-      })
-    } catch(error) {
-      console.error('recordActiveRebalanceSync:', error.message);
-    } finally {
-      closeHandle(db);
+    const pref = 'recordActiveRebalanceSync:';
+    let id = doIt();
+    if (!id) {
+      console.log(pref, 'retrying due to an error');
+      id = doIt();
     }
-    return rowid;
+    return id;
+
+    function doIt() {
+      let db = getHandle();
+      let ret;
+      try {
+        const proc = pid || require('process').pid;
+        db.serialize(() => {
+          const vals = constructInsertString([Date.now(), from, to, amount, ppm, mins, proc]);
+          const cols = '(date, from_node, to_node, amount, ppm, mins, pid)';
+          let cmd = 'INSERT INTO ' + ACTIVE_REBALANCE_TABLE + ' ' + cols + ' VALUES (' + vals + ')';
+          executeDbSync(db, cmd);
+          ret = proc; // process id
+        })
+      } catch(error) {
+        console.error(pref, error.message);
+      } finally {
+        closeHandle(db);
+      }
+      return ret;
+    }
   },
   getValByFilterSync(filter) {
     let db = getHandle();
@@ -701,6 +712,7 @@ function createChannelEventsTable(db) {
 
 function createActiveRebalanceTable(db) {
   executeDbSync(db, "CREATE TABLE IF NOT EXISTS " + ACTIVE_REBALANCE_TABLE + " (date INTEGER NOT NULL, from_node TEXT NOT NULL, to_node TEXT NOT NULL, amount INTEGER NOT NULL, ppm INTEGER, mins INTEGER, pid INTEGER NOT NULL, extra TEXT)");
+  executeDbSync(db, "CREATE UNIQUE INDEX active_rebalance_pid_index ON " + ACTIVE_REBALANCE_TABLE + "(pid)");
 }
 
 function createFeeHistoryTable(db) {
