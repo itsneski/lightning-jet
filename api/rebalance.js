@@ -164,11 +164,13 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
   console.log('time left:', maxRuntime, 'mins');
   if (aggresiveMode) console.log('aggressive mode: on');
   if (config.debugMode) console.log('debug mode: enabled');
-  console.log('----------------------------------------\n')
 
   // record for jet monitor
   const rebalanceId = recordActiveRebalanceSync({from: outId, to: inId, amount: AMOUNT, ppm, mins: maxRuntime});
-  if (rebalanceId === undefined) console.error('rebalance db record id is undefined');
+  if (rebalanceId) console.log('rebalance id:', rebalanceId);
+  else console.error('rebalance db record id is undefined');
+
+  console.log('----------------------------------------\n')
 
   const startTime = Date.now();
 
@@ -462,8 +464,6 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
     } // for
   } catch(err) {
     console.error('error running rebalance loop:', err);
-  } finally {
-    if (rebalanceId != undefined) deleteActiveRebalance(rebalanceId);
   }
 
   // record rebalance failure, success has already been recorded
@@ -473,6 +473,13 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
   }
 
   printStats(lndClient, nodeStats, nodeInfo);
+
+  if (rebalanceId) {
+    console.log('deleting rebalance record with id:', rebalanceId);
+    deleteActiveRebalance(rebalanceId);
+  } else {
+    console.warn('can not delete rebalance record, id does not exist');
+  }
 
   // str can either be a tag, a portion of node's alias, or node's pub id
   function findId(str) {
@@ -492,7 +499,7 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
   // format for printing
   function printStats() {
     getNodesInfoSync(lndClient, Object.keys(nodeStats)).forEach(n => {
-      nodeInfo[n.node.pub_key] = n;
+      if (n) nodeInfo[n.node.pub_key] = n;
     })
     epoch = Math.floor(+new Date() / 1000);
     let stats = Object.values(nodeStats);
