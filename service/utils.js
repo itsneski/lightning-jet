@@ -33,6 +33,7 @@ class Service {
       if (this.help) return 'service is not configured, can\'t start it. ' + this.help;
       else return 'service is not configured';
     }
+    if (this.isDisabled()) return console.log('service is disabled');
     let cmd = 'node ' + this.path() + ' >> ' + this.log +' 2>&1 &';
     execute(cmd);
     sendMessage('started ' + this.name);
@@ -43,6 +44,9 @@ class Service {
   }
   isConfigured() {
     return true;  // services can overrides this if configuration is required
+  }
+  isDisabled() {
+    return false;
   }
   recordHeartbeat(sub) {
     let prop = 'service.' + this.name + '.heartbeat';
@@ -64,6 +68,9 @@ class Rebalancer extends Service {
     this.name = Rebalancer.name;
     this.proc = 'rebalancer.js';
     this.log = '/tmp/rebalancer.log';
+  }
+  isDisabled() {
+    return config.rebalancer.disabled;
   }
 }
 
@@ -131,6 +138,11 @@ module.exports = {
     if (!name) return console.error('missing service');
     if (!services[name]) return console.error('unknown service:', name);
     return services[name].isRunning();
+  },
+  isDisabled: function(name) {
+    if (!name) return console.error('missing service');
+    if (!services[name]) return console.error('unknown service:', name);
+    return services[name].isDisabled();
   },
   stopService: function(name) {
     if (!name) return console.error('missing service');

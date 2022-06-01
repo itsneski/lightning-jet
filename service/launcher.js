@@ -6,6 +6,7 @@ const lndClient = importLazy('../api/connect');
 const {exec} = require('child_process');
 const {isRunning} = require('./utils');
 const {isConfigured} = require('./utils');
+const {isDisabled} = require('./utils');
 const {startService} = require('./utils');
 const {restartService} = require('./utils');
 const {Rebalancer} = require('./utils');
@@ -104,6 +105,8 @@ function runLoopExec() {
   // rebalancer
   if (isRunning(Rebalancer.name)) {
     console.log(`${Rebalancer.name} is already running`)
+  } else if (isDisabled(Rebalancer.name)) {
+    console.log(`${Rebalancer.name} is disabled`)
   } else {
     console.log(`starting ${Rebalancer.name} ...`);
     startService(Rebalancer.name);
