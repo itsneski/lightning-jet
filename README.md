@@ -225,7 +225,7 @@ Settings under `rebalancer` section:
 |`enforceProfitability`|When set to true, jet will pause all non profitable automated rebalances, leaving only profitable rebalances. Monitor rebalance status by `jet monitor --status`|
 |`minCapacity`|Sets minimum capacity (in sats) for channels to be included in automated rebalancing. For example, `"minCapacity": 500000` means that channels with capacity below or equal to `500000` sats will be excluded from automated rebalancing.|
 |`buffer`|Minimum rebalance buffer in sats, overrides default value of `250`. Jet will warn when the delta between local and remote ppm for outbound and balanced peers is below the buffer.|
-|`disabled`|When set to true, the setting disables automated rebalancer. You can still rebalance manually via `jet rebalance`. Requires restart of daddy service `jet restart daddy`.|
+|`disabled`|When set to true, the setting disables automated rebalancer. You can still rebalance manually via `jet rebalance`. Requires restart of the daddy service `jet restart daddy` followed by `jet stop rebalancer`.|
 |`exclude`|A list of nodes to exclude from auto rebalancing. Nodes can be excluded from inbound peers, outbound peers, or both. By default, nodes will be excluded from outbound peers when no further info is provided, meaning that excluded nodes won't be rebalanced into. E.g.`"exclude": ["11111111", "22222222:outbound", "33333333:inbound", "44444444:all"]` excludes nodes with ids `11111111` and `22222222` from outbound peers, node with id `33333333` from inbound peers and node with id `44444444` from both inbound and outbound peers.|
 
 ### Example:
