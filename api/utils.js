@@ -453,7 +453,7 @@ module.exports = {
       } else {
         // for whatever reason the record lingers even though the process
         // is gone. clean up
-        dbUtils.deleteActiveRebalance(l.rowid);
+        dbUtils.deleteActiveRebalanceSync(l.pid);
       }
     })
     return updated;

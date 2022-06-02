@@ -103,20 +103,29 @@ module.exports = {
       return error;
     }
   },
-  deleteActiveRebalance(pid) {
-    const pref = 'deleteActiveRebalance:';
-    let db = getHandle();
-    try {
-      db.serialize(function() {
-        let cmd = 'DELETE FROM ' + ACTIVE_REBALANCE_TABLE + ' WHERE pid = ' + pid;
-        executeDb(db, cmd, (err) => {
-          if (err) console.error(pref, 'error:', err);
+  deleteActiveRebalanceSync(pid) {
+    const pref = 'deleteActiveRebalanceSync:';
+    if (doIt()) {
+      // retry in case of an error
+      console.log(pref, 'retrying due to an error');
+      doIt();
+    }
+
+    function doIt() {
+      let error;
+      let db = getHandle();
+      try {
+        db.serialize(function() {
+          let cmd = 'DELETE FROM ' + ACTIVE_REBALANCE_TABLE + ' WHERE pid = ' + pid;
+          error = executeDbSync(db, cmd);
         })
-      })
-    } catch(error) {
-      console.error('deleteActiveRebalance:', error.message);
-    } finally {
-      closeHandle(db);
+      } catch(err) {
+        console.error(pref, err.message);
+        error = err;
+      } finally {
+        closeHandle(db);
+      }
+      return error;
     }
   },
   listActiveRebalancesSync() {

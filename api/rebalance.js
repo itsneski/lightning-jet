@@ -30,7 +30,7 @@ const {recordRebalanceFailure} = require('../db/utils');
 const {recordRebalanceAvoid} = require('../db/utils');
 const {listRebalanceAvoidSync} = require('../db/utils');
 const {recordActiveRebalanceSync} = require('../db/utils');
-const {deleteActiveRebalance} = require('../db/utils');
+const {deleteActiveRebalanceSync} = require('../db/utils');
 const {listPeersMapSync} = require('../lnd-api/utils');
 const {getNodeFeeSync} = require('../lnd-api/utils');
 const {rebalanceSync} = require('../bos/rebalance');
@@ -476,7 +476,7 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
 
   if (rebalanceId) {
     console.log('deleting rebalance record with id:', rebalanceId);
-    deleteActiveRebalance(rebalanceId);
+    deleteActiveRebalanceSync(rebalanceId);
   } else {
     console.warn('can not delete rebalance record, id does not exist');
   }
