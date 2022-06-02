@@ -443,20 +443,13 @@ module.exports = {
     let list = dbUtils.listActiveRebalancesSync();
     if (!list || list.length === 0) return;
 
-    // clean up the list, remove processes that no longer exist
-    let updated = [];
+    let formatted = [];
     list.forEach(l => {
-      if (module.exports.isRunningPidSync(l.pid)) {
-        // recalculate minites left
-        let minsLeft = l.mins - Math.round((Date.now() - l.date)/(60 * 1000));
-        updated.push({from:l.from_node, to:l.to_node, amount:l.amount, ppm:l.ppm, mins:minsLeft});
-      } else {
-        // for whatever reason the record lingers even though the process
-        // is gone. clean up
-        dbUtils.deleteActiveRebalanceSync(l.pid);
-      }
+      // recalculate minites left
+      let minsLeft = l.mins - Math.round((Date.now() - l.date)/(60 * 1000));
+      formatted.push({from:l.from_node, to:l.to_node, amount:l.amount, ppm:l.ppm, mins:minsLeft});
     })
-    return updated;
+    return formatted;
   },
   readLastLineSync: function(file) {
     let lastLine;
