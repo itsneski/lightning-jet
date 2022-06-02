@@ -52,7 +52,7 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
     throw new Error('from, to and amount are mandatory arguments');
   }
 
-  console.log(date.format(new Date, 'MM/DD hh:mm A'));
+  console.log('\n' + date.format(new Date, 'MM/DD hh:mm:ss A'));
   console.log('rebalancer is starting up');
 
   var peerMap = listPeersMapSync(lndClient);
@@ -481,6 +481,17 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
     console.warn('can not delete rebalance record, id does not exist');
   }
 
+  // each jet rebalance instance runs in a seraparate process; explicitly exit
+  // so that processes don't linger; this isn't ideal, but it ensures
+  // that node operators don't have to manually kill processs that
+  // are stuck. its unclear why some processes are getting stuck.
+  // this issue will become moot once jet moves to a single-process
+  // architecture. note that explicit process exit should not result in
+  // adverse side effects, e.g no pending db writes that may result
+  // in a corrupted db once interrupted
+  // https://github.com/itsneski/lightning-jet/issues/55
+  process.exit();
+
   // str can either be a tag, a portion of node's alias, or node's pub id
   function findId(str) {
     if (tags[str]) return tags[str];
@@ -532,6 +543,7 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
     })
 
     console.log('\n-------------------------------------------');
+    console.log(date.format(new Date, 'MM/DD hh:mm:ss A'));
     console.log('finished rebalance from', OUT, 'to', IN);
     console.log('last message:', lastMessage);
     console.log('amount targeted:', numberWithCommas(AMOUNT));
@@ -544,6 +556,7 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
     console.log('nodes that exceeded per hop ppm:', stringify(sortedMax));
     console.log('low fee nodes:', stringify(lowFeeSorted));
     console.log('\n-------------------------------------------');
+    console.log(date.format(new Date, 'MM/DD hh:mm:ss A'));
     console.log('finished rebalance from', OUT, 'to', IN);
     console.log('last message:', lastMessage);
     console.log('amount targeted:', numberWithCommas(AMOUNT));
