@@ -16,7 +16,9 @@ You can [install Lightning Jet](#prerequisites) on a laptop, desktop, Raspberry 
 
 You can use Lightning Jet to rebalance your node in [Voltage Cloud](#voltage-cloud). In this setup, Jet will connect to your node remotely via a secure connection.
 
-You can also run Lightning Jet in [Docker](#docker) - for advanced users with prior Docker experience.
+You can install and run Lightning Jet in [Docker](#docker) - for advanced users with prior Docker experience.
+
+Jet is available on [EmbassyOS](https://github.com/Start9Labs/embassy-os) and can rebalance channels on [Start9](https://start9.com/latest/) products that run the OS.
 
 ## Prerequisites
 
