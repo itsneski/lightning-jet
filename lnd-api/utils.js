@@ -127,6 +127,7 @@ module.exports = {
 
     //console.log(channels);
     //console.log(mapIn);
+    const computeMargin = (local, remote) => Math.round(local.base/1000 + local.rate - (remote.base/1000 + remote.rate));
     let unknown = [];
     let inPeers = [];
     Object.keys(mapIn).forEach(n => {
@@ -145,8 +146,12 @@ module.exports = {
         capacity: channels[n].capacity
       }
       let ppm = feeMap[n] && feeMap[n].local && feeMap[n].local.rate;
-      if (ppm == undefined) console.warn('couldnt locate fees for', n);
-      else entry.ppm = ppm;
+      if (ppm == undefined) {
+        console.warn('couldnt locate fees for', n);
+      } else {
+        entry.ppm = ppm;
+        entry.margin = computeMargin(feeMap[n].local, feeMap[n].remote);
+      }
       inPeers.push(entry);
     })
     inPeers.sort(function(a, b) {
@@ -169,8 +174,12 @@ module.exports = {
         capacity: channels[n].capacity
       }
       let ppm = feeMap[n] && feeMap[n].local && feeMap[n].local.rate;
-      if (ppm == undefined) console.warn('couldnt locate fees for', n);
-      else entry.ppm = ppm;
+      if (ppm == undefined) {
+        console.warn('couldnt locate fees for', n);
+      } else {
+        entry.ppm = ppm;
+        entry.margin = computeMargin(feeMap[n].local, feeMap[n].remote);
+      }
       outPeers.push(entry);
     })
     outPeers.sort(function(a, b) {
@@ -342,7 +351,9 @@ module.exports = {
     channels.forEach(c => peerIds.push(c.remote_pubkey));
     let peerInfo = {};
     module.exports.getNodesInfoSync(lndClient, peerIds).forEach(p => {
-      peerInfo[p.node.pub_key] = p;
+      // !p means an error getting peer info, already reported in
+      // getNodesInfoSync; continue
+      if (p) peerInfo[p.node.pub_key] = p;
     })
     let peers = [];
     channels.forEach(c => {

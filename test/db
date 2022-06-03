@@ -10,7 +10,7 @@ dbUtils.enableTestMode();
 
 const timeout = 2 * 1000; // msec
 
-return testChannelEvents();
+return testActiveRebalance();
 
 function testChannelEvents() {
   dbUtils.recordChannelEvent('INACTIVE_CHANNEL', '177a96f52b7e80d73e41e4d724c52ff8133e82fc2930fa95dcfa2094122c303e', 0);
@@ -28,7 +28,7 @@ function testActiveRebalance() {
     ppm: 650,
     mins: 30
   });
-  console.log('inserted row:', ret);
+  console.log('active rebalance id:', ret);
   ret = dbUtils.recordActiveRebalanceSync({
     from: '0393a0f0312439b82d43ceb35af6f7a2a2d5a5aa71e461f66b418a77532db51c00',
     to: '035e4ff418fc8b5554c5d9eea66396c227bd429a3251c8cbc711002ba215bfc226',
@@ -36,10 +36,10 @@ function testActiveRebalance() {
     ppm: 550,
     mins: 30
   });
-  console.log('inserted row:', ret);
+  console.log('active rebalance id:', ret);
   console.log(dbUtils.listActiveRebalancesSync());
 
-  dbUtils.deleteActiveRebalance(ret); // last row id
+  dbUtils.deleteActiveRebalanceSync(ret); // last row id
   setTimeout(() => {
     console.log(dbUtils.listActiveRebalancesSync());
   }, timeout);

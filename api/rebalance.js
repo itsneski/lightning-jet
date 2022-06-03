@@ -30,7 +30,7 @@ const {recordRebalanceFailure} = require('../db/utils');
 const {recordRebalanceAvoid} = require('../db/utils');
 const {listRebalanceAvoidSync} = require('../db/utils');
 const {recordActiveRebalanceSync} = require('../db/utils');
-const {deleteActiveRebalance} = require('../db/utils');
+const {deleteActiveRebalanceSync} = require('../db/utils');
 const {listPeersMapSync} = require('../lnd-api/utils');
 const {getNodeFeeSync} = require('../lnd-api/utils');
 const {rebalanceSync} = require('../bos/rebalance');
@@ -52,7 +52,7 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
     throw new Error('from, to and amount are mandatory arguments');
   }
 
-  console.log(date.format(new Date, 'MM/DD hh:mm A'));
+  console.log('\n' + date.format(new Date, 'MM/DD hh:mm:ss A'));
   console.log('rebalancer is starting up');
 
   var peerMap = listPeersMapSync(lndClient);
@@ -164,11 +164,13 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
   console.log('time left:', maxRuntime, 'mins');
   if (aggresiveMode) console.log('aggressive mode: on');
   if (config.debugMode) console.log('debug mode: enabled');
-  console.log('----------------------------------------\n')
 
   // record for jet monitor
   const rebalanceId = recordActiveRebalanceSync({from: outId, to: inId, amount: AMOUNT, ppm, mins: maxRuntime});
-  if (rebalanceId === undefined) console.error('rebalance db record id is undefined');
+  if (rebalanceId) console.log('rebalance id:', rebalanceId);
+  else console.error('rebalance db record id is undefined');
+
+  console.log('----------------------------------------\n')
 
   const startTime = Date.now();
 
@@ -462,8 +464,6 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
     } // for
   } catch(err) {
     console.error('error running rebalance loop:', err);
-  } finally {
-    if (rebalanceId != undefined) deleteActiveRebalance(rebalanceId);
   }
 
   // record rebalance failure, success has already been recorded
@@ -473,6 +473,24 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
   }
 
   printStats(lndClient, nodeStats, nodeInfo);
+
+  if (rebalanceId) {
+    console.log('deleting rebalance record with id:', rebalanceId);
+    deleteActiveRebalanceSync(rebalanceId);
+  } else {
+    console.warn('can not delete rebalance record, id does not exist');
+  }
+
+  // each jet rebalance instance runs in a seraparate process; explicitly exit
+  // so that processes don't linger; this isn't ideal, but it ensures
+  // that node operators don't have to manually kill processs that
+  // are stuck. its unclear why some processes are getting stuck.
+  // this issue will become moot once jet moves to a single-process
+  // architecture. note that explicit process exit should not result in
+  // adverse side effects, e.g no pending db writes that may result
+  // in a corrupted db once interrupted
+  // https://github.com/itsneski/lightning-jet/issues/55
+  process.exit();
 
   // str can either be a tag, a portion of node's alias, or node's pub id
   function findId(str) {
@@ -492,7 +510,7 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
   // format for printing
   function printStats() {
     getNodesInfoSync(lndClient, Object.keys(nodeStats)).forEach(n => {
-      nodeInfo[n.node.pub_key] = n;
+      if (n) nodeInfo[n.node.pub_key] = n;
     })
     epoch = Math.floor(+new Date() / 1000);
     let stats = Object.values(nodeStats);
@@ -525,6 +543,7 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
     })
 
     console.log('\n-------------------------------------------');
+    console.log(date.format(new Date, 'MM/DD hh:mm:ss A'));
     console.log('finished rebalance from', OUT, 'to', IN);
     console.log('last message:', lastMessage);
     console.log('amount targeted:', numberWithCommas(AMOUNT));
@@ -537,6 +556,7 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
     console.log('nodes that exceeded per hop ppm:', stringify(sortedMax));
     console.log('low fee nodes:', stringify(lowFeeSorted));
     console.log('\n-------------------------------------------');
+    console.log(date.format(new Date, 'MM/DD hh:mm:ss A'));
     console.log('finished rebalance from', OUT, 'to', IN);
     console.log('last message:', lastMessage);
     console.log('amount targeted:', numberWithCommas(AMOUNT));

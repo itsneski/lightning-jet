@@ -1,9 +1,8 @@
 const importLazy = require('import-lazy')(require);
 const swaps = importLazy('balanceofsatoshis/swaps');
 const {readFile} = require('fs');
-const lnd = importLazy('balanceofsatoshis/lnd');
-const lndForNode = (logger, node) => lnd.authenticatedLnd({logger, node});
 const {parseResult, parseError, parseNodes} = require('./parser');
+const lndHandle = importLazy('./connect');
 
 module.exports = {
   rebalanceSync(args) {
@@ -20,7 +19,13 @@ module.exports = {
         done = true;
       }
     }
-    module.exports.rebalance(args, callback);
+    // async rebalance returns a promise. make sure to catch exceptions
+    // and gracefully exit the deasync loop
+    module.exports.rebalance(args, callback).catch((err) => {
+      console.error('rebalanceSync: error calling rebalance:', err);
+      error = err;
+      done = true;
+    })
     while(done === undefined) {
       require('deasync').runLoopOnce();
     }
@@ -64,7 +69,6 @@ module.exports = {
       warn: (msg) => { return args.logger.warn(msg) },
       error: (msg) => { return args.logger.error(msg) }
     }
-    const lndHandle = await lndForNode(mylogger);
 
     const callback = (err, res) => {
       try {
@@ -77,25 +81,21 @@ module.exports = {
     }
 
     return new Promise((resolve, reject) => {
-      try {
-        if (global.testModeOn) console.log('rebalance from:', args.from, 'to:', args.to, 'amount:', args.amount, 'max fee:', args.maxFee, 'max fee rate:', args.maxFeeRate, 'mins:', args.mins);
-        if (global.testModeOn) console.log('avoid:', args.avoid);
+      if (global.testModeOn) console.log('rebalance from:', args.from, 'to:', args.to, 'amount:', args.amount, 'max fee:', args.maxFee, 'max fee rate:', args.maxFeeRate, 'mins:', args.mins);
+      if (global.testModeOn) console.log('avoid:', args.avoid);
 
-        swaps.manageRebalance({
-          logger: mylogger,
-          avoid: args.avoid,
-          fs: {getFile: readFile},
-          out_through: args.from,
-          in_through: args.to,
-          lnd: lndHandle.lnd,
-          max_fee: args.maxFee,
-          max_fee_rate: args.maxFeeRate,
-          max_rebalance: args.amount,
-          timeout_minutes: args.mins,
-        }, callback)
-      } catch(err) {
-        reject(mylogger.error({err}));
-      }
+      swaps.manageRebalance({
+        logger: mylogger,
+        avoid: args.avoid,
+        fs: {getFile: readFile},
+        out_through: args.from,
+        in_through: args.to,
+        lnd: lndHandle,
+        max_fee: args.maxFee,
+        max_fee_rate: args.maxFeeRate,
+        max_rebalance: args.amount,
+        timeout_minutes: args.mins,
+      }, callback);
     })
   }
 }

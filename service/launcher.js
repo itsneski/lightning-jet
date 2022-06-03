@@ -6,6 +6,7 @@ const lndClient = importLazy('../api/connect');
 const {exec} = require('child_process');
 const {isRunning} = require('./utils');
 const {isConfigured} = require('./utils');
+const {isDisabled} = require('./utils');
 const {startService} = require('./utils');
 const {restartService} = require('./utils');
 const {Rebalancer} = require('./utils');
@@ -18,11 +19,13 @@ const {deleteProp} = require('../db/utils');
 const {reconnect} = require('../bos/reconnect');
 const {isLndAlive} = require('../lnd-api/utils');
 const {inactiveChannels} = require('../api/list-channels');
+const {isRunningPidSync} = require('../api/utils');
 
 const loopInterval = 5;  // mins
 const bosReconnectInterval = 60;  // mins
 const cleanDbInterval = 24; // hours
 const lndPingInterval = 60; // seconds
+const cleanDbRebalancesInterval = 1;  // mins
 
 var lndOffline;
 
@@ -104,6 +107,8 @@ function runLoopExec() {
   // rebalancer
   if (isRunning(Rebalancer.name)) {
     console.log(`${Rebalancer.name} is already running`)
+  } else if (isDisabled(Rebalancer.name)) {
+    console.log(`${Rebalancer.name} is disabled`)
   } else {
     console.log(`starting ${Rebalancer.name} ...`);
     startService(Rebalancer.name);
@@ -200,7 +205,9 @@ function runLoopExec() {
       // typical node maintenance shouldn't take longer than 60 minutes; notify if a node
       // is inactive for longer.
       if (c.mins >= 60) {   // mins
-        const msg = 'channel ' + c.chan + ' with ' + (c.name || c.peer) + ' has been inactive for ' + c.mins + ' minutes';
+        let msg = 'channel ' + c.chan + ' with ' + (c.name || c.peer) + ' has been inactive for ';
+        if (c.mins > 60) msg += Math.floor(c.mins/60) + ' hours ' + c.mins % 60 + ' mins';
+        else msg += c.mins + ' mins';
         const cat = 'telegram.notify.channel.inactive.' + c.chan;
         const int = 60 * 60;  // an hour
         console.log(msg);
@@ -236,9 +243,30 @@ function lndPingLoopExec() {
   }
 }
 
+// remove db records for rebalance processes that no longer exist
+function cleanDbRebalances() {
+  const pref = 'cleanDbRebalances:';
+  const dbUtils = require('../db/utils');
+  let list = dbUtils.listActiveRebalancesSync();
+  if (!list || list.length === 0) return;
+
+  let first = true;
+  list.forEach(l => {
+    if (!isRunningPidSync(l.pid)) {
+      if (first) {
+        console.log('\n' + date.format(new Date, 'MM/DD hh:mm:ss A'));
+        first = false;
+      }
+      console.log(pref, 'removing db record for process that no longer exist', l.pid);
+      dbUtils.deleteActiveRebalanceSync(l.pid);
+    }
+  })
+}
+
 lndPingLoop();  // detect if lnd is offline
 runLoop();
 setInterval(runLoop, loopInterval * 60 * 1000);
 setInterval(bosReconnect, bosReconnectInterval * 60 * 1000);
 setInterval(cleanDb, cleanDbInterval * 60 * 60 * 1000);
 setInterval(lndPingLoop, lndPingInterval * 1000);
+setInterval(cleanDbRebalances, cleanDbRebalancesInterval * 60 * 1000);

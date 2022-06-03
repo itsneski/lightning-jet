@@ -36,7 +36,8 @@ module.exports = {
           total: withCommas(n.sum),
           "%": n.p,
           "d%": n.d,
-          ppm: n.ppm
+          ppm: n.ppm,
+          margin: n.margin
         })
       })
       return newList;
