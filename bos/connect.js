@@ -8,13 +8,16 @@ const config = require('../api/config');
 const lnService = require('ln-service');
 
 const macaroon = fs.readFileSync(config.macaroonPath).toString('base64');
-const tlsCert = fs.readFileSync(config.tlsCertPath).toString('base64');
+const tlsCert = config.tlsCertPath && fs.readFileSync(config.tlsCertPath).toString('base64');
 const address = config.serverAddress || 'localhost:10009';
 
-const {lnd} = lnService.authenticatedLndGrpc({
-  cert: tlsCert,
+let props = {
   macaroon: macaroon,
   socket: address
-})
+}
+// set only if tls cert exists; e.g. cert is not required for voltage.cloud
+if (tlsCert) props.tlsCert = tlsCert;
+
+const {lnd} = lnService.authenticatedLndGrpc(props);
 
 module.exports = lnd;
