@@ -14,7 +14,7 @@ if (!global.channelDbFile) {
   const conf = config.macaroonPath;
   if (!conf) return console.error('macaroonPath is not defined in the config.json');
   const base = path.normalize(path.dirname(conf) + '/../../../');
-  let cmd = 'find ' + base + ' -name channel.db';
+  let cmd = 'find ' + base + ' -name channel.db 2> /dev/null';
   try {
     global.channelDbFile = execSync(cmd).toString().trim();
   } catch(error) {
