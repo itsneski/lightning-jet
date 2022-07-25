@@ -90,7 +90,13 @@ function runLoopImpl() {
   // note that classified peers are already sorted by p%
   initRunning();    // rebalances already in-flight
   let classified = classifyPeersSync(lndClient, 1);
+
   console.log('build liquidity table:');
+  if (!classified.inbound || classified.inbound.length === 0) console.log('no inbound peers found');
+  if (!classified.outbound || classified.outbound.length === 0) console.log('no outbound peers found');
+  if (!classified.balanced || classified.balanced.length === 0) console.log('no low volume peers found');
+  if (classified.skipped && classified.skipped.length > 0) console.log('skipping', classified.skipped.length, 'peers (likely due to channel capacity below threshold)');
+
   let channelMap = {};
   let peerMap = {};
   let liquidityTable = {};
