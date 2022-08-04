@@ -31,9 +31,9 @@ const {removeEmojis} = require('../lnd-api/utils');
 const {stuckHtlcsSync} = require('../lnd-api/utils');
 const {forwardHistorySync} = require('../lnd-api/utils');
 const {cumulativeHtlcs} = require('../api/htlc-analyzer');
-const {exec} = require('child_process');
 const serviceUtils = require('./utils');
 const RebalanceQueue = require('./queue');
+const {spawnDetached} = require('../api/utils');
 
 const maxCount = config.rebalancer.maxInstances || constants.rebalancer.maxInstances;
 const defaultMaxPpm = config.rebalancer.maxAutoPpm || constants.rebalancer.maxAutoPpm;
@@ -483,9 +483,15 @@ function processQueueImpl() {
     let item = queue.pop();
     if (!item) break;
     console.log('\n' + date.format(new Date, 'MM/DD hh:mm A'), 'rebalancing queue: processing', item);
-    let cmd = 'nohup ' + jetExecPath + ' --from ' + item.from + ' --to ' + item.to + ' --amount ' + item.amount + ' --ppm ' + item.maxPpm + ' --type "' + item.type + '" >> /tmp/rebalance_' + normalizeName(item.fromName) + '_' + normalizeName(item.toName) + '.log 2>&1 & disown';
-    console.log('rebalancing queue:', cmd);
-    if (!testModeOn) exec(cmd);
+    
+    // spawn the process
+    const sarg = {
+      cmd: jetExecPath,
+      arg: ['--from', item.from, '--to', item.to, '--amount', item.amount, '--ppm', item.maxPpm, '--type', item.type],
+      log: '/tmp/rebalance_' + normalizeName(item.fromName) + '_' + normalizeName(item.toName) + '.log'
+    }
+    console.log('rebalancing queue: launching rebalance:', sarg);
+    if (!testModeOn) spawnDetached(sarg);
   }
 }
 

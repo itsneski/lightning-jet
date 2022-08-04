@@ -1,7 +1,8 @@
 const config = require('../api/config');
-const {exec} = require('child_process');
-const {execSync} = require('child_process');
+const fs = require('node:fs');
+const {exec, execSync, spawn} = require('node:child_process');
 const findProc = require('find-process');
+const {spawnDetached} = require('../api/utils');
 const {sendMessage} = require('../api/telegram');
 const {setPropSync} = require('../db/utils');
 const {getPropAndDateSync} = require('../db/utils');
@@ -34,8 +35,14 @@ class Service {
       else return 'service is not configured';
     }
     if (this.isDisabled()) return console.log('service is disabled');
-    let cmd = 'node ' + this.path() + ' >> ' + this.log +' 2>&1 &';
-    execute(cmd);
+
+    // spawn the process
+    spawnDetached({
+      cmd: 'node',
+      arg: [ this.path() ],
+      log: this.log
+    })
+
     sendMessage('started ' + this.name);
     return 'started';
   }
