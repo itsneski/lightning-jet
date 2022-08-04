@@ -487,7 +487,7 @@ function processQueueImpl() {
     // spawn the process
     const sarg = {
       cmd: jetExecPath,
-      arg: ['--from', item.from, '--to', item.to, '--amount', item.amount, '--ppm', item.maxPpm, '--type', item.type],
+      arg: ['--from', item.from, '--to', item.to, '--amount', item.amount, '--ppm', item.maxPpm, '--type', '"' + item.type + '"'],
       log: '/tmp/rebalance_' + normalizeName(item.fromName) + '_' + normalizeName(item.toName) + '.log'
     }
     console.log('rebalancing queue: launching rebalance:', sarg);
