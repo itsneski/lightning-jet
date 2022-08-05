@@ -1,6 +1,4 @@
 const config = require('../api/config');
-const fs = require('node:fs');
-const {exec, execSync, spawn} = require('node:child_process');
 const findProc = require('find-process');
 const {spawnDetached} = require('../api/utils');
 const {sendMessage} = require('../api/telegram');
@@ -219,14 +217,4 @@ function isServiceRunning(service) {
     require('deasync').runLoopOnce();
   }
   return res.length > 0;
-}
-
-function execute(cmd) {
-  //console.log(cmd);
-  return exec(cmd).toString().trim();
-}
-
-function executeSync(cmd) {
-  //console.log(cmd);
-  return execSync(cmd).toString().trim();
 }
