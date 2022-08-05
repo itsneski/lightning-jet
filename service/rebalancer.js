@@ -34,6 +34,7 @@ const {cumulativeHtlcs} = require('../api/htlc-analyzer');
 const serviceUtils = require('./utils');
 const RebalanceQueue = require('./queue');
 const {spawnDetached} = require('../api/utils');
+const {isLndAlive} = importLazy('../lnd-api/utils');
 
 const maxCount = config.rebalancer.maxInstances || constants.rebalancer.maxInstances;
 const defaultMaxPpm = config.rebalancer.maxAutoPpm || constants.rebalancer.maxAutoPpm;
@@ -82,6 +83,10 @@ function runLoop() {
 }
 
 function runLoopImpl() {
+  if (!isLndAlive(lndClient)) {
+    return console.log(colorYellow, '\nlnd is offline, skipping the loop');
+  }
+
   console.log('\n' + date.format(new Date, 'MM/DD hh:mm A'), 'run rebalancing loop');
   serviceUtils.Rebalancer.recordHeartbeat();
   // build liquidity table: how much liquidity is available on the local side
