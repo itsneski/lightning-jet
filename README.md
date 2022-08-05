@@ -40,7 +40,7 @@ cd lightning-jet
 npm install --build-from-source --python=/usr/bin/python3
 nano ./api/config.json
 ```
-Edit `config.json`: set correct absolute (not relative) paths for `macaroonPath` and `tlsCertPath`. On umbrel, macaroons are typically located at `/home/umbrel/umbrel/lnd/data/chain/bitcoin/mainnet/readonly.macaroon`, tls cert is at `/home/umbrel/umbrel/lnd/tls.cert`. Optional: you can list expensive nodes to avoid in the `avoid` section of the config file (can be done later).
+Edit `config.json`: set correct absolute (not relative) paths for `macaroonPath` and `tlsCertPath`. On umbrel, macaroons are typically located at `/home/umbrel/umbrel/lnd/data/chain/bitcoin/mainnet/admin.macaroon`, tls cert is at `/home/umbrel/umbrel/lnd/tls.cert`.
 ```bash
 nano ~/.profile
 ```
@@ -61,14 +61,14 @@ Test your path by running `jet -v`. Your path is set correctly if it prints out 
 - Install JET (following the [above steps](#node-and-npm)) 
 - Set the following in `config.json`:
 ```
-"macaroonPath": "/home/bos/.lnd/data/chain/bitcoin/mainnet/readonly.macaroon"
+"macaroonPath": "/home/bos/.lnd/data/chain/bitcoin/mainnet/admin.macaroon"
 "tlsCertPath": "/home/bos/.lnd/tls.cert"
 ```
 
 The following step may not be necessary in case you get read access to channel.db via a symlink.
 
 ```bash
-chmod +r /home/bos/.lnd/data/chain/bitcoin/mainnet/readonly.macaroon
+chmod +r /home/bos/.lnd/data/chain/bitcoin/mainnet/admin.macaroon
 ```
 
 ## Post-Installation
@@ -120,7 +120,7 @@ cd lightning-jet
 . docker/genconfig.sh
 ```
 
-Edit `$HOME/.lightning-jet/config.json`: set correct paths for `macaroonPath` and `tlsCertPath`. On Umbrel, macaroons are located at `/home/umbrel/umbrel/lnd/data/chain/bitcoin/mainnet/readonly.macaroon`, tls cert is at `/home/umbrel/umbrel/lnd/tls.cert`. Optional: list expensive nodes to avoid in the `avoid` section.
+Edit `$HOME/.lightning-jet/config.json`: set correct paths for `macaroonPath` and `tlsCertPath`. On Umbrel, macaroons are located at `/home/umbrel/umbrel/lnd/data/chain/bitcoin/mainnet/admin.macaroon`, tls cert is at `/home/umbrel/umbrel/lnd/tls.cert`. Optional: list expensive nodes to avoid in the `avoid` section.
 
 ```bash
 nano $HOME/.lightning-jet/config.json
@@ -209,10 +209,10 @@ Copy the telegram token from the Telegram app chat with BotFather (right under '
 A list of config settings under `./api/config.json`:
 |||
 |--|--|
-|`macaroonPath`|Macaroon absolute path to enable LND API calls. Most calls will work with `readonly.macaroon` except for `jet update-channel` that requires `admin.macaroon`.|
-|`tlsCertPath`|Absolute path to the tls cert to enable LND API calls.|
-|`avoid`|A list of nodes to avoid during manual and automated rebalances. `jet rebalance` avoids expensive nodes automatically. the `avoid` setting can help speed things up by providing a static list of nodes to avoid.|
+|`macaroonPath`|`admin.macaroon` absolute path for Jet connect to LND.|
+|`tlsCertPath`|tls cert absolute path for Jet connect to LND.|
 |`telegramToken`|The telegram bot token.|
+|`avoid`|A list of nodes to avoid during manual and automated rebalances. `jet rebalance` avoids expensive nodes automatically. the `avoid` setting can help speed things up by providing a static list of nodes to avoid.|
 
 Settings under `rebalancer` section:
 |||
@@ -237,7 +237,7 @@ Settings under `rebalancer` section:
     "03d2e20bc19d995098ba357157a9cfbfbfdff4b78fce5ec713128e988e0115d776",
     "03f80288f858251aed6f70142fab79dede5427a0ff4b618707bd0a616527a8cec7"
   ],
-  "macaroonPath": "/home/umbrel/umbrel/lnd/data/chain/bitcoin/mainnet/readonly.macaroon",
+  "macaroonPath": "/home/umbrel/umbrel/lnd/data/chain/bitcoin/mainnet/admin.macaroon",
   "tlsCertPath": "/home/umbrel/umbrel/lnd/tls.cert",
   "debugMode": false,
   "telegramToken": "123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11",

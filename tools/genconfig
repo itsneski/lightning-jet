@@ -10,7 +10,7 @@ const data =
 '{\n\
   "avoid": [\n\
   ],\n\
-  "macaroonPath": "/home/umbrel/umbrel/lnd/data/chain/bitcoin/mainnet/readonly.macaroon",\n\
+  "macaroonPath": "/home/umbrel/umbrel/lnd/data/chain/bitcoin/mainnet/admin.macaroon",\n\
   "tlsCertPath": "/home/umbrel/umbrel/lnd/tls.cert",\n\
   "debugMode": false,\n\
   "rebalancer": {\n\
