@@ -16,7 +16,7 @@ let props = {
   socket: address
 }
 // set only if tls cert exists; e.g. cert is not required for voltage.cloud
-if (tlsCert) props.tlsCert = tlsCert;
+if (tlsCert) props.cert = tlsCert;
 
 const {lnd} = lnService.authenticatedLndGrpc(props);
 
