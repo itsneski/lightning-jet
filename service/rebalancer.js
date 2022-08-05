@@ -31,9 +31,10 @@ const {removeEmojis} = require('../lnd-api/utils');
 const {stuckHtlcsSync} = require('../lnd-api/utils');
 const {forwardHistorySync} = require('../lnd-api/utils');
 const {cumulativeHtlcs} = require('../api/htlc-analyzer');
-const {exec} = require('child_process');
 const serviceUtils = require('./utils');
 const RebalanceQueue = require('./queue');
+const {spawnDetached} = require('../api/utils');
+const {isLndAlive} = importLazy('../lnd-api/utils');
 
 const maxCount = config.rebalancer.maxInstances || constants.rebalancer.maxInstances;
 const defaultMaxPpm = config.rebalancer.maxAutoPpm || constants.rebalancer.maxAutoPpm;
@@ -82,7 +83,11 @@ function runLoop() {
 }
 
 function runLoopImpl() {
-  console.log('\n' + date.format(new Date, 'MM/DD hh:mm A'), 'run rebalancing loop');
+  if (!isLndAlive(lndClient)) {
+    return console.log(colorYellow, '\n' + date.format(new Date, 'MM/DD hh:mm:ss A') + ', lnd is offline, skipping the loop');
+  }
+
+  console.log('\n' + date.format(new Date, 'MM/DD hh:mm:ss A'), 'run rebalancing loop');
   serviceUtils.Rebalancer.recordHeartbeat();
   // build liquidity table: how much liquidity is available on the local side
   // for inbound nodes, how much liquidity outbound nodes need, do balanced
@@ -90,7 +95,13 @@ function runLoopImpl() {
   // note that classified peers are already sorted by p%
   initRunning();    // rebalances already in-flight
   let classified = classifyPeersSync(lndClient, 1);
+
   console.log('build liquidity table:');
+  if (!classified.inbound || classified.inbound.length === 0) console.log('no inbound peers found');
+  if (!classified.outbound || classified.outbound.length === 0) console.log('no outbound peers found');
+  if (!classified.balanced || classified.balanced.length === 0) console.log('no low volume peers found');
+  if (classified.skipped && classified.skipped.length > 0) console.log('skipping', classified.skipped.length, 'peers (likely due to channel capacity below threshold)');
+
   let channelMap = {};
   let peerMap = {};
   let liquidityTable = {};
@@ -477,9 +488,15 @@ function processQueueImpl() {
     let item = queue.pop();
     if (!item) break;
     console.log('\n' + date.format(new Date, 'MM/DD hh:mm A'), 'rebalancing queue: processing', item);
-    let cmd = 'nohup ' + jetExecPath + ' --from ' + item.from + ' --to ' + item.to + ' --amount ' + item.amount + ' --ppm ' + item.maxPpm + ' --type "' + item.type + '" >> /tmp/rebalance_' + normalizeName(item.fromName) + '_' + normalizeName(item.toName) + '.log 2>&1 & disown';
-    console.log('rebalancing queue:', cmd);
-    if (!testModeOn) exec(cmd);
+    
+    // spawn the process
+    const sarg = {
+      cmd: jetExecPath,
+      arg: ['--from', item.from, '--to', item.to, '--amount', item.amount, '--ppm', item.maxPpm, '--type', '"' + item.type + '"'],
+      log: '/tmp/rebalance_' + normalizeName(item.fromName) + '_' + normalizeName(item.toName) + '.log'
+    }
+    console.log('rebalancing queue: launching rebalance:', sarg);
+    if (!testModeOn) spawnDetached(sarg);
   }
 }
 

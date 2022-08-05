@@ -12,14 +12,14 @@ const {restartService} = require('./utils');
 const {Rebalancer} = require('./utils');
 const {HtlcLogger} = require('./utils');
 const {TelegramBot} = require('./utils');
-const {readLastLineSync} = require('../api/utils');
-const {sendTelegramMessageTimed} = require('../api/utils');
 const {getPropAndDateSync} = require('../db/utils');
 const {deleteProp} = require('../db/utils');
 const {reconnect} = require('../bos/reconnect');
-const {isLndAlive} = require('../lnd-api/utils');
-const {inactiveChannels} = require('../api/list-channels');
+const {isLndAlive} = importLazy('../lnd-api/utils');
+const {readLastLineSync} = require('../api/utils');
+const {sendTelegramMessageTimed} = require('../api/utils');
 const {isRunningPidSync} = require('../api/utils');
+const {inactiveChannels} = require('../api/list-channels');
 
 const loopInterval = 5;  // mins
 const bosReconnectInterval = 60;  // mins
@@ -92,7 +92,7 @@ function runLoopExec() {
   // htlc logger & rebalancer need lnd, so it does not make
   // sense to attempt to start em
   if (lndOffline) {
-    console.log('lnd is offline, skipping the loop');
+    console.warn(constants.colorYellow, 'lnd is offline, skipping the loop');
     return;
   }
 
@@ -236,10 +236,15 @@ function lndPingLoopExec() {
     lndOffline = true;
   }
   if (lndOffline) {
+    console.log('\n' + date.format(new Date, 'MM/DD hh:mm:ss A'));
     console.error(constants.colorRed, 'lnd is offline');
     sendTelegramMessageTimed('lnd is offline', prop, frequency);
   } else if (prev) {
+    console.log('\n' + date.format(new Date, 'MM/DD hh:mm:ss A'));
     console.log(constants.colorGreen, 'lnd is back online');
+  } else if (prev === undefined) {
+    console.log('\n' + date.format(new Date, 'MM/DD hh:mm:ss A'));
+    console.log(constants.colorGreen, 'lnd is online');
   }
 }
 

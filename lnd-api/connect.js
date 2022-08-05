@@ -16,10 +16,10 @@ const loaderOptions = {
 };
 
 module.exports = {
-  routerrpc(protoPath, macaroonPath, tlsCertPath) {
+  routerrpc(protoPath, macaroonPath, tlsCertPath, serverAddress = 'localhost:10009') {
     let descriptor = generateDescriptor(protoPath, macaroonPath, tlsCertPath);
     let routerrpc = descriptor.desc.routerrpc;
-    let client = new routerrpc.Router('localhost:10009', descriptor.creds);
+    let client = new routerrpc.Router(serverAddress, descriptor.creds);
     return client;
   },
   lnrpc(protoPath, macaroonPath, tlsCertPath, serverAddress = 'localhost:10009') {

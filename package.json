@@ -8,9 +8,9 @@
     "url": "https://github.com/itsneski/lightning-jet/issues"
   },
   "dependencies": {
-    "@grpc/grpc-js": "^1.3.7",
-    "@grpc/proto-loader": "^0.6.5",
-    "balanceofsatoshis": "^11.18.0",
+    "@grpc/grpc-js": "^1.6.8",
+    "@grpc/proto-loader": "^0.7.0",
+    "balanceofsatoshis": "^12.16.1",
     "caporal": "^1.4.0",
     "date-and-time": "^2.0.1",
     "deasync": "0.1.23",
@@ -20,7 +20,7 @@
     "run-parallel": "1.2.0",
     "sqlite3": "^4.2.0"
   },
-  "description": "Fully automated rebalancer for LND Lightning nodes. Helps get an insight into peers' classification based on routing history, missed routing opportunities, and stuck htlcs.",
+  "description": "Lightning Jet is a fully automated rebalancer for Lightning nodes. Jet optimizes channel liquidity allocation based on routing volume, missed routing opportunities (htlcs), and other variables.",
   "engines": {
     "node": ">=12"
   },
@@ -41,5 +41,5 @@
   "scripts": {
     "postinstall": "./tools/genconfig"
   },
-  "version": "1.4.4"
+  "version": "1.5.0"
 }

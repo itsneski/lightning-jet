@@ -1,5 +1,4 @@
 
-
 # Lightning Jet 🚀⚡️, or simply Jet
 
 Lightning Jet is a fully automated rebalancer for Lightning nodes. Jet optimizes channel liquidity allocation based on routing volume, missed routing opportunities (htlcs), and other variables.
@@ -16,7 +15,7 @@ You can [install Lightning Jet](#prerequisites) on a laptop, desktop, Raspberry 
 
 You can use Lightning Jet to rebalance your node in [Voltage Cloud](#voltage-cloud). In this setup, Jet will connect to your node remotely via a secure connection.
 
-You can install and run Lightning Jet in [Docker](#docker) - for advanced users with prior Docker experience.
+You can install and run Lightning Jet in [Docker](#docker) (for advanced users with prior Docker experience).
 
 Jet is available on [EmbassyOS](https://github.com/Start9Labs/embassy-os) and can rebalance channels on [Start9](https://start9.com/latest/) products that run the OS.
 
@@ -41,7 +40,7 @@ cd lightning-jet
 npm install --build-from-source --python=/usr/bin/python3
 nano ./api/config.json
 ```
-Edit `config.json`: set correct paths for `macaroonPath` and `tlsCertPath`. On umbrel, macaroons are typically located at `~/umbrel/lnd/data/chain/bitcoin/mainnet/readonly.macaroon`, tls cert is at `~/umbrel/lnd/tls.cert`. Optional: you can list expensive nodes to avoid in the `avoid` section of the config file (can be done later).
+Edit `config.json`: set correct absolute (not relative) paths for `macaroonPath` and `tlsCertPath`. On umbrel, macaroons are typically located at `/home/umbrel/umbrel/lnd/data/chain/bitcoin/mainnet/admin.macaroon`, tls cert is at `/home/umbrel/umbrel/lnd/tls.cert`.
 ```bash
 nano ~/.profile
 ```
@@ -62,14 +61,14 @@ Test your path by running `jet -v`. Your path is set correctly if it prints out 
 - Install JET (following the [above steps](#node-and-npm)) 
 - Set the following in `config.json`:
 ```
-"macaroonPath": "/home/bos/.lnd/data/chain/bitcoin/mainnet/readonly.macaroon"
+"macaroonPath": "/home/bos/.lnd/data/chain/bitcoin/mainnet/admin.macaroon"
 "tlsCertPath": "/home/bos/.lnd/tls.cert"
 ```
 
 The following step may not be necessary in case you get read access to channel.db via a symlink.
 
 ```bash
-chmod +r /home/bos/.lnd/data/chain/bitcoin/mainnet/readonly.macaroon
+chmod +r /home/bos/.lnd/data/chain/bitcoin/mainnet/admin.macaroon
 ```
 
 ## Post-Installation
@@ -121,7 +120,7 @@ cd lightning-jet
 . docker/genconfig.sh
 ```
 
-Edit `$HOME/.lightning-jet/config.json`: set correct paths for `macaroonPath` and `tlsCertPath`. On Umbrel, macaroons are typically located at `~/umbrel/lnd/data/chain/bitcoin/mainnet/readonly.macaroon`, tls cert is at `~/umbrel/lnd/tls.cert`. Optional: list expensive nodes to avoid in the `avoid` section.
+Edit `$HOME/.lightning-jet/config.json`: set correct paths for `macaroonPath` and `tlsCertPath`. On Umbrel, macaroons are located at `/home/umbrel/umbrel/lnd/data/chain/bitcoin/mainnet/admin.macaroon`, tls cert is at `/home/umbrel/umbrel/lnd/tls.cert`. Optional: list expensive nodes to avoid in the `avoid` section.
 
 ```bash
 nano $HOME/.lightning-jet/config.json
@@ -165,7 +164,7 @@ Lightning Jet can rebalance your node in Voltage Cloud by connecting to it remot
 
 Next, update `config.json` by `nano api/config.json`:
 
-1. Set `macaroonPath` to the absolute path of `admin.macaroon` file from the previous step, e.g. `/home/umbrel/lightning-jet/voltage/admin.macaroon` if on umbrel.
+1. Set `macaroonPath` to the absolute (not relative) path of `admin.macaroon` file from the previous step, e.g. `/home/umbrel/lightning-jet/voltage/admin.macaroon` if on umbrel.
 
 2. Remove `tlsCertPath` from the config.
 
@@ -210,10 +209,10 @@ Copy the telegram token from the Telegram app chat with BotFather (right under '
 A list of config settings under `./api/config.json`:
 |||
 |--|--|
-|`macaroonPath`|Macaroon path to enable LND API calls. Most calls will work with `readonly.macaroon` except for `jet update-channel` that requires `admin.macaroon`.|
-|`tlsCertPath`|Path to the tls cert to enable LND API calls.|
-|`avoid`|A list of nodes to avoid during manual and automated rebalances. `jet rebalance` avoids expensive nodes automatically. the `avoid` setting can help speed things up by providing a static list of nodes to avoid.|
+|`macaroonPath`|`admin.macaroon` absolute path for Jet connect to LND.|
+|`tlsCertPath`|tls cert absolute path for Jet connect to LND.|
 |`telegramToken`|The telegram bot token.|
+|`avoid`|A list of nodes to avoid during manual and automated rebalances. `jet rebalance` avoids expensive nodes automatically. the `avoid` setting can help speed things up by providing a static list of nodes to avoid.|
 
 Settings under `rebalancer` section:
 |||
@@ -238,7 +237,7 @@ Settings under `rebalancer` section:
     "03d2e20bc19d995098ba357157a9cfbfbfdff4b78fce5ec713128e988e0115d776",
     "03f80288f858251aed6f70142fab79dede5427a0ff4b618707bd0a616527a8cec7"
   ],
-  "macaroonPath": "/home/umbrel/umbrel/lnd/data/chain/bitcoin/mainnet/readonly.macaroon",
+  "macaroonPath": "/home/umbrel/umbrel/lnd/data/chain/bitcoin/mainnet/admin.macaroon",
   "tlsCertPath": "/home/umbrel/umbrel/lnd/tls.cert",
   "debugMode": false,
   "telegramToken": "123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11",

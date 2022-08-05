@@ -223,10 +223,12 @@ cap
       console.log('-------------------------------------------------------------')
       console.log(msg);
       console.log('-------------------------------------------------------------')
-
+ 
+      let unknownPeers = [];
       let count = 0;
       classified.outbound.forEach(c => {
         console.log();  // newline
+        if (!feeMap[c.peer]) unknownPeers.push({name: c.name, id: c.peer});
         let num = printFeeAnalysis(c.name, c.peer, feeMap[c.peer].local, feeMap[c.peer].remote, options.profit);
         count += num;
       })
@@ -241,10 +243,18 @@ cap
       count = 0;
       classified.balanced.forEach(c => {
         console.log();  // newline
+        if (!feeMap[c.peer]) unknownPeers.push({name: c.name, id: c.peer});
         let num = printFeeAnalysis(c.name, c.peer, feeMap[c.peer].local, feeMap[c.peer].remote, options.profit);
         count += num;
       })
       if (count === 0) console.log('no issues to report');
+
+      if (unknownPeers.length > 0) {
+        console.log(constants.colorYellow, '\nunknown fee data for the following peers (excluded):');
+        unknownPeers.forEach(p => {
+          console.log(p.name, p.id);
+        })
+      }
     })
   })
 

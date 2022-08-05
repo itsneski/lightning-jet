@@ -1,5 +1,6 @@
+const fs = require('node:fs');
+const {spawn, execSync} = require('node:child_process');
 const importLazy = require('import-lazy')(require);
-const {execSync} = require('child_process');
 const lndClient = importLazy('./connect');
 const {listPeersMapSync} = require('../lnd-api/utils');
 const {listChannelsSync} = require('../lnd-api/utils');
@@ -19,10 +20,25 @@ const config = importLazy('./config');
 const findProc = require('find-process');
 const date = require('date-and-time');
 
+
 const round = n => Math.round(n);
 const pThreshold = 1; // %
 
 module.exports = {
+  // spawns and detaches child process
+  spawnDetached({cmd, arg, log}) {
+    let parg = {
+      detached: true,
+      shell: process.env.SHELL
+    }
+    if (log) {
+      parg.stdio = [ 'ignore', fs.openSync(log, 'a'), fs.openSync(log, 'a') ];
+    } else {
+      parg.stdio = 'ignore';
+    }
+    const subprocess = spawn(cmd, arg, parg);
+    subprocess.unref();
+  },
   rebalanceHistoryConsolidated(hours = 1) {
     let history = listRebalancesSync(hours * 60 * 60);  // in secs
     if (!history || history.length === 0) return;
@@ -452,9 +468,11 @@ module.exports = {
     return formatted;
   },
   readLastLineSync: function(file) {
+    const fs = require('fs');
+    if (!fs.existsSync(file)) return;
+
     let lastLine;
     let done;
-    const fs = require('fs');
     const readline = require('readline');
     const readInterface = readline.createInterface({
       input: fs.createReadStream(file),

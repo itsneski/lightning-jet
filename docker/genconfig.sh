@@ -8,7 +8,7 @@ mkdir -p $HOME/.lightning-jet
 [ -f "$CONFIG_FILE" ] || cat << 'CONFIG' > $CONFIG_FILE 
 {
   "avoid": [],
-  "macaroonPath": "/home/umbrel/umbrel/lnd/data/chain/bitcoin/mainnet/readonly.macaroon",
+  "macaroonPath": "/home/umbrel/umbrel/lnd/data/chain/bitcoin/mainnet/admin.macaroon",
   "tlsCertPath": "/home/umbrel/umbrel/lnd/tls.cert",
   "rebalancer": {
     "maxTime": 30,
