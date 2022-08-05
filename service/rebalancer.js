@@ -84,10 +84,10 @@ function runLoop() {
 
 function runLoopImpl() {
   if (!isLndAlive(lndClient)) {
-    return console.log(colorYellow, '\nlnd is offline, skipping the loop');
+    return console.log(colorYellow, '\n' + date.format(new Date, 'MM/DD hh:mm:ss A') + ', lnd is offline, skipping the loop');
   }
 
-  console.log('\n' + date.format(new Date, 'MM/DD hh:mm A'), 'run rebalancing loop');
+  console.log('\n' + date.format(new Date, 'MM/DD hh:mm:ss A'), 'run rebalancing loop');
   serviceUtils.Rebalancer.recordHeartbeat();
   // build liquidity table: how much liquidity is available on the local side
   // for inbound nodes, how much liquidity outbound nodes need, do balanced
