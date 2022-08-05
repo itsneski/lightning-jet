@@ -468,9 +468,11 @@ module.exports = {
     return formatted;
   },
   readLastLineSync: function(file) {
+    const fs = require('fs');
+    if (!fs.existsSync(file)) return;
+
     let lastLine;
     let done;
-    const fs = require('fs');
     const readline = require('readline');
     const readInterface = readline.createInterface({
       input: fs.createReadStream(file),
