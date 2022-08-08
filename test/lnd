@@ -2,7 +2,8 @@
 
 global.testModeOn = true;
 
-const lndClient = require('../api/connect');
-const {forwardHistorySync} = require('../lnd-api/utils');
+const importLazy = require('import-lazy')(require);
+const lndClient = importLazy('../api/connect');
+const {isLndAlive} = importLazy('../lnd-api/utils');
 
-console.log(forwardHistorySync(lndClient, 5 * 60 * 60));
+console.log('lnd alive:', isLndAlive(lndClient));
