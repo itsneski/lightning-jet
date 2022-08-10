@@ -1,0 +1,17 @@
+#!/usr/bin/env node
+
+const importLazy = require('import-lazy')(require);
+const lndClient = importLazy('../../api/connect');
+const {getInfoSync} = require('../../lnd-api/utils');
+const {spawnDetached} = require('../../api/utils');
+const {exec} = require('child_process');
+
+console.log('getInfo:', getInfoSync(lndClient));
+
+const execPath = __dirname + '/repro-89-proc';
+
+spawnDetached({
+  cmd: 'node',
+  arg: [execPath],
+  log: '/tmp/repro-89.log'
+})
