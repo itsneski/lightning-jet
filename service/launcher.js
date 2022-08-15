@@ -12,20 +12,27 @@ const {restartService} = require('./utils');
 const {Rebalancer} = require('./utils');
 const {HtlcLogger} = require('./utils');
 const {TelegramBot} = require('./utils');
+const {getPropSync} = require('../db/utils');
+const {setPropSync} = require('../db/utils');
 const {getPropAndDateSync} = require('../db/utils');
 const {deleteProp} = require('../db/utils');
+const {recordTxn} = require('../db/utils');
 const {reconnect} = require('../bos/reconnect');
 const {isLndAlive} = importLazy('../lnd-api/utils');
 const {readLastLineSync} = require('../api/utils');
 const {sendTelegramMessageTimed} = require('../api/utils');
 const {isRunningPidSync} = require('../api/utils');
 const {inactiveChannels} = require('../api/list-channels');
+const {listForwardsSync} = require('../lnd-api/utils');
+const {listPaymentsSync} = require('../lnd-api/utils');
+const {getInfoSync} = require('../lnd-api/utils');
 
 const loopInterval = 5;  // mins
 const bosReconnectInterval = 60;  // mins
 const cleanDbInterval = 24; // hours
 const lndPingInterval = 60; // seconds
 const cleanDbRebalancesInterval = 1;  // mins
+const txnInterval = 1; // mins
 
 var lndOffline;
 
@@ -248,8 +255,16 @@ function lndPingLoopExec() {
   }
 }
 
-// remove db records for rebalance processes that no longer exist
 function cleanDbRebalances() {
+  try {
+    cleanDbRebalancesExec();
+  } catch(err) {
+    console.error('cleanDbRebalances:', err.message);
+  }
+}
+
+// remove db records for rebalance processes that no longer exist
+function cleanDbRebalancesExec() {
   const pref = 'cleanDbRebalances:';
   const dbUtils = require('../db/utils');
   let list = dbUtils.listActiveRebalancesSync();
@@ -268,6 +283,187 @@ function cleanDbRebalances() {
   })
 }
 
+var txnLoopRunning = false; // just a precaution in case the initial loop runs too long
+function txnLoop() {
+  const pref = 'txnLoop:';
+  if (txnLoopRunning) return console.warn(pref, 'already running, skip');
+  try {
+    txnLoopRunning = true;
+    txnLoopImpl();
+  } catch(err) {
+    console.error('txnLoop:', err);
+  } finally {
+    txnLoopRunning = false; // assumes that txnLoopImpl is sync
+  }
+}
+
+// populate channel txn table with rebalances and forwards
+// the tnx table is used to produce profitability metrics
+// the history depth is limited to a month
+//
+// https://api.lightning.community/#listpayments
+// https://api.lightning.community/#forwardinghistory
+function txnLoopImpl() {
+  const pref = 'txnLoopImpl:';
+  const propPref = 'txn';
+
+  // default start date is unix timestamp from a month ago
+  // note: lnd records are in utc, not a big deal though
+  const defStart = Math.floor(+new Date() / 1000) - (30 * 24 * 60 * 60);
+
+  // get timestamp and offset
+  const timestampProp = propPref + '.forwards.timestamp';
+  const offsetProp = propPref + '.forwards.offset';
+  let timestamp = getPropSync(timestampProp);
+  let offset = getPropSync(offsetProp) || 0;
+  if (timestamp) {
+    if (timestamp < defStart) {
+      console.log(pref, 'reset timestamp since its older than default');
+      timestamp = defStart;
+    }
+  } else {
+    timestamp = defStart;
+  }
+  const initialTimestamp = timestamp;
+  const initialOffset = offset;
+  console.log(pref, 'featching forwards, timestamp:', timestamp, 'offset:', offset);
+
+  while(true) {
+    const ret = listForwardsSync(lndClient, initialTimestamp, offset);
+    if (ret.error) {
+      console.error(pref, ret.error);
+      break;
+    }
+
+    const list = ret.response.forwarding_events;
+    const len = list.length;
+    if (len === 0) {
+      console.log(pref, 'no new forwards found');
+      break;
+    }
+
+    // record in the db
+    console.log(pref, 'received', len, 'forwards');
+    let error;
+    list.forEach(e => {
+      if (error) return;  // break from forEach
+      // record in the db; ok sync write since its a local db and
+      // one month worth of txns shouldn't be a big deal
+      const err = recordTxn({
+        txDateNs: parseInt(e.timestamp_ns),
+        type: 'forward',
+        fromChan: e.chan_id_in,
+        toChan: e.chan_id_out,
+        amount: e.amt_in,
+        fee: e.fee
+      })
+      if (err) {
+        if (err.code === 'SQLITE_CONSTRAINT') {
+          // trying to record a record that already exists, just a warning
+          console.warn(pref, 'forward record already exists in db, skip', e);
+          offset++;
+        } else {
+          console.error(pref, 'db error:', err);
+          error = err;
+        }
+      } else {
+        timestamp = parseInt(e.timestamp);
+        offset++;
+      }
+    })
+    if (error) break; // terminal error, telegram notify?
+  }
+  if (initialTimestamp === defStart) {
+    // remember the timestamp of the latest record
+    // offset is set to one so that the latest record isn't read twice
+    offset = 1;
+    console.log(pref, 'saving the latest valid timestamp:', timestamp);
+    setPropSync(timestampProp, timestamp);
+  }
+  if (offset !== initialOffset) {
+    console.log(pref, 'saving the latest offset:', offset);
+    setPropSync(offsetProp, offset);
+  }
+
+  // loop through payments
+  const nodeId = getInfoSync(lndClient).identity_pubkey;
+  const paymentsOffsetProp = propPref + '.payments.offset';
+  offset = getPropSync(paymentsOffsetProp) || 0;
+  console.log(pref, 'featching payments, offset:', offset);
+  const paymentsOffset = offset;
+  while(true) {
+    const ret = listPaymentsSync(lndClient, offset);
+    if (ret.error) {
+      console.error(pref, ret.error);
+      break;
+    }
+
+    const list = ret.response.payments;
+    if (list.length === 0) {
+      console.log(pref, 'no new payments found');
+      break;
+    }
+
+    console.log(pref, 'found', list.length, 'payments');
+    let skipped = 0;
+    let error;  // terminal error, will cause an exit from the loop
+    list.forEach(e => {
+      if (error) return;  // skip, terminal error
+      if (parseInt(e.creation_date) < defStart) {
+        offset = e.payment_index;
+        return skipped++; // skip
+      }
+      // find successful route
+      let route;
+      e.htlcs.forEach(h => {
+        if (h.status === 'SUCCEEDED') route = h.route;
+      })
+      if (!route) {
+        error = 'failed to identify route';
+        return console.error(pref, error, e);
+      }
+
+      // confirm that it's a rebalance, the last hop has to be this node
+      const lastId = route.hops[route.hops.length - 1].pub_key;
+      if (lastId !== nodeId) {
+        offset = e.payment_index;
+        return console.log(pref, 'not a rebalance, skip');
+      }
+
+      const fromChan = route.hops[0].chan_id;
+      const toChan = route.hops[route.hops.length - 1].chan_id;
+
+      // store in the db
+      const err = recordTxn({
+        txDateNs: parseInt(e.creation_time_ns), // should it be commit time?
+        type: 'rebalance',
+        fromChan: fromChan,
+        toChan: toChan,
+        amount: e.value_sat,
+        fee: e.fee_sat
+      })
+      if (err) {
+        if (err.code === 'SQLITE_CONSTRAINT') {
+          // trying to record a record that already exists, just a warning
+          console.warn(pref, 'payment record already exists in db, skip', e);
+          offset = e.payment_index;
+        } else {
+          console.error(pref, 'db error:', err);
+          error = err;
+        }
+      } else {
+        timestamp = parseInt(e.timestamp);
+        offset = e.payment_index;
+      }
+    })
+    if (skipped > 0) console.log(pref, 'skipping', skipped, 'old payments');
+    if (offset != paymentsOffset) setPropSync(paymentsOffsetProp, offset);
+
+    if (error) break; // terminal error, exit the loop
+  }
+}
+
+txnLoop();
 lndPingLoop();  // detect if lnd is offline
 runLoop();
 setInterval(runLoop, loopInterval * 60 * 1000);
@@ -275,3 +471,4 @@ setInterval(bosReconnect, bosReconnectInterval * 60 * 1000);
 setInterval(cleanDb, cleanDbInterval * 60 * 60 * 1000);
 setInterval(lndPingLoop, lndPingInterval * 1000);
 setInterval(cleanDbRebalances, cleanDbRebalancesInterval * 60 * 1000);
+setInterval(txnLoop, txnInterval * 60 * 1000);
