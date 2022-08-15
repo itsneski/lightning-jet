@@ -37,6 +37,28 @@ const uniqueArr = arr => arr.filter(function(elem, pos) {
 })
 
 module.exports = {
+  // from - lnd txn date in nanosec
+  txnByChanAndType(timestamp) {
+    let db = getHandle();
+    let done;
+    let list = [];
+    db.serialize(() => {
+      let q = 'SELECT to_chan as chan, type, SUM(amount) as total_amount, SUM(fee) as total_fee FROM txn';
+      if (timestamp) q += ' WHERE txdate_ns >= ' + timestamp;
+      q += ' GROUP BY to_chan, type ORDER BY to_chan'; // don't need order by but it doesn't hurt;
+      if (testMode) console.log(q);
+      db.each(q, (err, row) => {
+        list.push(row);
+      }, (err) => {
+        done = true;
+      })
+    })
+    while(!done) {
+      require('deasync').runLoopOnce();
+    }
+    closeHandle(db);
+    return list;
+  },
   // sync call to record txn
   recordTxn({txDateNs, type, fromChan, toChan, amount, fee}) {
     const pref = 'recordTxn:';

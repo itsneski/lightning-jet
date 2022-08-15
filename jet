@@ -89,6 +89,130 @@ cap
     })
   })
 
+  .command('stats', 'Shows channel profitability stats')
+  .option('--days [days]', 'Depth of history in days')
+  .option('--hours [hours]', 'Depth of history in hours')
+  .action((args, options, logger) => {
+    return new Promise(async (resolve, reject) => {
+      let fromTimestamp;
+      const hours = options.hours || (options.days && options.days * 24);
+      if (hours) {
+        const msec = new Date(new Date().toUTCString()).getTime();
+        fromTimestamp = (msec - hours * 60 * 60 * 1000) * Math.pow(10, 6);
+      }
+      const {txnByChanAndType} = require('./db/utils');
+      const list = txnByChanAndType(fromTimestamp);
+      if (!list || list.length === 0) return console.log('no records found');
+
+      let chanMap = {};
+      const chans = listChannelsSync(lndClient);
+      chans.forEach(c => {
+        chanMap[parseInt(c.chan_id)] = c.remote_pubkey;
+      })
+      let peerMap = {};
+      const peers = listPeersSync(lndClient);
+      peers.forEach(p => {
+        peerMap[p.id] = p.name;
+      })
+      let map = {};
+      list.forEach(item => {
+        const chan = parseInt(item.chan);
+        if (!map[chan]) map[chan] = {};
+        let p = map[chan];
+        if (item.type === 'forward') {
+          p.forward = {
+            amount: item.total_amount,
+            fee: item.total_fee
+          }
+        } else {
+          p.rebalance = {
+            amount: item.total_amount,
+            fee: item.total_fee
+          }
+        }
+      })
+      let combined = [];
+      Object.keys(map).forEach(k => {
+        let item = {};
+        item.chan = k;
+        item.peer = chanMap[k];
+        item.name = peerMap[chanMap[k]];
+        if (map[k].forward) item.forward = map[k].forward;
+        if (map[k].rebalance) item.rebalance = map[k].rebalance;
+        const feeForward = (item.forward && item.forward.fee) || 0;
+        const feeRebalance = (item.rebalance && item.rebalance.fee) || 0;
+        item.delta = feeForward - feeRebalance;
+        combined.push(item);
+      })
+
+      // print cumulative stats
+      const {withCommas} = require('./lnd-api/utils');
+      let total = 0;
+      let totalForwarded = { amount: 0, fee: 0 };
+      let totalRebalanced = { amount: 0, fee: 0 };
+      combined.forEach(item => {
+        total += item.delta;
+        totalForwarded.amount += (item.forward && item.forward.amount) || 0;
+        totalForwarded.fee += (item.forward && item.forward.fee) || 0;
+        totalRebalanced.amount += (item.rebalance && item.rebalance.amount) || 0;
+        totalRebalanced.fee += (item.rebalance && item.rebalance.fee) || 0;
+      })
+      let str = 'cumulative stats';
+      if (options.days) str += ' over the past ' + options.days + ' days';
+      else if (options.hours) str += ' over the past ' + options.hours + ' hours';
+      else str += ' over the past 30 days';
+      console.log(str + ':');
+      if (total > 0) console.log(constants.colorGreen, 'made ' + Math.abs(total) + ' sats');
+      else console.log(constants.colorRed, 'lost ' + Math.abs(total) + ' sats');
+      console.log('forwarded ' + withCommas(totalForwarded.amount) + ' sats');
+      console.log('earned ' + totalForwarded.fee + ' sats');
+      console.log('rebalanced ' + withCommas(totalRebalanced.amount) + ' sats');
+      console.log('paid ' + totalRebalanced.fee + ' sats');
+
+      // profitable channels
+      let profitable = [];
+      combined.forEach(item => {
+        if (item.delta < 0) return;
+        profitable.push({
+          chan: item.chan,
+          peer: item.peer,
+          name: item.name,
+          profit: item.delta,
+          forwarded: (item.forward && item.forward.amount) || 0,
+          made: (item.forward && item.forward.fee) || 0,
+          rebalanced: (item.rebalance && item.rebalance.amount) || 0,
+          paid: (item.rebalance && item.rebalance.fee) || 0,
+        })
+      })
+      profitable.sort((a, b) => b.profit - a.profit);
+
+      console.log('\nprofitable channels:');
+      if (profitable.length === 0) console.log('none found');
+      else console.table(profitable);
+
+      // unprofitable channels
+      let unprofitable = [];
+      combined.forEach(item => {
+        if (item.delta > 0) return;
+        unprofitable.push({
+          chan: item.chan,
+          peer: item.peer,
+          name: item.name,
+          loss: item.delta,
+          forwarded: (item.forward && item.forward.amount) || 0,
+          made: (item.forward && item.forward.fee) || 0,
+          rebalanced: (item.rebalance && item.rebalance.amount) || 0,
+          paid: (item.rebalance && item.rebalance.fee) || 0,
+        })
+      })
+      unprofitable.sort((a, b) => a.loss - b.loss);
+
+      console.log('\nunprofitable channels:');
+      if (unprofitable.length === 0) console.log('none found');
+      else console.table(unprofitable);
+    })
+  })
+
   .command('rebalance', 'Rebalances the node via circular rebalance.')
   .help('Calls BalanceOfSatoshis rebalance api in a loop until the target amount is met or all possible routes are exhausted.')
   .argument('<from>', 'From this peer. Can be a partial alias, a pub id, or a bos tag')
