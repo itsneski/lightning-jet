@@ -32,7 +32,7 @@ module.exports = {
 function generateDescriptor(protoPath, macaroonPath, tlsCertPath) {
   const packageDefinition = protoLoader.loadSync(protoPath, loaderOptions);
 
-  process.env.GRPC_SSL_CIPHER_SUITES = 'HIGH+ECDSA';
+  process.env.GRPC_SSL_CIPHER_SUITES = 'HIGH+ECDSA:ECDHE-RSA-AES128-GCM-SHA256';
 
   let m = fs.readFileSync(macaroonPath);
   let macaroon = m.toString('hex');
