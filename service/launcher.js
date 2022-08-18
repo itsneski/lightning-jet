@@ -32,7 +32,7 @@ const bosReconnectInterval = 60;  // mins
 const cleanDbInterval = 24; // hours
 const lndPingInterval = 60; // seconds
 const cleanDbRebalancesInterval = 1;  // mins
-const txnInterval = 1; // mins
+const txnInterval = constants.services.launcher.txnInterval; // mins
 
 var lndOffline;
 
@@ -307,9 +307,10 @@ function txnLoopImpl() {
   const pref = 'txnLoopImpl:';
   const propPref = 'txn';
 
-  // default start date is unix timestamp from a month ago
+  // default start date is unix timestamp from 2x of max interval
+  // 2x to generate historical delta
   // note: lnd records are in utc, not a big deal though
-  const defStart = Math.floor(+new Date() / 1000) - (30 * 24 * 60 * 60);
+  const defStart = Math.floor(+new Date() / 1000) - (2 * constants.maxTxnInterval * 60 * 60);
 
   // get timestamp and offset
   const timestampProp = propPref + '.forwards.timestamp';
@@ -343,7 +344,7 @@ function txnLoopImpl() {
     }
 
     // record in the db
-    console.log(pref, 'received', len, 'forwards');
+    console.log(pref, 'found', len, 'new forwards');
     let error;
     list.forEach(e => {
       if (error) return;  // break from forEach
@@ -404,7 +405,7 @@ function txnLoopImpl() {
       break;
     }
 
-    console.log(pref, 'found', list.length, 'payments');
+    console.log(pref, 'found', list.length, 'new payments');
     let skipped = 0;
     let error;  // terminal error, will cause an exit from the loop
     list.forEach(e => {
@@ -463,12 +464,15 @@ function txnLoopImpl() {
   }
 }
 
-txnLoop();
-lndPingLoop();  // detect if lnd is offline
-runLoop();
+lndPingLoop();  // detect if lnd is online, run it first
+
 setInterval(runLoop, loopInterval * 60 * 1000);
 setInterval(bosReconnect, bosReconnectInterval * 60 * 1000);
 setInterval(cleanDb, cleanDbInterval * 60 * 60 * 1000);
 setInterval(lndPingLoop, lndPingInterval * 1000);
 setInterval(cleanDbRebalances, cleanDbRebalancesInterval * 60 * 1000);
 setInterval(txnLoop, txnInterval * 60 * 1000);
+
+// early kick off
+txnLoop();
+runLoop();
