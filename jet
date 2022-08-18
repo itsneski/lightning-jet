@@ -46,6 +46,11 @@ const {reconnect} = importLazy('./bos/reconnect');
 const {isLndAlive} = importLazy('./lnd-api/utils');
 const {inactiveChannels} = importLazy('./api/list-channels');
 
+const isInt = value => {
+  var x = parseFloat(value);
+  return !isNaN(value) && (x | 0) === x;
+}
+
 // service names, plus all for restart
 const serviceNames = getServiceNames();
 var serviceNamesPlus = serviceNames.slice();
@@ -94,15 +99,32 @@ cap
   .option('--hours [hours]', 'Depth of history in hours')
   .action((args, options, logger) => {
     return new Promise(async (resolve, reject) => {
-      let fromTimestamp;
-      const hours = options.hours || (options.days && options.days * 24);
-      if (hours) {
-        const msec = new Date(new Date().toUTCString()).getTime();
-        fromTimestamp = (msec - hours * 60 * 60 * 1000) * Math.pow(10, 6);
-      }
+      const hours = options.hours || (options.days && options.days * 24) || constants.defaultTxnInterval;
+      if (hours > constants.maxTxnInterval) return console.error('history depth exceeds the max of ' + constants.maxTxnInterval + ' hours (' + Math.floor(constants.maxTxnInterval/24) + ' days)');
+
+      const msec = new Date(new Date().toUTCString()).getTime();
+      const fromTimestamp = (msec - hours * 60 * 60 * 1000) * Math.pow(10, 6);
       const {txnByChanAndType} = require('./db/utils');
       const list = txnByChanAndType(fromTimestamp);
       if (!list || list.length === 0) return console.log('no records found');
+
+      // get historical record to display % change
+      const fromT = (msec - 2 * hours * 60 * 60 * 1000) * Math.pow(10, 6);
+      const toT = (msec - hours * 60 * 60 * 1000) * Math.pow(10, 6);
+      const prevList = txnByChanAndType(fromT, toT);
+      let historyMap = {};
+      if (prevList && prevList.length > 0) {
+        prevList.sort((a, b) => a.txdate_ns - b.txdate_ns);
+        prevList.forEach(item => {
+          if (!historyMap[item.chan]) historyMap[item.chan] = { 
+            forward: { fee: 0 },
+            rebalance: { fee: 0 }
+          }
+          if (item.type === 'forward') historyMap[item.chan].forward.fee = item.total_fee;
+          if (item.type === 'rebalance') historyMap[item.chan].rebalance.fee = item.total_fee;
+          historyMap[item.chan].delta = historyMap[item.chan].forward.fee - historyMap[item.chan].rebalance.fee;
+        })
+      }
 
       let chanMap = {};
       const chans = listChannelsSync(lndClient);
@@ -158,9 +180,9 @@ cap
         totalRebalanced.fee += (item.rebalance && item.rebalance.fee) || 0;
       })
       let str = 'cumulative stats';
-      if (options.days) str += ' over the past ' + options.days + ' days';
-      else if (options.hours) str += ' over the past ' + options.hours + ' hours';
-      else str += ' over the past 30 days';
+      const days = isInt(hours/24) && Math.floor(hours/24);
+      if (days) str += ' over the past ' + days + ' day(s)';
+      else str += ' over the past ' + hours + ' hour(s)';
       console.log(str + ':');
       if (total > 0) console.log(constants.colorGreen, 'made ' + Math.abs(total) + ' sats');
       else console.log(constants.colorRed, 'lost ' + Math.abs(total) + ' sats');
@@ -173,7 +195,7 @@ cap
       let profitable = [];
       combined.forEach(item => {
         if (item.delta < 0) return;
-        profitable.push({
+        let rec = {
           chan: item.chan,
           peer: item.peer,
           name: item.name,
@@ -182,7 +204,15 @@ cap
           made: (item.forward && item.forward.fee) || 0,
           rebalanced: (item.rebalance && item.rebalance.amount) || 0,
           paid: (item.rebalance && item.rebalance.fee) || 0,
-        })
+        }
+        const prev = historyMap[item.chan] && historyMap[item.chan].delta;
+        if (prev !== undefined && prev !== 0) {
+          const delta = rec.profit - prev;
+          if (delta !== 0) {
+            rec.delta = delta;
+          }
+        }
+        profitable.push(rec);
       })
       profitable.sort((a, b) => b.profit - a.profit);
 
@@ -194,6 +224,7 @@ cap
         console.log('-made: total sats made on forwards (revenue)');
         console.log('-rebalanced: total sats rebalanced');
         console.log('-paid: total sats paid for rebalances (cost)');
+        console.log('-delta: change since the last interval, e.g. 15 means that the profit has increased by 15 sats, -15 means that the profit has decreased by 15 sats');
         console.table(profitable);
       }
 
@@ -201,7 +232,7 @@ cap
       let unprofitable = [];
       combined.forEach(item => {
         if (item.delta > 0) return;
-        unprofitable.push({
+        let rec = {
           chan: item.chan,
           peer: item.peer,
           name: item.name,
@@ -210,13 +241,24 @@ cap
           made: (item.forward && item.forward.fee) || 0,
           rebalanced: (item.rebalance && item.rebalance.amount) || 0,
           paid: (item.rebalance && item.rebalance.fee) || 0,
-        })
+        }
+        const prev = historyMap[item.chan] && historyMap[item.chan].delta;
+        if (prev !== undefined && prev !== 0) {
+          const delta = -(rec.loss - prev);
+          if (delta !== 0) {
+            rec.delta = delta;
+          }
+        }
+        unprofitable.push(rec);
       })
       unprofitable.sort((a, b) => a.loss - b.loss);
 
       console.log('\nunprofitable channels:');
       if (unprofitable.length === 0) console.log('none found');
-      else console.table(unprofitable);
+      else {
+        console.log('-delta: change since the last interval, e.g. 15 means that the loss has increased by 15 sats, -15 means that the loss has decreased by 15 sats');
+        console.table(unprofitable);
+      }
     })
   })
 
