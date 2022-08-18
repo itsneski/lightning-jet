@@ -188,7 +188,14 @@ cap
 
       console.log('\nprofitable channels:');
       if (profitable.length === 0) console.log('none found');
-      else console.table(profitable);
+      else {
+        console.log('-profit: profit in sats');
+        console.log('-forwarded: total sats forwarded');
+        console.log('-made: total sats made on forwards (revenue)');
+        console.log('-rebalanced: total sats rebalanced');
+        console.log('-paid: total sats paid for rebalances (cost)');
+        console.table(profitable);
+      }
 
       // unprofitable channels
       let unprofitable = [];
