@@ -464,7 +464,6 @@ cap
       if (!isLndAlive(lndClient)) return reject('lnd is offline');
 
       try {
-        const isInt = n => n % 1 === 0;
         let days = options.days || 1;
         days = (options.hours) ? options.hours / 24 : days;
 
