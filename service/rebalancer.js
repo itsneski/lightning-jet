@@ -54,7 +54,7 @@ var queue = new RebalanceQueue();
 
 // build exclude map
 let exclude = {};
-if (config.rebalancer.exclude) {
+if (config.rebalancer.exclude && config.rebalancer.exclude.length > 0) {
   config.rebalancer.exclude.forEach(n => {
     let id = n;
     let type = 'outbound';  // default
@@ -88,6 +88,7 @@ function runLoopImpl() {
   }
 
   console.log('\n' + date.format(new Date, 'MM/DD hh:mm:ss A'), 'run rebalancing loop');
+
   serviceUtils.Rebalancer.recordHeartbeat();
   // build liquidity table: how much liquidity is available on the local side
   // for inbound nodes, how much liquidity outbound nodes need, do balanced
