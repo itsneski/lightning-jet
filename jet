@@ -95,8 +95,8 @@ cap
   })
 
   .command('stats', 'Shows channel profitability stats')
-  .option('--days [days]', 'Depth of history in days')
-  .option('--hours [hours]', 'Depth of history in hours')
+  .option('--days [days]', 'Depth of history in days; max of ' + Math.floor(constants.maxTxnInterval/24) + ' days, default ' + Math.floor(constants.defaultTxnInterval/24))
+  .option('--hours [hours]', 'Depth of history in hours; max of ' + Math.floor(constants.maxTxnInterval/24) + ' days, default ' + Math.floor(constants.defaultTxnInterval/24))
   .action((args, options, logger) => {
     return new Promise(async (resolve, reject) => {
       const hours = options.hours || (options.days && options.days * 24) || constants.defaultTxnInterval;
