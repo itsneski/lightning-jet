@@ -37,6 +37,14 @@ const uniqueArr = arr => arr.filter(function(elem, pos) {
 })
 
 module.exports = {
+  txnReset() {
+    let db = getHandle();
+    db.serialize(() => {
+      let cmd = 'DELETE FROM ' + TXN_TABLE;
+      error = executeDb(db, cmd);
+    })
+    closeHandle(db);
+  },
   // from - lnd txn date in nanosec
   txnByChanAndType(fromTimestamp, toTimestamp) {
     let db = getHandle();
