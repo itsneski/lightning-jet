@@ -32,6 +32,8 @@ module.exports = {
 function generateDescriptor(protoPath, macaroonPath, tlsCertPath) {
   const packageDefinition = protoLoader.loadSync(protoPath, loaderOptions);
 
+  // https://github.com/itsneski/lightning-jet/issues/89
+  // voltage uses CA signed certs, as opposed to self-signed in Umbrel & [typical] bear metal nodes. Hence additional cipher suites are required that Node.js does not enable by default.
   process.env.GRPC_SSL_CIPHER_SUITES = 'HIGH+ECDSA:ECDHE-RSA-AES128-GCM-SHA256';
 
   let m = fs.readFileSync(macaroonPath);
