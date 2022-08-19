@@ -1,9 +1,38 @@
 #!/usr/bin/env node
 
-global.testModeOn = true;
+const lndClient = require('../api/connect');
+const {listForwardsSync} = require('../lnd-api/utils');
+const {listPaymentsSync} = require('../lnd-api/utils');
+const {digest} = require('../api/utils');
 
-const importLazy = require('import-lazy')(require);
-const lndClient = importLazy('../api/connect');
-const {isLndAlive} = importLazy('../lnd-api/utils');
+listPayments();
 
-console.log('lnd alive:', isLndAlive(lndClient));
+function listForwards() {
+  // loop through forwards
+  const timestamp = 1659975912;
+  let offset = 0;
+  while(true) {
+    const ret = listForwardsSync(lndClient, timestamp, offset);
+    if (ret.error) {
+      console.error(ret.error);
+      break;
+    }
+    const len = ret.response.forwarding_events.length;
+    console.log('events:', len);
+    console.log('offset:', ret.response.last_offset_index);
+    if (len === 0) {
+      console.log('reached the end');
+      break;
+    }
+    const last = ret.response.forwarding_events[len - 1];
+    const str = last.chan_id_in + '.' + last.chan_id_out + '.' + last.timestamp_ns;
+    console.log(str, digest(str));
+    offset = ret.response.last_offset_index;
+  }
+}
+
+// loop through payments
+function listPayments() {
+  console.log(Date.now());
+  console.log(JSON.stringify(listPaymentsSync(lndClient, 3116691, 1), null, 2));
+}
