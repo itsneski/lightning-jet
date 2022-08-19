@@ -29,7 +29,6 @@ const {getInfoSync} = require('../lnd-api/utils');
 
 const loopInterval = 5;  // mins
 const bosReconnectInterval = 60;  // mins
-const cleanDbInterval = 24; // hours
 const lndPingInterval = 60; // seconds
 const cleanDbRebalancesInterval = 1;  // mins
 const txnInterval = constants.services.launcher.txnInterval; // mins
@@ -66,10 +65,6 @@ function bosReconnect() {
   } catch (error) {
     console.error('error launching peer reconnect:', error);
   }
-}
-
-// get rid of useless records from the db
-function cleanDb() {
 }
 
 function runLoop() {
@@ -307,6 +302,11 @@ function txnLoopImpl() {
   const pref = 'txnLoopImpl:';
   const propPref = 'txn';
 
+  if (lndOffline) {
+    console.log('\n' + date.format(new Date, 'MM/DD hh:mm:ss A'));
+    return console.warn(constants.colorYellow, pref + ' lnd is offline, skipping the loop');
+  }
+
   // default start date is unix timestamp from 2x of max interval
   // 2x to generate historical delta
   // note: lnd records are in utc, not a big deal though
@@ -468,7 +468,6 @@ lndPingLoop();  // detect if lnd is online, run it first
 
 setInterval(runLoop, loopInterval * 60 * 1000);
 setInterval(bosReconnect, bosReconnectInterval * 60 * 1000);
-setInterval(cleanDb, cleanDbInterval * 60 * 60 * 1000);
 setInterval(lndPingLoop, lndPingInterval * 1000);
 setInterval(cleanDbRebalances, cleanDbRebalancesInterval * 60 * 1000);
 setInterval(txnLoop, txnInterval * 60 * 1000);
