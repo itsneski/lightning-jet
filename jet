@@ -117,11 +117,16 @@ cap
         prevList.sort((a, b) => a.txdate_ns - b.txdate_ns);
         prevList.forEach(item => {
           if (!historyMap[item.chan]) historyMap[item.chan] = { 
-            forward: { fee: 0 },
-            rebalance: { fee: 0 }
+            forward: { fee: 0, amount: 0 },
+            rebalance: { fee: 0, amount: 0 }
           }
-          if (item.type === 'forward') historyMap[item.chan].forward.fee = item.total_fee;
-          if (item.type === 'rebalance') historyMap[item.chan].rebalance.fee = item.total_fee;
+          if (item.type === 'forward') {
+            historyMap[item.chan].forward.fee = item.total_fee;
+            historyMap[item.chan].forward.amount = item.total_amount;
+          } else {
+            historyMap[item.chan].rebalance.fee = item.total_fee;
+            historyMap[item.chan].rebalance.amount = item.total_amount;
+          }
           historyMap[item.chan].delta = historyMap[item.chan].forward.fee - historyMap[item.chan].rebalance.fee;
         })
       }
@@ -184,7 +189,7 @@ cap
       if (days) str += ' over the past ' + days + ' day(s)';
       else str += ' over the past ' + hours + ' hour(s)';
       console.log(str + ':');
-      if (total > 0) console.log(constants.colorGreen, 'made ' + Math.abs(total) + ' sats');
+      if (total > 0) console.log(constants.colorGreen, 'profit of ' + Math.abs(total) + ' sats');
       else console.log(constants.colorRed, 'lost ' + Math.abs(total) + ' sats');
       console.log('forwarded ' + withCommas(totalForwarded.amount) + ' sats');
       console.log('earned ' + totalForwarded.fee + ' sats');
@@ -197,11 +202,10 @@ cap
         if (item.delta < 0) return;
         let rec = {
           chan: item.chan,
-          peer: item.peer,
-          name: item.name,
+          peer: item.name,
           profit: item.delta,
           forwarded: (item.forward && item.forward.amount) || 0,
-          made: (item.forward && item.forward.fee) || 0,
+          earned: (item.forward && item.forward.fee) || 0,
           rebalanced: (item.rebalance && item.rebalance.amount) || 0,
           paid: (item.rebalance && item.rebalance.fee) || 0,
         }
@@ -211,6 +215,8 @@ cap
           if (delta !== 0) {
             rec.delta = delta;
           }
+          if (historyMap[item.chan].forward.amount !== 0) rec['delta_fw %'] = Math.round(100 * (rec.forwarded - historyMap[item.chan].forward.amount) / historyMap[item.chan].forward.amount);
+          if (historyMap[item.chan].rebalance.amount !== 0) rec['delta_rb %'] = Math.round(100 * (rec.rebalanced - historyMap[item.chan].rebalance.amount) / historyMap[item.chan].rebalance.amount);
         }
         profitable.push(rec);
       })
@@ -221,10 +227,12 @@ cap
       else {
         console.log('-profit: profit in sats');
         console.log('-forwarded: total sats forwarded');
-        console.log('-made: total sats made on forwards (revenue)');
+        console.log('-earned: total sats earned on forwards');
         console.log('-rebalanced: total sats rebalanced');
-        console.log('-paid: total sats paid for rebalances (cost)');
-        console.log('-delta: change since the last interval, e.g. 15 means that the profit has increased by 15 sats, -15 means that the profit has decreased by 15 sats');
+        console.log('-paid: total sats paid for rebalances');
+        console.log('-delta: change in profit (sats) since the last interval; e.g. 15 means that the profit has increased by 15 sats');
+        console.log('-delta_fw: change in sats (%) forwarded since the last interval; e.g. 25 means that the node forwarded 25% more sats comparing to the last interval');
+        console.log('-delta_rb: change in sats (%) rebalanced since the last interval; e.g. 25 means that the node rebalanced 25% more sats comparing to the last interval');
         console.table(profitable);
       }
 
@@ -234,29 +242,31 @@ cap
         if (item.delta > 0) return;
         let rec = {
           chan: item.chan,
-          peer: item.peer,
-          name: item.name,
-          loss: item.delta,
+          peer: item.name,
+          loss: Math.abs(item.delta), // present loss as a positive integer
           forwarded: (item.forward && item.forward.amount) || 0,
-          made: (item.forward && item.forward.fee) || 0,
+          earned: (item.forward && item.forward.fee) || 0,
           rebalanced: (item.rebalance && item.rebalance.amount) || 0,
           paid: (item.rebalance && item.rebalance.fee) || 0,
         }
         const prev = historyMap[item.chan] && historyMap[item.chan].delta;
         if (prev !== undefined && prev !== 0) {
-          const delta = -(rec.loss - prev);
+          const delta = -(item.delta - prev);
           if (delta !== 0) {
+            rec.prev = prev;
             rec.delta = delta;
           }
+          if (historyMap[item.chan].forward.amount !== 0) rec['delta_fw %'] = Math.round(100 * (rec.forwarded - historyMap[item.chan].forward.amount) / historyMap[item.chan].forward.amount);
+          if (historyMap[item.chan].rebalance.amount !== 0) rec['delta_rb %'] = Math.round(100 * (rec.rebalanced - historyMap[item.chan].rebalance.amount) / historyMap[item.chan].rebalance.amount);
         }
         unprofitable.push(rec);
       })
-      unprofitable.sort((a, b) => a.loss - b.loss);
+      unprofitable.sort((a, b) => b.loss - a.loss);
 
       console.log('\nunprofitable channels:');
       if (unprofitable.length === 0) console.log('none found');
       else {
-        console.log('-delta: change since the last interval, e.g. 15 means that the loss has increased by 15 sats, -15 means that the loss has decreased by 15 sats');
+        console.log('-delta: change in loss (sats) since the last interval; e.g. 15 means that the loss has increased by 15 sats');
         console.table(unprofitable);
       }
     })
