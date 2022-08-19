@@ -113,6 +113,11 @@ cap
       const toT = (msec - hours * 60 * 60 * 1000) * Math.pow(10, 6);
       const prevList = txnByChanAndType(fromT, toT);
       let historyMap = {};
+      let historyTotal = {
+        profit: 0,
+        forward: { fee: 0, amount: 0 },
+        rebalance: { fee: 0, amount: 0 }
+      }
       if (prevList && prevList.length > 0) {
         prevList.sort((a, b) => a.txdate_ns - b.txdate_ns);
         prevList.forEach(item => {
@@ -123,12 +128,17 @@ cap
           if (item.type === 'forward') {
             historyMap[item.chan].forward.fee = item.total_fee;
             historyMap[item.chan].forward.amount = item.total_amount;
+            historyTotal.forward.fee += item.total_fee;
+            historyTotal.forward.amount += item.total_amount;
           } else {
             historyMap[item.chan].rebalance.fee = item.total_fee;
             historyMap[item.chan].rebalance.amount = item.total_amount;
+            historyTotal.rebalance.fee += item.total_fee;
+            historyTotal.rebalance.amount += item.total_amount;
           }
           historyMap[item.chan].delta = historyMap[item.chan].forward.fee - historyMap[item.chan].rebalance.fee;
         })
+        historyTotal.profit = historyTotal.forward.fee - historyTotal.rebalance.fee;
       }
 
       let chanMap = {};
@@ -184,17 +194,32 @@ cap
         totalRebalanced.amount += (item.rebalance && item.rebalance.amount) || 0;
         totalRebalanced.fee += (item.rebalance && item.rebalance.fee) || 0;
       })
+
       let str = 'cumulative stats';
       const days = isInt(hours/24) && Math.floor(hours/24);
       if (days) str += ' over the past ' + days + ' day(s)';
       else str += ' over the past ' + hours + ' hour(s)';
       console.log(str + ':');
-      if (total > 0) console.log(constants.colorGreen, 'profit of ' + Math.abs(total) + ' sats');
-      else console.log(constants.colorRed, 'lost ' + Math.abs(total) + ' sats');
-      console.log('forwarded ' + withCommas(totalForwarded.amount) + ' sats');
-      console.log('earned ' + totalForwarded.fee + ' sats');
-      console.log('rebalanced ' + withCommas(totalRebalanced.amount) + ' sats');
-      console.log('paid ' + totalRebalanced.fee + ' sats');
+
+      let cumulative = [];
+      cumulative.push({
+        period: 'current',
+        profit: total,
+        forwarded: withCommas(totalForwarded.amount),
+        earned: totalForwarded.fee,
+        rebalanced: withCommas(totalRebalanced.amount),
+        paid: totalRebalanced.fee
+      })
+      cumulative.push({
+        period: 'previous',
+        profit: historyTotal.profit,
+        forwarded: withCommas(historyTotal.forward.amount),
+        earned: historyTotal.forward.fee,
+        rebalanced: withCommas(historyTotal.rebalance.amount),
+        paid: historyTotal.rebalance.fee
+      })
+      console.log('this table displays data for two time periods, current and previous; e.g. display weekly data over the past week along with the data from a week ago');
+      console.table(cumulative);
 
       // profitable channels
       let profitable = [];
@@ -253,7 +278,6 @@ cap
         if (prev !== undefined && prev !== 0) {
           const delta = -(item.delta - prev);
           if (delta !== 0) {
-            rec.prev = prev;
             rec.delta = delta;
           }
           if (historyMap[item.chan].forward.amount !== 0) rec['delta_fw %'] = Math.round(100 * (rec.forwarded - historyMap[item.chan].forward.amount) / historyMap[item.chan].forward.amount);
