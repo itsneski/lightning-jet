@@ -353,11 +353,23 @@ function txnLoopImpl() {
   }
 
   // loop through payments
-  const nodeId = getInfoSync(lndClient).identity_pubkey;
+  // first, get node id
+  let nodeId;
+  try {
+    const nodeData = getInfoSync(lndClient);
+    nodeId = nodeData && nodeData.identity_pubkey;
+  } catch(err) {
+    console.error(pref, err);
+  }
+  if (!nodeId) return console.error(pref, 'error getting node id');
+
   const paymentsOffsetProp = propPref + '.payments.offset';
-  offset = getPropSync(paymentsOffsetProp) || 0;
+  ret = getPropWithErrSync(paymentsOffsetProp);
+  if (ret.error) return console.error(pref, 'error getting payments offset, skip', ret.error);
+  offset = ret.val || 0;
   console.log(pref, 'featching payments, offset:', offset);
   const paymentsOffset = offset;
+
   while(true) {
     const ret = listPaymentsSync(lndClient, offset);
     if (ret.error) {
