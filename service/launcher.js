@@ -18,12 +18,17 @@ const {deleteProp} = require('../db/utils');
 
 const loopInterval = 1;  // mins
 
-
+var loopRunning = false;
 function runLoop() {
+  const pref = 'runLoop:';
+  if (loopRunning) return console.warn(pref, 'already running, skip');
   try {
+    loopRunning = true;
     runLoopExec();
   } catch(error) {
     console.error('runLoop:', error.toString());
+  } finally {
+    loopRunning = false;  // assumes that runLoopExec is sync
   }
 }
 
