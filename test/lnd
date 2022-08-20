@@ -1,8 +1,38 @@
 #!/usr/bin/env node
 
-global.testModeOn = true;
-
 const lndClient = require('../api/connect');
-const {forwardHistorySync} = require('../lnd-api/utils');
+const {listForwardsSync} = require('../lnd-api/utils');
+const {listPaymentsSync} = require('../lnd-api/utils');
+const {digest} = require('../api/utils');
 
-console.log(forwardHistorySync(lndClient, 5 * 60 * 60));
+listPayments();
+
+function listForwards() {
+  // loop through forwards
+  const timestamp = 1659975912;
+  let offset = 0;
+  while(true) {
+    const ret = listForwardsSync(lndClient, timestamp, offset);
+    if (ret.error) {
+      console.error(ret.error);
+      break;
+    }
+    const len = ret.response.forwarding_events.length;
+    console.log('events:', len);
+    console.log('offset:', ret.response.last_offset_index);
+    if (len === 0) {
+      console.log('reached the end');
+      break;
+    }
+    const last = ret.response.forwarding_events[len - 1];
+    const str = last.chan_id_in + '.' + last.chan_id_out + '.' + last.timestamp_ns;
+    console.log(str, digest(str));
+    offset = ret.response.last_offset_index;
+  }
+}
+
+// loop through payments
+function listPayments() {
+  console.log(Date.now());
+  console.log(JSON.stringify(listPaymentsSync(lndClient, 3116691, 1), null, 2));
+}

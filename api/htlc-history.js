@@ -1,5 +1,6 @@
 // process arguments
-const lndClient = require('./connect');
+const importLazy = require('import-lazy')(require);
+const lndClient = importLazy('./connect');
 const {htlcHistorySync} = require('../lnd-api/utils');
 const {listPeersSync} = require('../lnd-api/utils');
 const {withCommas} = require('../lnd-api/utils');

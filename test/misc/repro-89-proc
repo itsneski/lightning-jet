@@ -1,0 +1,7 @@
+#!/usr/bin/env node
+
+const importLazy = require('import-lazy')(require);
+const lndClient = importLazy('../../api/connect');
+const {getInfoSync} = require('../../lnd-api/utils');
+
+console.log('getInfo:', getInfoSync(lndClient));

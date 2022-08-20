@@ -3,10 +3,13 @@
 const fs = require('fs');
 const sqlite3 = require('sqlite3').verbose();
 const constants = require('../api/constants');
+const crypto = require('crypto');
 
 const dbFile = global.testDb || (__dirname + '/jet.db');
 const oldDbFile = __dirname + '/../lnd_optimize.db';
 const testDbFile = '/tmp/jet_test.db';  
+
+const digest = (str) => crypto.createHash('sha256').update(str).digest('hex');
 
 const REBALANCE_HISTORY_TABLE = 'rebalance_history';
 const FAILED_HTLC_TABLE = 'failed_htlc';
@@ -17,6 +20,7 @@ const TELEGRAM_MESSAGES_TABLE = 'telegram_messages';
 const FEE_HISTORY_TABLE = 'fee_history';
 const ACTIVE_REBALANCE_TABLE = 'active_rebalance';
 const CHANNEL_EVENTS_TABLE = 'channel_events';
+const TXN_TABLE = 'txn';
 
 var testMode = false;
 
@@ -33,6 +37,71 @@ const uniqueArr = arr => arr.filter(function(elem, pos) {
 })
 
 module.exports = {
+  txnReset() {
+    let db = getHandle();
+    db.serialize(() => {
+      let cmd = 'DELETE FROM ' + TXN_TABLE;
+      error = executeDb(db, cmd);
+    })
+    closeHandle(db);
+  },
+  // from - lnd txn date in nanosec
+  txnByChanAndType(fromTimestamp, toTimestamp) {
+    let db = getHandle();
+    let done;
+    let list = [];
+    db.serialize(() => {
+      let q = 'SELECT txdate_ns, to_chan as chan, type, SUM(amount) as total_amount, SUM(fee) as total_fee FROM txn';
+      if (fromTimestamp) q += ' WHERE txdate_ns >= ' + fromTimestamp;
+      if (toTimestamp) q += ' AND txdate_ns < ' + toTimestamp;
+      q += ' GROUP BY to_chan, type ORDER BY txdate_ns'; // don't need order by but it doesn't hurt;
+      if (testMode) console.log(q);
+      db.each(q, (err, row) => {
+        list.push(row);
+      }, (err) => {
+        done = true;
+      })
+    })
+    while(!done) {
+      require('deasync').runLoopOnce();
+    }
+    closeHandle(db);
+    return list;
+  },
+  // sync call to record txn
+  recordTxn({txDateNs, type, fromChan, toChan, amount, fee}) {
+    const pref = 'recordTxn:';
+    if (!txDateNs || !type || !fromChan || !toChan || !amount || fee === undefined) throw new Error('missing params');
+    const dgst = digest(txDateNs + '.' + fromChan + '.' + toChan);
+
+    if (doIt()) {
+      // retry in case of an error
+      console.log(pref, 'retrying due to an error');
+      return doIt();  // return the last error if any
+    }
+
+    function doIt() {
+      let db = getHandle();
+      let error;
+      try {
+        db.serialize(function() {
+          const vals = constructInsertString([Date.now(), txDateNs, dgst, type, fromChan, toChan, amount, fee]);
+          const cols = '(date, txdate_ns, digest, type, from_chan, to_chan, amount, fee)';
+          let cmd = 'INSERT INTO ' + TXN_TABLE + ' ' + cols + ' VALUES (' + vals + ')';
+          const err = executeDbSync(db, cmd);
+          if (err) {
+            error = err;
+            console.error(pref, err);
+          }
+        })
+      } catch(err) {
+        console.error(pref, err.message);
+      } finally {
+        closeHandle(db);
+      }
+      return error;
+    }
+  },
   latestChannelEvents() {
     let db = getHandle();
     let done;
@@ -201,13 +270,14 @@ module.exports = {
       closeHandle(db);
     }
   },
-  getValSync(name) {
+  getValSync(name, fromDate) {
     let db = getHandle();
     let done;
     let data = [];
     try {
       db.serialize(function() {
         let q = 'SELECT date, val FROM ' + NAMEVAL_LIST_TABLE + ' WHERE name="' + name + '"';
+        if (fromDate) q += ' AND date >= ' + fromDate;
         db.each(q, function(err, row) {
           data.push(row);
         }, function(error) {
@@ -393,6 +463,32 @@ module.exports = {
     } finally {
       closeHandle(db);
     }
+  },
+  getPropWithErrSync(name) {
+    let db = getHandle();
+    let done;
+    let data;
+    let error;
+    try {
+      db.serialize(function() {
+        let q = 'SELECT val FROM ' + NAMEVAL_TABLE + ' WHERE name="' + name + '"';
+        db.each(q, function(err, row) {
+          data = row;
+        }, function(err) {
+          error = err;
+          done = true;
+        })
+      })
+      while(done === undefined) {
+        require('deasync').runLoopOnce();
+      }
+    } catch(err) {
+      console.error('getPropWithErrSync:', err.message);
+      error = err;
+    } finally {
+      closeHandle(db);
+    }
+    return { val: data && data.val, error: error };
   },
   setPropSync(name, val) {
     let db = getHandle();
@@ -711,8 +807,14 @@ function createTables() {
     createFeeHistoryTable(db);
     createActiveRebalanceTable(db);
     createChannelEventsTable(db);
+    createTxnTable(db);
   })
   closeHandle(db);
+}
+
+function createTxnTable(db) {
+  // type: 'forward' or 'payment'
+  executeDbSync(db, "CREATE TABLE IF NOT EXISTS " + TXN_TABLE + " (date INTEGER NOT NULL, txdate_ns INTEGER NOT NULL, digest TEXT NOT NULL UNIQUE, type TEXT NOT NULL, from_chan INTEGER NOT NULL, to_chan INTEGER NOT NULL, amount INTEGER NOT NULL, fee INTEGER NOT NULL)");
 }
 
 function createChannelEventsTable(db) {

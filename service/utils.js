@@ -72,7 +72,7 @@ class Rebalancer extends Service {
     super();
     this.name = Rebalancer.name;
     this.proc = 'rebalancer.js';
-    this.log = '/tmp/rebalancer.log';
+    this.log = '/tmp/jet-rebalancer.log';
   }
   isDisabled() {
     return config.rebalancer.disabled;
@@ -85,20 +85,29 @@ class HtlcLogger extends Service {
     super();
     this.name = HtlcLogger.name;
     this.proc = 'htlc-logger.js';
-    this.log = '/tmp/htlc-logger.log';
+    this.log = '/tmp/jet-logger.log';
   }
 }
 
-// main daemon service; responsible for starting up all other services
-// and for keeping them alive. also responsible for doing periodic
-// bos reconnect.
+// watchdog daemon; responsible for keeping all other services alive.
 class Launcher extends Service {
   static name = 'daddy';
   constructor() {
     super();
     this.name = Launcher.name;
     this.proc = 'launcher.js';
-    this.log = '/tmp/launcher.log';
+    this.log = '/tmp/jet-daddy.log';
+  }
+}
+
+// worker daemon; populates db tables, periodic bos reconnect, etc.
+class Worker extends Service {
+  static name = 'worker';
+  constructor() {
+    super();
+    this.name = Worker.name;
+    this.proc = 'worker.js';
+    this.log = '/tmp/jet-worker.log';
   }
 }
 
@@ -109,7 +118,7 @@ class TelegramBot extends Service {
     super();
     this.name = TelegramBot.name;
     this.proc = 'telegram.js';
-    this.log = '/tmp/telegram.log';
+    this.log = '/tmp/jet-telegram.log';
     this.help = 'https://github.com/itsneski/lightning-jet#telegram-bot';
   }
 
@@ -122,7 +131,8 @@ const serviceNames = [
   Rebalancer.name,
   HtlcLogger.name,
   Launcher.name,
-  TelegramBot.name
+  TelegramBot.name,
+  Worker.name
 ]
 
 var services = {};
@@ -130,12 +140,14 @@ services[Rebalancer.name] = new Rebalancer();
 services[HtlcLogger.name] = new HtlcLogger();
 services[Launcher.name] = new Launcher();
 services[TelegramBot.name] = new TelegramBot();
+services[Worker.name] = new Worker();
 
 module.exports = {
   Rebalancer: services[Rebalancer.name],
   HtlcLogger: services[HtlcLogger.name],
   Launcher: services[Launcher.name],
   TelegramBot: services[TelegramBot.name],
+  Worker: services[Worker.name],
   getServiceNames: function() { 
     return serviceNames;
   },

@@ -1,9 +1,9 @@
-const importLazy = require('import-lazy')(require);
+// watchdog daemon; responsible for keeping rest
+// of the services alive
+
 const date = require('date-and-time');
-const config = importLazy('../api/config');
+const config = require('../api/config');
 const constants = require('../api/constants');
-const lndClient = importLazy('../api/connect');
-const {exec} = require('child_process');
 const {isRunning} = require('./utils');
 const {isConfigured} = require('./utils');
 const {isDisabled} = require('./utils');
@@ -12,64 +12,23 @@ const {restartService} = require('./utils');
 const {Rebalancer} = require('./utils');
 const {HtlcLogger} = require('./utils');
 const {TelegramBot} = require('./utils');
+const {Worker} = require('./utils');
 const {getPropAndDateSync} = require('../db/utils');
 const {deleteProp} = require('../db/utils');
-const {reconnect} = require('../bos/reconnect');
-const {isLndAlive} = importLazy('../lnd-api/utils');
-const {readLastLineSync} = require('../api/utils');
-const {sendTelegramMessageTimed} = require('../api/utils');
-const {isRunningPidSync} = require('../api/utils');
-const {inactiveChannels} = require('../api/list-channels');
 
-const loopInterval = 5;  // mins
-const bosReconnectInterval = 60;  // mins
-const cleanDbInterval = 24; // hours
-const lndPingInterval = 60; // seconds
-const cleanDbRebalancesInterval = 1;  // mins
+const loopInterval = 1;  // mins
 
-var lndOffline;
-
-function bosReconnect() {
-  if (lndOffline) {
-    console.log('lnd is offline, skipping peer reconnect');
-    return;
-  }
-
-  const logger = {
-    debug: (msg) => {
-      console.log(msg);
-    },
-    info: (msg) => {
-      console.log(msg);
-    },
-    warn: (msg) => {
-      console.warn(msg);
-    },
-    error: (msg) => {
-      console.error(msg);
-    }
-  }
-
-  try {
-    console.log('\n' + date.format(new Date, 'MM/DD hh:mm:ss A'), 'reconnecting peers');
-    const res = reconnect(logger);
-    res.catch((err) => {
-      console.error('error during peer reconnect:', err);
-    })
-  } catch (error) {
-    console.error('error launching peer reconnect:', error);
-  }
-}
-
-// get rid of useless records from the db
-function cleanDb() {
-}
-
+var loopRunning = false;
 function runLoop() {
+  const pref = 'runLoop:';
+  if (loopRunning) return console.warn(pref, 'already running, skip');
   try {
+    loopRunning = true;
     runLoopExec();
   } catch(error) {
     console.error('runLoop:', error.toString());
+  } finally {
+    loopRunning = false;  // assumes that runLoopExec is sync
   }
 }
 
@@ -87,13 +46,6 @@ function runLoopExec() {
     } else {
       console.error('the telegram bot is not yet configured, cant start the service.', constants.telegramBotHelpPage);
     }
-  }
-
-  // htlc logger & rebalancer need lnd, so it does not make
-  // sense to attempt to start em
-  if (lndOffline) {
-    console.warn(constants.colorYellow, 'lnd is offline, skipping the loop');
-    return;
   }
 
   // htlc logger
@@ -181,97 +133,14 @@ function runLoopExec() {
     deleteProp(constants.services.logger.errorProp);
   }
 
-  // check channel db size
-  const {checkSize} = require('../api/channeldb');
-  const priority = constants.channeldb.sizeThreshold;
-  const telegramNotify = constants.channeldb.telegramNotify;
-
-  let res = checkSize();
-  if (res.priority === priority.urgent) {
-    console.error(constants.colorRed, res.msg);
-    sendTelegramMessageTimed(res.msg, telegramNotify.category, telegramNotify.urgent);
-  } else if (res.priority === priority.serious) {
-    console.error(constants.colorYellow, res.msg);
-    sendTelegramMessageTimed(res.msg, telegramNotify.category, telegramNotify.serious);
-  } else if (res.priority === priority.warning) {
-    console.error(res.msg);
-    sendTelegramMessageTimed(res.msg, telegramNotify.category, telegramNotify.warning);
-  }
-
-  // check for inactive channels
-  const inactive = inactiveChannels();
-  if (inactive) {
-    inactive.forEach(c => {
-      // typical node maintenance shouldn't take longer than 60 minutes; notify if a node
-      // is inactive for longer.
-      if (c.mins >= 60) {   // mins
-        let msg = 'channel ' + c.chan + ' with ' + (c.name || c.peer) + ' has been inactive for ';
-        if (c.mins > 60) msg += Math.floor(c.mins/60) + ' hours ' + c.mins % 60 + ' mins';
-        else msg += c.mins + ' mins';
-        const cat = 'telegram.notify.channel.inactive.' + c.chan;
-        const int = 60 * 60;  // an hour
-        console.log(msg);
-        sendTelegramMessageTimed(msg, cat, int);
-      }
-    })
+  // worker
+  if (isRunning(Worker.name)) {
+    console.log(`${Worker.name} is already running`);
+  } else {
+    console.log(`starting ${Worker.name} ...`);
+    startService(Worker.name);
   }
 }
 
-function lndPingLoop() {
-  try {
-    lndPingLoopExec();
-  } catch(err) {
-    console.error('lndPingLoop:', err.message);
-  }
-}
-
-function lndPingLoopExec() {
-  const prop = 'lndOfflineTelegramNotify';
-  const frequency = constants.services.launcher.lndTelegramNotify;
-  let prev = lndOffline;
-  try {
-    lndOffline = !isLndAlive(lndClient);
-  } catch(err) {
-    console.error('error pinging lnd:', err.message, 'assuming lnd is offline');
-    lndOffline = true;
-  }
-  if (lndOffline) {
-    console.log('\n' + date.format(new Date, 'MM/DD hh:mm:ss A'));
-    console.error(constants.colorRed, 'lnd is offline');
-    sendTelegramMessageTimed('lnd is offline', prop, frequency);
-  } else if (prev) {
-    console.log('\n' + date.format(new Date, 'MM/DD hh:mm:ss A'));
-    console.log(constants.colorGreen, 'lnd is back online');
-  } else if (prev === undefined) {
-    console.log('\n' + date.format(new Date, 'MM/DD hh:mm:ss A'));
-    console.log(constants.colorGreen, 'lnd is online');
-  }
-}
-
-// remove db records for rebalance processes that no longer exist
-function cleanDbRebalances() {
-  const pref = 'cleanDbRebalances:';
-  const dbUtils = require('../db/utils');
-  let list = dbUtils.listActiveRebalancesSync();
-  if (!list || list.length === 0) return;
-
-  let first = true;
-  list.forEach(l => {
-    if (!isRunningPidSync(l.pid)) {
-      if (first) {
-        console.log('\n' + date.format(new Date, 'MM/DD hh:mm:ss A'));
-        first = false;
-      }
-      console.log(pref, 'removing db record for process that no longer exist', l.pid);
-      dbUtils.deleteActiveRebalanceSync(l.pid);
-    }
-  })
-}
-
-lndPingLoop();  // detect if lnd is offline
-runLoop();
 setInterval(runLoop, loopInterval * 60 * 1000);
-setInterval(bosReconnect, bosReconnectInterval * 60 * 1000);
-setInterval(cleanDb, cleanDbInterval * 60 * 60 * 1000);
-setInterval(lndPingLoop, lndPingInterval * 1000);
-setInterval(cleanDbRebalances, cleanDbRebalancesInterval * 60 * 1000);
+runLoop();

@@ -1,4 +1,5 @@
-const lndClient = require('../api/connect');
+const importLazy = require('import-lazy')(require);
+const lndClient = importLazy('../api/connect');
 const {listPeersMapSync} = require('../lnd-api/utils');
 const {listChannelsSync} = require('../lnd-api/utils');
 const {listPendingChannelsSync} = require('../lnd-api/utils');

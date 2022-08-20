@@ -1,0 +1,12 @@
+#!/usr/bin/env node
+
+// resets the txn db table
+// don't use it or it may have an unintended consequence on jet stats result
+
+const {txnReset} = require('../db/utils');
+const {deleteProp} = require('../db/utils');
+
+txnReset();
+deleteProp('txn.forwards.timestamp');
+deleteProp('txn.forwards.offset');
+deleteProp('txn.payments.offset');

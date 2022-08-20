@@ -4,6 +4,51 @@ const deasync = require('deasync');
 const round = n => Math.round(n);
 
 module.exports = {
+  listPaymentsSync(lndClient, offset = 0, max = 100) {
+    const pref = 'listPaymentsSync:';
+    if (!lndClient) throw new Error(pref + ' lndClient missing');
+    const req = {
+      index_offset: offset,
+      max_payments: max
+    }
+    let done = false;
+    let response;
+    let error;
+    lndClient.listPayments(req, (err, resp) => {
+      error = err;
+      response = resp;
+      done = true;
+    })
+    while(!done) {
+      require('deasync').runLoopOnce();
+    }
+    return {error, response};
+  },
+  // lists forwards from a start date
+  // <timestamp> - starting time for the query as unix timestamp
+  // [max] - max forwards to return, default 100
+  listForwardsSync(lndClient, timestamp, offset = 0, max = 100) {
+    const pref = 'listForwardsSync:';
+    if (!lndClient) throw new Error(pref + ' lndClient missing');
+    if (!timestamp) throw new Error(pref + ' timestamp missing');
+    const req = {
+      start_time: timestamp,
+      index_offset: offset,
+      num_max_events: max
+    }
+    let done = false;
+    let response;
+    let error;
+    lndClient.forwardingHistory(req, (err, resp) => {
+      error = err;
+      response = resp;
+      done = true;
+    })
+    while(!done) {
+      require('deasync').runLoopOnce();
+    }
+    return {error, response};
+  },
   forwardHistorySync: function(lndClient, secs = 5 * 60, max = 1000) {
     if (!lndClient) throw new Error('forwardHistorySync: need lndClient');
     let done = false;

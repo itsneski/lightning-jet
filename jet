@@ -46,6 +46,11 @@ const {reconnect} = importLazy('./bos/reconnect');
 const {isLndAlive} = importLazy('./lnd-api/utils');
 const {inactiveChannels} = importLazy('./api/list-channels');
 
+const isInt = value => {
+  var x = parseFloat(value);
+  return !isNaN(value) && (x | 0) === x;
+}
+
 // service names, plus all for restart
 const serviceNames = getServiceNames();
 var serviceNamesPlus = serviceNames.slice();
@@ -86,6 +91,208 @@ cap
   .action((args, options, logger) => {
     return new Promise(async (resolve, reject) => {
       printStatus();
+    })
+  })
+
+  .command('stats', 'Shows channel profitability stats')
+  .option('--days [days]', 'Depth of history in days; max of ' + Math.floor(constants.maxTxnInterval/24) + ' days, default ' + Math.floor(constants.defaultTxnInterval/24))
+  .option('--hours [hours]', 'Depth of history in hours; max of ' + Math.floor(constants.maxTxnInterval/24) + ' days, default ' + Math.floor(constants.defaultTxnInterval/24))
+  .action((args, options, logger) => {
+    return new Promise(async (resolve, reject) => {
+      const hours = options.hours || (options.days && options.days * 24) || constants.defaultTxnInterval;
+      if (hours > constants.maxTxnInterval) return console.error('history depth exceeds the max of ' + constants.maxTxnInterval + ' hours (' + Math.floor(constants.maxTxnInterval/24) + ' days)');
+
+      const msec = new Date(new Date().toUTCString()).getTime();
+      const fromTimestamp = (msec - hours * 60 * 60 * 1000) * Math.pow(10, 6);
+      const {txnByChanAndType} = require('./db/utils');
+      const list = txnByChanAndType(fromTimestamp);
+      if (!list || list.length === 0) return console.log('no records found');
+
+      // get historical record to display % change
+      const fromT = (msec - 2 * hours * 60 * 60 * 1000) * Math.pow(10, 6);
+      const toT = (msec - hours * 60 * 60 * 1000) * Math.pow(10, 6);
+      const prevList = txnByChanAndType(fromT, toT);
+      let historyMap = {};
+      let historyTotal = {
+        profit: 0,
+        forward: { fee: 0, amount: 0 },
+        rebalance: { fee: 0, amount: 0 }
+      }
+      if (prevList && prevList.length > 0) {
+        prevList.sort((a, b) => a.txdate_ns - b.txdate_ns);
+        prevList.forEach(item => {
+          if (!historyMap[item.chan]) historyMap[item.chan] = { 
+            forward: { fee: 0, amount: 0 },
+            rebalance: { fee: 0, amount: 0 }
+          }
+          if (item.type === 'forward') {
+            historyMap[item.chan].forward.fee = item.total_fee;
+            historyMap[item.chan].forward.amount = item.total_amount;
+            historyTotal.forward.fee += item.total_fee;
+            historyTotal.forward.amount += item.total_amount;
+          } else {
+            historyMap[item.chan].rebalance.fee = item.total_fee;
+            historyMap[item.chan].rebalance.amount = item.total_amount;
+            historyTotal.rebalance.fee += item.total_fee;
+            historyTotal.rebalance.amount += item.total_amount;
+          }
+          historyMap[item.chan].delta = historyMap[item.chan].forward.fee - historyMap[item.chan].rebalance.fee;
+        })
+        historyTotal.profit = historyTotal.forward.fee - historyTotal.rebalance.fee;
+      }
+
+      let chanMap = {};
+      const chans = listChannelsSync(lndClient);
+      chans.forEach(c => {
+        chanMap[parseInt(c.chan_id)] = c.remote_pubkey;
+      })
+      let peerMap = {};
+      const peers = listPeersSync(lndClient);
+      peers.forEach(p => {
+        peerMap[p.id] = p.name;
+      })
+      let map = {};
+      list.forEach(item => {
+        const chan = parseInt(item.chan);
+        if (!map[chan]) map[chan] = {};
+        let p = map[chan];
+        if (item.type === 'forward') {
+          p.forward = {
+            amount: item.total_amount,
+            fee: item.total_fee
+          }
+        } else {
+          p.rebalance = {
+            amount: item.total_amount,
+            fee: item.total_fee
+          }
+        }
+      })
+      let combined = [];
+      Object.keys(map).forEach(k => {
+        let item = {};
+        item.chan = k;
+        item.peer = chanMap[k];
+        item.name = peerMap[chanMap[k]];
+        if (map[k].forward) item.forward = map[k].forward;
+        if (map[k].rebalance) item.rebalance = map[k].rebalance;
+        const feeForward = (item.forward && item.forward.fee) || 0;
+        const feeRebalance = (item.rebalance && item.rebalance.fee) || 0;
+        item.delta = feeForward - feeRebalance;
+        combined.push(item);
+      })
+
+      // print cumulative stats
+      const {withCommas} = require('./lnd-api/utils');
+      let total = 0;
+      let totalForwarded = { amount: 0, fee: 0 };
+      let totalRebalanced = { amount: 0, fee: 0 };
+      combined.forEach(item => {
+        total += item.delta;
+        totalForwarded.amount += (item.forward && item.forward.amount) || 0;
+        totalForwarded.fee += (item.forward && item.forward.fee) || 0;
+        totalRebalanced.amount += (item.rebalance && item.rebalance.amount) || 0;
+        totalRebalanced.fee += (item.rebalance && item.rebalance.fee) || 0;
+      })
+
+      let str = 'cumulative stats';
+      const days = isInt(hours/24) && Math.floor(hours/24);
+      if (days) str += ' over the past ' + days + ' day(s)';
+      else str += ' over the past ' + hours + ' hour(s)';
+      console.log(str + ':');
+
+      let cumulative = [];
+      cumulative.push({
+        period: 'current',
+        profit: total,
+        forwarded: withCommas(totalForwarded.amount),
+        earned: totalForwarded.fee,
+        rebalanced: withCommas(totalRebalanced.amount),
+        paid: totalRebalanced.fee
+      })
+      cumulative.push({
+        period: 'previous',
+        profit: historyTotal.profit,
+        forwarded: withCommas(historyTotal.forward.amount),
+        earned: historyTotal.forward.fee,
+        rebalanced: withCommas(historyTotal.rebalance.amount),
+        paid: historyTotal.rebalance.fee
+      })
+      console.log('this table displays data for two time periods, current and previous; e.g. display weekly data over the past week along with the data from a week ago');
+      console.table(cumulative);
+
+      // profitable channels
+      let profitable = [];
+      combined.forEach(item => {
+        if (item.delta < 0) return;
+        let rec = {
+          chan: item.chan,
+          peer: item.name,
+          profit: item.delta,
+          forwarded: (item.forward && item.forward.amount) || 0,
+          earned: (item.forward && item.forward.fee) || 0,
+          rebalanced: (item.rebalance && item.rebalance.amount) || 0,
+          paid: (item.rebalance && item.rebalance.fee) || 0,
+        }
+        const prev = historyMap[item.chan] && historyMap[item.chan].delta;
+        if (prev !== undefined && prev !== 0) {
+          const delta = rec.profit - prev;
+          if (delta !== 0) {
+            rec.delta = delta;
+          }
+          if (historyMap[item.chan].forward.amount !== 0) rec['delta_fw %'] = Math.round(100 * (rec.forwarded - historyMap[item.chan].forward.amount) / historyMap[item.chan].forward.amount);
+          if (historyMap[item.chan].rebalance.amount !== 0) rec['delta_rb %'] = Math.round(100 * (rec.rebalanced - historyMap[item.chan].rebalance.amount) / historyMap[item.chan].rebalance.amount);
+        }
+        profitable.push(rec);
+      })
+      profitable.sort((a, b) => b.profit - a.profit);
+
+      console.log('\nprofitable channels:');
+      if (profitable.length === 0) console.log('none found');
+      else {
+        console.log('-profit: profit in sats');
+        console.log('-forwarded: total sats forwarded');
+        console.log('-earned: total sats earned on forwards');
+        console.log('-rebalanced: total sats rebalanced');
+        console.log('-paid: total sats paid for rebalances');
+        console.log('-delta: change in profit (sats) since the last interval; e.g. 15 means that the profit has increased by 15 sats');
+        console.log('-delta_fw: change in sats (%) forwarded since the last interval; e.g. 25 means that the node forwarded 25% more sats comparing to the last interval');
+        console.log('-delta_rb: change in sats (%) rebalanced since the last interval; e.g. 25 means that the node rebalanced 25% more sats comparing to the last interval');
+        console.table(profitable);
+      }
+
+      // unprofitable channels
+      let unprofitable = [];
+      combined.forEach(item => {
+        if (item.delta > 0) return;
+        let rec = {
+          chan: item.chan,
+          peer: item.name,
+          loss: Math.abs(item.delta), // present loss as a positive integer
+          forwarded: (item.forward && item.forward.amount) || 0,
+          earned: (item.forward && item.forward.fee) || 0,
+          rebalanced: (item.rebalance && item.rebalance.amount) || 0,
+          paid: (item.rebalance && item.rebalance.fee) || 0,
+        }
+        const prev = historyMap[item.chan] && historyMap[item.chan].delta;
+        if (prev !== undefined && prev !== 0) {
+          const delta = -(item.delta - prev);
+          if (delta !== 0) {
+            rec.delta = delta;
+          }
+          if (historyMap[item.chan].forward.amount !== 0) rec['delta_fw %'] = Math.round(100 * (rec.forwarded - historyMap[item.chan].forward.amount) / historyMap[item.chan].forward.amount);
+          if (historyMap[item.chan].rebalance.amount !== 0) rec['delta_rb %'] = Math.round(100 * (rec.rebalanced - historyMap[item.chan].rebalance.amount) / historyMap[item.chan].rebalance.amount);
+        }
+        unprofitable.push(rec);
+      })
+      unprofitable.sort((a, b) => b.loss - a.loss);
+
+      console.log('\nunprofitable channels:');
+      if (unprofitable.length === 0) console.log('none found');
+      else {
+        console.log('-delta: change in loss (sats) since the last interval; e.g. 15 means that the loss has increased by 15 sats');
+        console.table(unprofitable);
+      }
     })
   })
 
@@ -291,7 +498,6 @@ cap
       if (!isLndAlive(lndClient)) return reject('lnd is offline');
 
       try {
-        const isInt = n => n % 1 === 0;
         let days = options.days || 1;
         days = (options.hours) ? options.hours / 24 : days;
 
