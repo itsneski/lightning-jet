@@ -15,7 +15,7 @@ const {HtlcLogger} = require('./utils');
 const {TelegramBot} = require('./utils');
 const {getPropSync} = require('../db/utils');
 const {setPropSync} = require('../db/utils');
-const {getPropAndDateSync} = require('../db/utils');
+const {getPropWithErrSync} = require('../db/utils');
 const {deleteProp} = require('../db/utils');
 const {recordTxn} = require('../db/utils');
 const {reconnect} = require('../bos/reconnect');
@@ -277,8 +277,12 @@ function txnLoopImpl() {
   // get timestamp and offset
   const timestampProp = propPref + '.forwards.timestamp';
   const offsetProp = propPref + '.forwards.offset';
-  let timestamp = getPropSync(timestampProp);
-  let offset = getPropSync(offsetProp) || 0;
+  let ret = getPropWithErrSync(timestampProp);
+  if (ret.error) return console.warn(pref, 'error getting timestamp prop, skip', ret.error);
+  let timestamp = ret.val;
+  ret = getPropWithErrSync(offsetProp);
+  if (ret.error) return console.warn(pref, 'error getting offset prop, skip', ret.error);
+  let offset = ret.val || 0;
   if (timestamp) {
     if (timestamp < defStart) {
       console.log(pref, 'reset timestamp since its older than default');

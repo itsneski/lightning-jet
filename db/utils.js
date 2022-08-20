@@ -464,6 +464,32 @@ module.exports = {
       closeHandle(db);
     }
   },
+  getPropWithErrSync(name) {
+    let db = getHandle();
+    let done;
+    let data;
+    let error;
+    try {
+      db.serialize(function() {
+        let q = 'SELECT val FROM ' + NAMEVAL_TABLE + ' WHERE name="' + name + '"';
+        db.each(q, function(err, row) {
+          data = row;
+        }, function(err) {
+          error = err;
+          done = true;
+        })
+      })
+      while(done === undefined) {
+        require('deasync').runLoopOnce();
+      }
+    } catch(err) {
+      console.error('getPropWithErrSync:', err.message);
+      error = err;
+    } finally {
+      closeHandle(db);
+    }
+    return { val: data && data.val, error: error };
+  },
   setPropSync(name, val) {
     let db = getHandle();
     try {
