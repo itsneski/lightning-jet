@@ -89,6 +89,7 @@ jet help
 |`jet peers`|Lists peers classified into inbound, outbound, and balanced based on htlc history. Notable columns: `p` - % of [inbound or outbound] routing by the peer out of a total [inbound or outbound] across all peers; `ppm` - peer's current ppm rate; `margin` - rebalance will be profitable as long as its ppm is below the margin.|
 |`jet monitor`|Monitors ongoing rebalances, rebalance history, and stuck htlcs. Warns about the state of BOLT database (channel.db); for example, jet will warn when the channel.db grows over a threshold.|
 |`jet monitor --status`|Monitors the status of rebalances; shows whether rebalances are paused or active; provides recommendation for local ppm range.|
+|`jet stats`|Displays profitability metrics over a time period, including delta(s) with previous time period. Node operators can use this tool to A/B test new channels and fee updates on existing channels.|
 |`jet htlc-analyzer`|Analyzes failed htlcs and lists peers sorted based on missed routing opportunities. Missed routing opportunities are typically due to [outbound] peers not having sufficient liquidity and/or having low fees.|
 |`jet htlc-analyzer ln2me --hours 12`|Shows missed routing opportunities for ln2me node over the past 12 hours.|
 |`jet analyze-fees`|Analyzes fees for [outbound] peers and recommends whether to increase or decrease fees based on routing history.|
@@ -211,6 +212,7 @@ A list of config settings under `./api/config.json`:
 |--|--|
 |`macaroonPath`|`admin.macaroon` absolute path for Jet connect to LND.|
 |`tlsCertPath`|tls cert absolute path for Jet connect to LND.|
+|`serverAddress`|server address and port number of lnd host; defaults to localhost:10009.|
 |`telegramToken`|The telegram bot token.|
 |`avoid`|A list of nodes to avoid during manual and automated rebalances. `jet rebalance` avoids expensive nodes automatically. the `avoid` setting can help speed things up by providing a static list of nodes to avoid.|
 
