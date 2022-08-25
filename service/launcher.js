@@ -66,7 +66,7 @@ function runLoopExec() {
     startService(Rebalancer.name);
   }
 
-  // check that the auto rebalancer isnt stuck
+  // check that the rebalancer isnt stuck
   if (isRunning(Rebalancer.name)) {
     let hb = Rebalancer.lastHeartbeat();
     const rbInterval = constants.services.rebalancer.loopInterval;
@@ -139,6 +139,28 @@ function runLoopExec() {
   } else {
     console.log(`starting ${Worker.name} ...`);
     startService(Worker.name);
+  }
+
+  // check that the worker isn't stuck
+  if (isRunning(Worker.name)) {
+    let hb = Worker.lastHeartbeat();
+    const wkInterval = constants.services.worker.loopInterval;
+    let msg = Worker.name + ':';
+    if (!hb) {
+      msg += ' heartbeat hasnt yet been generated, skipping the check';
+      console.log(constants.colorYellow, msg);
+    } else if (Date.now() - hb > 2 * wkInterval * 60 * 1000) {
+      msg += ' detected a big time gap since last heartbeat, its likely that the service is down. attempting to restart';
+      console.error(constants.colorRed, '\n' + msg);
+
+      // notify via telegram
+      const {sendMessage} = require('../api/telegram');
+      sendMessage(msg);
+
+      // restarting worker
+      console.log(`restarting ${Worker.name} ...`);
+      restartService(Worker.name);
+    }
   }
 }
 

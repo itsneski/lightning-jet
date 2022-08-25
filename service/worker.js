@@ -16,8 +16,9 @@ const {inactiveChannels} = require('../api/list-channels');
 const {listForwardsSync} = require('../lnd-api/utils');
 const {listPaymentsSync} = require('../lnd-api/utils');
 const {getInfoSync} = require('../lnd-api/utils');
+const serviceUtils = require('./utils');
 
-const loopInterval = 5;  // mins
+const loopInterval = constants.services.worker.loopInterval;  // mins
 const bosReconnectInterval = 60;  // mins
 const lndPingInterval = 60; // seconds
 const cleanDbRebalancesInterval = 1;  // mins
@@ -68,6 +69,8 @@ function runLoop() {
 function runLoopExec() {
   const pref = 'runLoopExec:';
   console.log('\n' + date.format(new Date, 'MM/DD hh:mm:ss A'));
+
+  serviceUtils.Worker.recordHeartbeat(); // indicates that Worker isn't stuck
 
   if (lndOffline) {
     console.warn(constants.colorYellow, 'lnd is offline, skipping the loop');
