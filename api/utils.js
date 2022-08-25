@@ -251,6 +251,7 @@ module.exports = {
     return (self) ? res.length > 1 : res.length > 0;
   },
   listPeersFormattedSync(days = 7) {
+    const pref = 'listPeersFormattedSync:';
     let IN_PEERS = {};
     let OUT_PEERS = {};
     let BALANCED_PEERS = {};
@@ -288,6 +289,7 @@ module.exports = {
     let inPeers = [];
     peers.forEach(p => {
       if (IN_PEERS[p.id]) {
+        if (!feeMap[p.id]) return console.warn(pref, 'couldnt find fee for', p.id);
         let peer = convertPeer(p, IN_PEERS[p.id], true);
         peer.ppm = parseInt(feeMap[p.id].local.rate);
         inPeers.push(peer);
@@ -316,6 +318,7 @@ module.exports = {
     let balancedPeers = [];
     peers.forEach(p => {
       if (BALANCED_PEERS[p.id]) {
+        if (!feeMap[p.id]) return console.warn(pref, 'couldnt find fee for', p.id);
         let peer = convertPeer(p, BALANCED_PEERS[p.id]);
         peer.ppm = parseInt(feeMap[p.id].local.rate);
         balancedPeers.push(peer);
