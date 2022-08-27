@@ -16,7 +16,9 @@ const {inactiveChannels} = require('../api/list-channels');
 const {listForwardsSync} = require('../lnd-api/utils');
 const {listPaymentsSync} = require('../lnd-api/utils');
 const {getInfoSync} = require('../lnd-api/utils');
+const {listPeersSync} = require('../lnd-api/utils');
 const serviceUtils = require('./utils');
+const {sendMessage} = require('../api/telegram');
 
 const loopInterval = constants.services.worker.loopInterval;  // mins
 const bosReconnectInterval = 60;  // mins
@@ -159,6 +161,7 @@ function cleanDbRebalancesExec() {
   let list = dbUtils.listActiveRebalancesSync();
   if (!list || list.length === 0) return;
 
+  let toKill = [];
   let first = true;
   list.forEach(l => {
     if (!isRunningPidSync(l.pid)) {
@@ -168,6 +171,30 @@ function cleanDbRebalancesExec() {
       }
       console.log(pref, 'removing db record for process that no longer exist', l.pid);
       dbUtils.deleteActiveRebalanceSync(l.pid);
+    } else {
+      const delta = (Date.now() - l.date) / 60 / 1000;  // mins
+      // see if the process exceeds 2x of max runtime
+      if (delta > 2 * l.mins) toKill.push({
+        pid: l.pid,
+        from: l.from_node,
+        to: l.to_node,
+        delta: delta
+      })
+    }
+
+    if (toKill.length > 0) {
+      let peerMap = {};
+      const peers = listPeersSync(lndClient);
+      peers.forEach(p => {
+        peerMap[p.id] = p.name;
+      })
+      toKill.forEach(p => {
+        const msg = 'rebalance process ' + l.pid + ' from ' + peerMap[p.from] + ' to ' + peerMap[p.to] + ' has been running for ' + Math.round(p.delta) + ' mins, it is likely stuck, terminating';
+        console.error(constants.colorRed, pref + ' ' + msg);
+        sendMessage(msg);
+        process.kill(l.pid);
+        dbUtils.deleteActiveRebalanceSync(l.pid);
+      })
     }
   })
 }
