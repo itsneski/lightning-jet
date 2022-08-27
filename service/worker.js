@@ -181,22 +181,22 @@ function cleanDbRebalancesExec() {
         delta: delta
       })
     }
-
-    if (toKill.length > 0) {
-      let peerMap = {};
-      const peers = listPeersSync(lndClient);
-      peers.forEach(p => {
-        peerMap[p.id] = p.name;
-      })
-      toKill.forEach(p => {
-        const msg = 'rebalance process ' + l.pid + ' from ' + peerMap[p.from] + ' to ' + peerMap[p.to] + ' has been running for ' + Math.round(p.delta) + ' mins, it is likely stuck, terminating';
-        console.error(constants.colorRed, pref + ' ' + msg);
-        sendMessage(msg);
-        process.kill(l.pid);
-        dbUtils.deleteActiveRebalanceSync(l.pid);
-      })
-    }
   })
+
+  if (toKill.length > 0) {
+    let peerMap = {};
+    const peers = listPeersSync(lndClient);
+    peers.forEach(p => {
+      peerMap[p.id] = p.name;
+    })
+    toKill.forEach(p => {
+      const msg = 'rebalance process ' + l.pid + ' from ' + peerMap[p.from] + ' to ' + peerMap[p.to] + ' has been running for ' + Math.round(p.delta) + ' mins, it is likely stuck, terminating';
+      console.error(constants.colorRed, pref + ' ' + msg);
+      sendMessage(msg);
+      process.kill(l.pid);
+      dbUtils.deleteActiveRebalanceSync(l.pid);
+    })
+  }
 }
 
 var txnLoopRunning = false; // just a precaution in case the initial loop runs too long
