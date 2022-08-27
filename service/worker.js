@@ -190,11 +190,11 @@ function cleanDbRebalancesExec() {
       peerMap[p.id] = p.name;
     })
     toKill.forEach(p => {
-      const msg = 'rebalance process ' + l.pid + ' from ' + peerMap[p.from] + ' to ' + peerMap[p.to] + ' has been running for ' + Math.round(p.delta) + ' mins, it is likely stuck, terminating';
+      const msg = 'rebalance process ' + p.pid + ' from ' + peerMap[p.from] + ' to ' + peerMap[p.to] + ' has been running for ' + Math.round(p.delta) + ' mins, it is likely stuck, terminating';
       console.error(constants.colorRed, pref + ' ' + msg);
       sendMessage(msg);
-      process.kill(l.pid);
-      dbUtils.deleteActiveRebalanceSync(l.pid);
+      process.kill(p.pid);
+      dbUtils.deleteActiveRebalanceSync(p.pid);
     })
   }
 }
