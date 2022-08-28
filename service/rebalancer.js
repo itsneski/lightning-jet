@@ -83,13 +83,16 @@ function runLoop() {
 }
 
 function runLoopImpl() {
-  if (!isLndAlive(lndClient)) {
-    return console.log(colorYellow, '\n' + date.format(new Date, 'MM/DD hh:mm:ss A') + ', lnd is offline, skipping the loop');
-  }
-
-  console.log('\n' + date.format(new Date, 'MM/DD hh:mm:ss A'), 'run rebalancing loop');
+  console.log('\n' + date.format(new Date, 'MM/DD hh:mm:ss A'));
 
   serviceUtils.Rebalancer.recordHeartbeat();
+
+  if (!isLndAlive(lndClient)) {
+    return console.log(colorYellow, 'lnd is offline, skipping the loop');
+  }
+
+  console.log('run rebalancing loop');
+
   // build liquidity table: how much liquidity is available on the local side
   // for inbound nodes, how much liquidity outbound nodes need, do balanced
   // peers have at least the min local liquidity
