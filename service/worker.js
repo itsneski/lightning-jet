@@ -185,12 +185,17 @@ function cleanDbRebalancesExec() {
 
   if (toKill.length > 0) {
     let peerMap = {};
-    const peers = listPeersSync(lndClient);
-    peers.forEach(p => {
-      peerMap[p.id] = p.name;
-    })
+    try {
+      const peers = listPeersSync(lndClient);
+      peers.forEach(p => {
+        peerMap[p.id] = p.name;
+      })
+    } catch(err) {
+      // could not get peer list, perhaps lnd is down
+      // proceed with node id(s) instead of names
+    }
     toKill.forEach(p => {
-      const msg = 'rebalance process ' + p.pid + ' from ' + peerMap[p.from] + ' to ' + peerMap[p.to] + ' has been running for ' + Math.round(p.delta) + ' mins, it is likely stuck, terminating';
+      const msg = 'rebalance process ' + p.pid + ' from ' + (peerMap[p.from] || p.from) + ' to ' + (peerMap[p.to] || p.to) + ' has been running for ' + Math.round(p.delta) + ' mins, it is likely stuck, terminating';
       console.error(constants.colorRed, pref + ' ' + msg);
       sendMessage(msg);
       process.kill(p.pid);
