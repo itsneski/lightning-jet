@@ -41,6 +41,9 @@ npm install --build-from-source --python=/usr/bin/python3
 nano ./api/config.json
 ```
 Edit `config.json`: set correct absolute (not relative) paths for `macaroonPath` and `tlsCertPath`. On umbrel, macaroons are typically located at `/home/umbrel/umbrel/lnd/data/chain/bitcoin/mainnet/admin.macaroon`, tls cert is at `/home/umbrel/umbrel/lnd/tls.cert`.
+
+> On umbrel0.5.0+, macaroons are located at `/home/umbrel/umbrel/app-data/lightning/data/lnd/data/chain/bitcoin/mainnet/admin.macaroon` and tls cert at `/home/umbrel/umbrel/app-data/lightning/data/lnd/tls.cert`.
+
 ```bash
 nano ~/.profile
 ```
@@ -55,6 +58,14 @@ Next, execute the updated `.profile` for your current terminal session. The path
 . ~/.profile
 ```
 Test your path by running `jet -v`. Your path is set correctly if it prints out help. Fix the `PATH` in `~/.profile` in case of an error.
+
+#### Upgrade to Umbrel0.5.0 (Umbrel5)
+
+Umbrel5 changed the location of macaroons and tls cert files. Edit config file to set correct paths for macaroons at `/home/umbrel/umbrel/app-data/lightning/data/lnd/data/chain/bitcoin/mainnet/admin.macaroon` and tls cert at `/home/umbrel/umbrel/app-data/lightning/data/lnd/tls.cert`.
+
+```bash
+nano ./api/config.json
+```
 
 #### RaspiBlitz
 
