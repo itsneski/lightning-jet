@@ -430,15 +430,17 @@ module.exports = {
   },
   listChannelsSync: function(lndClient) {
     let channels;
+    let error;
+    let done;
     lndClient.listChannels({}, function(err, response) {
-      if (err) {
-        throw new Error(err);
-      }
-      channels = response.channels;
+      error = err;
+      channels = response && response.channels;
+      done = true;
     })
-    while(channels === undefined) {
+    while(done === undefined) {
       require('deasync').runLoopOnce();
     }
+    if (error) throw new Error(error);
     return channels;
   },
   getNodesInfo: function(lndClient, nodes, callback) {
