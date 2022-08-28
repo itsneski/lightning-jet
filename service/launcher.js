@@ -37,37 +37,43 @@ function runLoopExec() {
   console.log('\n' + date.format(new Date, 'MM/DD hh:mm:ss A'));
 
   // telegram
+  let startedTelegram;
   if (isRunning(TelegramBot.name)) {
-    console.log(`${TelegramBot.name} is already running`)
+    // already running
   } else {
     if (isConfigured(TelegramBot.name)) {
       console.log(`starting ${TelegramBot.name} ...`);
       startService(TelegramBot.name);
+      startedTelegram = true;
     } else {
       console.error('the telegram bot is not yet configured, cant start the service.', constants.telegramBotHelpPage);
     }
   }
 
   // htlc logger
+  let startedLogger;
   if (isRunning(HtlcLogger.name)) {
-    console.log(`${HtlcLogger.name} is already running`)
+    // already running
   } else {
     console.log(`starting ${HtlcLogger.name} ...`);
     startService(HtlcLogger.name);
+    startedLogger = true;
   }
 
   // rebalancer
+  let startedRebalancer;
   if (isRunning(Rebalancer.name)) {
-    console.log(`${Rebalancer.name} is already running`)
+    // already running
   } else if (isDisabled(Rebalancer.name)) {
     console.log(`${Rebalancer.name} is disabled`)
   } else {
     console.log(`starting ${Rebalancer.name} ...`);
     startService(Rebalancer.name);
+    startedRebalancer = true;
   }
 
   // check that the rebalancer isnt stuck
-  if (isRunning(Rebalancer.name)) {
+  if (!startedRebalancer && isRunning(Rebalancer.name)) {
     let hb = Rebalancer.lastHeartbeat();
     const rbInterval = constants.services.rebalancer.loopInterval;
     let msg = Rebalancer.name + ':';
@@ -89,7 +95,7 @@ function runLoopExec() {
   }
 
   // check that the telegram service isnt stuck
-  if (isRunning(TelegramBot.name)) {
+  if (!startedTelegram && isRunning(TelegramBot.name)) {
     let hbFees = TelegramBot.lastHeartbeat('fees');
     let hbPoll = TelegramBot.lastHeartbeat('poll');
     const feeInterval = constants.services.telegram.feeInterval;
@@ -125,24 +131,28 @@ function runLoopExec() {
   }
 
   // check that the logger service isn't stuck
-  let prop = getPropAndDateSync(constants.services.logger.errorProp);
-  if (prop) {
-    console.error('detected an error in the logger service:', prop.val);
-    console.log('attempting to restart');
-    restartService(HtlcLogger.name);
-    deleteProp(constants.services.logger.errorProp);
+  if (!startedLogger) {
+    let prop = getPropAndDateSync(constants.services.logger.errorProp);
+    if (prop) {
+      console.error('detected an error in the logger service:', prop.val);
+      console.log('attempting to restart');
+      restartService(HtlcLogger.name);
+      deleteProp(constants.services.logger.errorProp);
+    }
   }
 
   // worker
+  let startedWorker;
   if (isRunning(Worker.name)) {
-    console.log(`${Worker.name} is already running`);
+    // already running
   } else {
     console.log(`starting ${Worker.name} ...`);
     startService(Worker.name);
+    startedWorker = true;
   }
 
   // check that the worker isn't stuck
-  if (isRunning(Worker.name)) {
+  if (!startedWorker && isRunning(Worker.name)) {
     let hb = Worker.lastHeartbeat();
     const wkInterval = constants.services.worker.loopInterval;
     let msg = Worker.name + ':';
