@@ -88,15 +88,17 @@ module.exports = {
   },
   stuckHtlcsSync: function(lndClient) {
     let data;
+    let error;
+    let done;
     lndClient.listChannels({}, function(err, response) {
-      if (err) {
-        throw new Error(err);
-      }
+      error = err;
       data = response;
+      done = true;
     })
-    while(data === undefined) {
+    while(done === undefined) {
       require('deasync').runLoopOnce();
     }
+    if (error) throw new Error(error);
     let htlcs = [];
     data.channels.forEach(c => {
       if (c.pending_htlcs.length === 0) return;
@@ -123,15 +125,17 @@ module.exports = {
   },
   listPendingChannelsSync: function(lndClient) {
     let channels;
+    let error;
+    let done;
     lndClient.pendingChannels({}, function(err, response) {
-      if (err) {
-        throw new Error(err);
-      }
+      error = err;
       channels = response;
+      done = true;
     })
-    while(channels === undefined) {
+    while(done === undefined) {
       require('deasync').runLoopOnce();
     }
+    if (error) throw new Error(error);
     return channels;
   },
   htlcHistorySync: function(lndClient, days = 7) {
