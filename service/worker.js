@@ -5,30 +5,22 @@ const date = require('date-and-time');
 const config = importLazy('../api/config');
 const constants = require('../api/constants');
 const lndClient = importLazy('../api/connect');
-const {isRunning} = require('./utils');
-const {isConfigured} = require('./utils');
-const {isDisabled} = require('./utils');
-const {startService} = require('./utils');
-const {restartService} = require('./utils');
-const {Rebalancer} = require('./utils');
-const {HtlcLogger} = require('./utils');
-const {TelegramBot} = require('./utils');
-const {getPropSync} = require('../db/utils');
 const {setPropSync} = require('../db/utils');
 const {getPropWithErrSync} = require('../db/utils');
-const {deleteProp} = require('../db/utils');
 const {recordTxn} = require('../db/utils');
 const {reconnect} = require('../bos/reconnect');
 const {isLndAlive} = importLazy('../lnd-api/utils');
-const {readLastLineSync} = require('../api/utils');
 const {sendTelegramMessageTimed} = require('../api/utils');
 const {isRunningPidSync} = require('../api/utils');
 const {inactiveChannels} = require('../api/list-channels');
 const {listForwardsSync} = require('../lnd-api/utils');
 const {listPaymentsSync} = require('../lnd-api/utils');
 const {getInfoSync} = require('../lnd-api/utils');
+const {listPeersSync} = require('../lnd-api/utils');
+const serviceUtils = require('./utils');
+const {sendMessage} = require('../api/telegram');
 
-const loopInterval = 5;  // mins
+const loopInterval = constants.services.worker.loopInterval;  // mins
 const bosReconnectInterval = 60;  // mins
 const lndPingInterval = 60; // seconds
 const cleanDbRebalancesInterval = 1;  // mins
@@ -80,69 +72,11 @@ function runLoopExec() {
   const pref = 'runLoopExec:';
   console.log('\n' + date.format(new Date, 'MM/DD hh:mm:ss A'));
 
-  // htlc logger & rebalancer need lnd, so it does not make
-  // sense to attempt to start em
+  serviceUtils.Worker.recordHeartbeat(); // indicates that Worker isn't stuck
+
   if (lndOffline) {
     console.warn(constants.colorYellow, 'lnd is offline, skipping the loop');
     return;
-  }
-
-  // check that the auto rebalancer isnt stuck
-  if (isRunning(Rebalancer.name)) {
-    let hb = Rebalancer.lastHeartbeat();
-    const rbInterval = constants.services.rebalancer.loopInterval;
-    let msg = Rebalancer.name + ':';
-    if (!hb) {
-      msg += ' heartbeat hasnt yet been generated, skipping the check';
-      console.log(constants.colorYellow, msg);
-    } else if (Date.now() - hb > 2 * rbInterval * 1000) {
-      msg += ' detected a big time gap since last heartbeat, its likely that the service is down. attempting to restart';
-      console.error(constants.colorRed, '\n' + msg);
-
-      // notify via telegram
-      const {sendMessage} = require('../api/telegram');
-      sendMessage(msg);
-
-      // restarting rebalancer
-      console.log(`restarting ${Rebalancer.name} ...`);
-      restartService(Rebalancer.name);
-    }
-  }
-
-  // check that the telegram service isnt stuck
-  if (isRunning(TelegramBot.name)) {
-    let hbFees = TelegramBot.lastHeartbeat('fees');
-    let hbPoll = TelegramBot.lastHeartbeat('poll');
-    const feeInterval = constants.services.telegram.feeInterval;
-    const pollInterval = constants.services.telegram.pollInterval;
-
-    let msg = TelegramBot.name + ':';
-    if (!hbFees || !hbPoll) {
-      msg += ' heartbeat has not yet been generated, skipping the check';
-      console.log(constants.colorYellow, msg);
-    } else if (Date.now() - hbFees > 2 * feeInterval * 1000) {
-      msg += ' detected a big time gap since the last fees heartbeat, its likely that the service is down. attempting to restart';
-      console.error(constants.colorRed, msg);
-
-      // notify via telegram
-      const {sendMessage} = require('../api/telegram');
-      sendMessage(msg);
-
-      // restarting telegram
-      console.log(`restarting ${TelegramBot.name} ...`);
-      restartService(TelegramBot.name);
-    } else if (Date.now() - hbPoll > 2 * pollInterval * 1000) {
-      msg += ' detected a big time gap since the last poll heartbeat, its likely that the service is down. attempting to restart';
-      console.error(constants.colorRed, msg);
-
-      // notify via telegram
-      const {sendMessage} = require('../api/telegram');
-      sendMessage(msg);
-
-      // restarting telegram
-      console.log(`restarting ${TelegramBot.name} ...`);
-      restartService(TelegramBot.name);
-    }
   }
 
   // check channel db size
@@ -227,6 +161,7 @@ function cleanDbRebalancesExec() {
   let list = dbUtils.listActiveRebalancesSync();
   if (!list || list.length === 0) return;
 
+  let toKill = [];
   let first = true;
   list.forEach(l => {
     if (!isRunningPidSync(l.pid)) {
@@ -236,8 +171,37 @@ function cleanDbRebalancesExec() {
       }
       console.log(pref, 'removing db record for process that no longer exist', l.pid);
       dbUtils.deleteActiveRebalanceSync(l.pid);
+    } else {
+      const delta = (Date.now() - l.date) / 60 / 1000;  // mins
+      // see if the process exceeds 2x of max runtime
+      if (delta > 2 * l.mins) toKill.push({
+        pid: l.pid,
+        from: l.from_node,
+        to: l.to_node,
+        delta: delta
+      })
     }
   })
+
+  if (toKill.length > 0) {
+    let peerMap = {};
+    try {
+      const peers = listPeersSync(lndClient);
+      peers.forEach(p => {
+        peerMap[p.id] = p.name;
+      })
+    } catch(err) {
+      // could not get peer list, perhaps lnd is down
+      // proceed with node id(s) instead of names
+    }
+    toKill.forEach(p => {
+      const msg = 'rebalance process ' + p.pid + ' from ' + (peerMap[p.from] || p.from) + ' to ' + (peerMap[p.to] || p.to) + ' has been running for ' + Math.round(p.delta) + ' mins, it is likely stuck, terminating';
+      console.error(constants.colorRed, pref + ' ' + msg);
+      sendMessage(msg);
+      process.kill(p.pid);
+      dbUtils.deleteActiveRebalanceSync(p.pid);
+    })
+  }
 }
 
 var txnLoopRunning = false; // just a precaution in case the initial loop runs too long

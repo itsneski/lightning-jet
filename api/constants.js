@@ -57,6 +57,9 @@ exports.services = {
   launcher: {
     lndTelegramNotify: 5 * 60,  // seconds
     txnInterval: 1  // mins
+  },
+  worker: {
+    loopInterval: 5   // minutes
   }
 }
 
@@ -65,9 +68,9 @@ exports.channeldb = {
   sizeThreshold: {  // in gb
     notfound: -1,  // channel.db not found
     normal: 0,
-    warning: 2, // >2
-    serious: 5,
-    urgent: 8
+    warning: 4, // >4
+    serious: 8,
+    urgent: 16
   },
   telegramNotify: {
     category: 'telegram.notify.channeldb',

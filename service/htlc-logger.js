@@ -4,16 +4,26 @@
 // logs channel state updates into the jet db.
 //
 // jet start logger
+// jet stop logger
+// jet restart logger
 
-
+const date = require('date-and-time');
+const constants = require('../api/constants');
 const routerRpc = require('../api/router-rpc');
 const lnRpc = require('../api/ln-rpc');
+const lndClient = require('../api/connect');
 const {recordHtlc} = require('../db/utils');
 const {isRunningSync} = require('../api/utils');
 const {setPropSync} = require('../db/utils');
 const {recordChannelEvent} = require('../db/utils');
-const constants = require('../api/constants');
-const date = require('date-and-time');
+const {isLndAlive} = require('../lnd-api/utils');
+
+const loopInterval = 20; // secs
+
+var lastError;
+var lndOffline;
+
+const formattedDate = () => date.format(new Date, 'MM/DD hh:mm:ss A');
 
 // only one instance allowed
 const fileName = require('path').basename(__filename);
@@ -22,9 +32,7 @@ if (isRunningSync(fileName, true)) {
 }
 
 async function subscribeToHtlcs() {
-  console.log('\n---------------------------------------');
-  console.log(date.format(new Date, 'MM/DD hh:mm:ss A'));
-  console.log('subscribing to htlc events');
+  console.log(formattedDate() + ' subscribing to htlc events');
   for await (const event of routerRpc.subscribeHtlcEvents()) {
     let lf = event.link_fail_event;
     // filter events
@@ -35,9 +43,7 @@ async function subscribeToHtlcs() {
 }
 
 async function subscribeToChannelEvents() {
-  console.log('\n---------------------------------------');
-  console.log(date.format(new Date, 'MM/DD hh:mm:ss A'));
-  console.log('subscribing to channel events');
+  console.log(formattedDate() + ' subscribing to channel events');
   for await (const event of lnRpc.subscribeChannelEvents()) {
     try {
       logChannelUpdate(event);
@@ -83,16 +89,67 @@ function logChannelUpdate(event) {
 }
 
 function processError(error) {
-  console.error(date.format(new Date, 'MM/DD hh:mm:ss A'));
-  console.error('log error:', error.toString());
-  // record in the db so that the service will be restarted
-  setPropSync(constants.services.logger.errorProp, error.toString());
+  const pref = 'processError:';
+  console.error(formattedDate(), pref, error.toString());
+
+  // trigger lnd [is alive] check
+  lastError = error;
 }
 
-subscribeToHtlcs().catch(error => {
-  processError(error);
-})
+function runLoop() {
+  const pref = 'runLoop:';
+  try {
+    runLoopImpl();
+  } catch(err) {
+    // trigger restart?
+    console.error(formattedDate(), pref, error);
+    console.error(formattedDate(), pref, 'triggering restart');
+    setPropSync(constants.services.logger.errorProp, err.toString());
+  }
+}
 
-subscribeToChannelEvents().catch(error => {
-  processError(error);
-})
+function runLoopImpl() {
+  const pref = 'runLoopImpl:';
+
+  // run the loop on first lnd check or when lnd is offline or when there was an error
+  if (lndOffline === undefined || lndOffline || lastError) {
+    const prev = lndOffline;
+    try {
+      lndOffline = !isLndAlive(lndClient);
+    } catch(err) {
+      console.error(formattedDate(), pref, err.toString(), 'assuming lnd is offline');
+      lndOffline = true;
+    }
+    if (lndOffline) {
+      if (prev || prev === undefined) console.warn(constants.colorYellow, formattedDate() + ' lnd is offline');
+      else console.error(constants.colorRed, formattedDate() + ' lnd went offline');
+    } else if (lastError) {
+      // lnd is online, but there was an error; trigger restart just in case
+      console.warn(constants.colorYellow, formattedDate() + ' error detected ' + lastError.toString() + '; triggering restart');
+      setPropSync(constants.services.logger.errorProp, lastError.toString());
+    } else if (prev) {
+      console.log(constants.colorGreen, formattedDate() + ' lnd is back online');
+      init();
+    } else if (prev === undefined) {
+      console.log(constants.colorGreen, formattedDate() + ' lnd is online');
+      init();
+    }
+    lastError = undefined;  // reset
+  } else {
+    // skip
+  }
+}
+
+function init() {
+  subscribeToHtlcs().catch(error => {
+    processError(error);
+  })
+
+  subscribeToChannelEvents().catch(error => {
+    processError(error);
+  })
+}
+
+
+runLoop();
+setInterval(runLoop, loopInterval * 1000);
