@@ -620,7 +620,7 @@ cap
       const chans = listChannels();
       if (!chans) return console.log('no channels found, likely due to an error');
       if (chans.active && chans.active.length > 0) {
-        console.log('active channels:');
+        console.log('all channels:');
         console.table(chans.active);
       }
 
