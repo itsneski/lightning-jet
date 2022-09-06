@@ -1,7 +1,10 @@
-// new auto rebalancer (prev is in autorebalance.js)
+// automatically rebalances channels based on on routing volume,
+// missed routing opportunities (htlcs), and other variables.
+//
 // start: jet start rebalancer
 // stop: jet stop rebalancer
-// log: /tmp/rebalancer.log
+// restart: jet restart rebalancer
+// log: /tmp/jet-rebalancer.log
 
 const testModeOn = global.testModeOn;
 if (testModeOn) console.log('test mode on');
@@ -166,13 +169,17 @@ function runLoopImpl() {
 
     const inflight = satsInFlight(n.peer);
     console.log('  sats inflight:', inflight);
-    const min = Math.min(minLocal, Math.round(n.capacity / 2));
 
-    // calculate needs and has; take into account inflight sats
-    // dont overcommit liquidity, max it at 50% of capacity
+    // calculate sats that peers need and sats they have
+    // take into account inflight sats
+    // the goal is to not overcommit available liquidity, max it at 50% of
+    // channel capacity; make sure peers have minimum sats locally, otherwise
+    // they wont revive (or it will take too long), max it at 20%
+    // of channel capacity
+    const min = Math.min(minLocal, Math.round(.2 * n.capacity));
     const needs = min - (n.local + inflight.inbound);
     const has = Math.min(n.local, Math.round(n.capacity / 2)) - minLocal - inflight.outbound;
-    console.log('  sats local:,', n.local, 'has:', has, 'needs:', needs);
+    console.log('  sats local:,', n.local, 'min:', min, 'has:', has, 'needs:', needs);
 
     if (has > 0) {
       if (has < minToRebalance) return console.log('  has sats below threshold');
