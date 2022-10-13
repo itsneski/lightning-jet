@@ -612,7 +612,8 @@ cap
     })
   })
 
-  .command('list-channels', 'Lists channels along force closing ones')
+  .command('list-channels', 'Lists channels: active, inactive and force closing. Lists top ten channels sorted based on channel state updates')
+  .help('Lists channels: active, inactive and force closing. Lists top ten channels sorted based on channel state updates')
   .action((args, options, logger) => {
     return new Promise(async (resolve, reject) => {
       if (!isLndAlive(lndClient)) return reject('lnd is offline');
