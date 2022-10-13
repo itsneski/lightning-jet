@@ -299,6 +299,7 @@ module.exports = {
     else return fees;
   },
   listFees: function(lndClient, chans, callback) {
+    const pref = 'listFees:';
     let info = module.exports.getInfoSync(lndClient);
     let peers = module.exports.listPeersMapSync(lndClient);
     //console.log(peers);
@@ -313,8 +314,9 @@ module.exports = {
       calls.push(function(cb) {
         lndClient.getChanInfo({chan_id: id.chan}, (err, response) => {
           if (err) {
-            console.log('Error: ' + err);
-            return cb(err);
+            // report the error, but make sure to continue with other channels
+            console.log(pref, 'getChanInfo error:', 'chan ' + id.chan + ':', err.message);
+            return cb(null);
           }
           response.peer = id.peer;
           return cb(null, response);
@@ -330,6 +332,7 @@ module.exports = {
       //console.log(results);
       let fees = [];
       results.forEach(r => {
+        if (!r) return; // something went wrong with getChanInfo
         let fee = {
           chan: r.channel_id,
           id: r.peer,
