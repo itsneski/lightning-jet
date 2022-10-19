@@ -639,8 +639,12 @@ cap
         console.log('-p: channel updates as a % out of the total across all channels');
         console.table(chans.updates);
       }
+      if (chans.waitingClose && chans.waitingClose.length > 0) {
+        console.log('\nwaiting close channels:');
+        console.table(chans.waitingClose);
+      }
       if (chans.pending && chans.pending.length > 0) {
-        console.log('\nforced closing channels:');
+        console.log('\nforce closing channels:');
         console.table(chans.pending);
       }
     })
