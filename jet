@@ -645,6 +645,10 @@ cap
       }
       if (chans.pending && chans.pending.length > 0) {
         console.log('\nforce closing channels:');
+        console.log('-limbo: number of sats in limbo state');
+        console.log('-htlcs: number of pending htlcs');
+        console.log('-maturity: blocks till maturity');
+        console.log('-time: hours till maturity');
         console.table(chans.pending);
       }
     })
