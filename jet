@@ -16,6 +16,7 @@ const {listFeesSync} = importLazy('./lnd-api/utils');
 const {listPeersSync} = importLazy('./lnd-api/utils');
 const {listPeersMapSync} = importLazy('./lnd-api/utils');
 const {listChannelsSync} = importLazy('./lnd-api/utils');
+const {closeChannel} = importLazy('./lnd-api/utils');
 const {updateChannelSync} = importLazy('./lnd-api/update-channel');
 const {listChannels} = importLazy('./api/list-channels');
 const {htlcHistoryFormatted} = importLazy('./api/htlc-history');
@@ -815,6 +816,50 @@ cap
       console.log('updating', matches[0]);
       updateChannelSync(lndClient, {chan: matches[0], base: options.base, ppm: options.ppm});
       console.log('updated');
+    })
+  })
+
+  .command('close-channel', 'Closes a channel')
+  .argument('<chan>', 'Channel id, node id, (partial or full) node alias')
+  .option('--fee [fee]', 'Sat/vbyte closing fee, default 1')
+  .option('--force', 'Force close the channel')
+  .action((args, options, logger) => {
+    return new Promise(async (resolve, reject) => {
+      if (!isLndAlive(lndClient)) return reject('lnd is offline');
+
+      const matches = resolveChannel(args.chan);
+      if (!matches) return console.error('found no matches');
+      if (matches.length > 1) {
+        console.error('found multiple matches: ' + matches);
+        return console.log('narrow your selection');
+      }
+
+      const chanId = matches[0];
+      if (args.chan !== chanId) console.log('idenfied channel id:', chanId);
+
+      const {readInput} = require('./api/utils');
+      const fee = options.fee || 1; // defailt of 1 sat/vbyte
+      if (!options.force && !options.fee) {
+        const accept = readInput('accept default fee of ' + fee + ' sat/vbyte (y/n)?');
+        if (accept !== 'y') return console.log('provide fee in --fee argument');
+      }
+
+      const resp = closeChannel(lndClient, chanId, fee, options.force);
+      if (resp.error) {
+        console.error('error closing channel:', resp.error.details);
+        if (resp.error.details.indexOf('try force closing it instead') >= 0) {
+          console.log('the error indicates that the channel is offline and can not be co-operatively closed');
+          const accept = readInput('would you like to force close the channel? (y/n)');
+          if (accept === 'y') {
+            const ret = closeChannel(lndClient, chanId, undefined, true);
+            console.log(ret);
+            if (ret.error) return console.error('error force closing the channel:', ret.error.details);
+            return console.log('the channel is force closed');
+          }
+        }
+      } else {
+        console.log('the channel is closed');
+      }
     })
   })
 

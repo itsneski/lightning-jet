@@ -4,6 +4,52 @@ const deasync = require('deasync');
 const round = n => Math.round(n);
 
 module.exports = {
+  closeChannel(lndClient, chanId, fee, force = false, cbk) {
+    const chanInfo = module.exports.getChanInfo(lndClient, chanId);
+    if (chanInfo.error) return cbk({ error: 'error fetching channel info: ' + chanInfo.error.details });
+    const chanPoint = chanInfo.chan.chan_point;
+    const txid = chanPoint.split(':')[0];
+    const index = parseInt(chanPoint.split(':')[1]);
+    if (txid === undefined) return cbk({ error: 'could not identify funding tx id' });
+    if (index === undefined) return cbk({ error: 'could not identify funding tx index' });
+
+    const req = { 
+      channel_point: {
+        funding_txid_str: txid,
+        output_index: index
+      }, 
+      force: force
+    }
+    if (fee !== undefined) req.sat_per_vbyte = fee;
+    let error, response, done;
+    const call = lndClient.closeChannel(req);
+    call.on('data', function(resp) {
+      response = resp;
+      done = true;
+    })
+    call.on('status', function(status) {
+      done = true;
+    })
+    call.on('end', function() {
+      done = true;
+    })
+    call.on('error', function(err) {
+      error = err;
+      done = true;
+    })
+    deasync.loopWhile(function() { return done === undefined });
+    return { error: error, response: response };
+  },
+  getChanInfo(lndClient, chanId) {
+    let chan, error, done;
+    lndClient.getChanInfo({chan_id: chanId}, (err, response) => {
+      error = err;
+      chan = response;
+      done = true;
+    })
+    deasync.loopWhile(function() { return done === undefined });
+    return { error: error, chan: chan };
+  },
   listPaymentsSync(lndClient, offset = 0, max = 100) {
     const pref = 'listPaymentsSync:';
     if (!lndClient) throw new Error(pref + ' lndClient missing');

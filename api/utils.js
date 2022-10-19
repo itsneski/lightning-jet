@@ -19,12 +19,29 @@ const constants = require('./constants');
 const config = importLazy('./config');
 const findProc = require('find-process');
 const date = require('date-and-time');
-
+const deasync = require('deasync');
 
 const round = n => Math.round(n);
 const pThreshold = 1; // %
 
 module.exports = {
+  // ask - question to ask in the prompt
+  readInput(ask) {
+    const readline = require("readline");
+    const rl = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout
+    })
+
+    let answer;
+    rl.question(ask + ' ', function(resp) {
+      answer = resp;
+    })
+    deasync.loopWhile(function() { return answer === undefined })
+
+    rl.close();
+    return answer;
+  },
   // spawns and detaches child process
   spawnDetached({cmd, arg, log}) {
     let parg = {
