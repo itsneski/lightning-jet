@@ -4,6 +4,16 @@ const deasync = require('deasync');
 const round = n => Math.round(n);
 
 module.exports = {
+  walletBalance(lndClient) {
+    let error, response, done;
+    lndClient.walletBalance({}, (err, resp) => {
+      error = err;
+      response = resp;
+      done = true;
+    })
+    deasync.loopWhile(function() { return done === undefined });
+    return { error: error, response: response };
+  },
   closeChannel(lndClient, chanId, fee, force = false, cbk) {
     const chanInfo = module.exports.getChanInfo(lndClient, chanId);
     if (chanInfo.error) return cbk({ error: 'error fetching channel info: ' + chanInfo.error.details });

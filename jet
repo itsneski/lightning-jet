@@ -60,6 +60,29 @@ serviceNamesPlus.push('all');
 cap
   .version(version)
 
+  .command('info', 'Information about the node')
+  .help('Returns various node stats')
+  .action((args, options, logger) => {
+    return new Promise(async (resolve, reject) => {
+      if (!isLndAlive(lndClient)) return reject('lnd is offline');
+
+      const {getInfoSync} = require('./lnd-api/utils');
+      const nodeInfo = getInfoSync(lndClient);
+      console.log('lnd version:', nodeInfo.version);
+      console.log('node id:', nodeInfo.identity_pubkey);
+      console.log('node alias:', nodeInfo.alias);
+      console.log('active chans:', nodeInfo.num_active_channels);
+
+      const {walletBalance} = require('./lnd-api/utils');
+      const balance = walletBalance(lndClient);
+      if (balance.response) {
+        console.log('total balance:', balance.response.total_balance);
+        console.log('--confirmed:', balance.response.confirmed_balance);
+        console.log('--unconfirmed:', balance.response.unconfirmed_balance);
+      }
+    })
+  })
+
   .command('start', 'Starts a service')
   .argument('<service>', 'Service; use \'all\' to restart all services', serviceNamesPlus)
   .help(`Services: ${serviceNames.join(', ')}`)
