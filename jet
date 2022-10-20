@@ -75,10 +75,11 @@ cap
 
       const {walletBalance} = require('./lnd-api/utils');
       const balance = walletBalance(lndClient);
+      const {withCommas} = require('./lnd-api/utils');
       if (balance.response) {
-        console.log('total balance:', balance.response.total_balance);
-        console.log('--confirmed:', balance.response.confirmed_balance);
-        console.log('--unconfirmed:', balance.response.unconfirmed_balance);
+        console.log('total wallet balance (sats):', withCommas(balance.response.total_balance));
+        console.log('--confirmed:', withCommas(balance.response.confirmed_balance));
+        console.log('--unconfirmed:', withCommas(balance.response.unconfirmed_balance));
       }
     })
   })
