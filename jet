@@ -66,20 +66,29 @@ cap
     return new Promise(async (resolve, reject) => {
       if (!isLndAlive(lndClient)) return reject('lnd is offline');
 
+      const {withCommas} = require('./lnd-api/utils');
       const {getInfoSync} = require('./lnd-api/utils');
       const nodeInfo = getInfoSync(lndClient);
+      const {walletBalance} = require('./lnd-api/utils');
+      const balance = walletBalance(lndClient);
+      const {checkSize} = require('./api/channeldb');
+      const check = checkSize();
+
       console.log('lnd version:', nodeInfo.version);
       console.log('node id:', nodeInfo.identity_pubkey);
       console.log('node alias:', nodeInfo.alias);
       console.log('active chans:', nodeInfo.num_active_channels);
 
-      const {walletBalance} = require('./lnd-api/utils');
-      const balance = walletBalance(lndClient);
-      const {withCommas} = require('./lnd-api/utils');
       if (balance.response) {
         console.log('total wallet balance (sats):', withCommas(balance.response.total_balance));
         console.log('--confirmed:', withCommas(balance.response.confirmed_balance));
         console.log('--unconfirmed:', withCommas(balance.response.unconfirmed_balance));
+      }
+
+      if (check.error) console.log('channel.db:', check.error);
+      else {
+        const str = (check.size >= 1000) ? withCommas(check.size) + ' gb' : check.size + ' mb'
+        console.log('channel.db:', str);
       }
     })
   })
@@ -815,7 +824,8 @@ cap
     return new Promise(async (resolve, reject) => {
       const {getPath} = require('./api/channeldb');
       const {printCheckSize} = require('./api/channeldb');
-      console.log('channel.db is located at', getPath());
+      const path = getPath();
+      if (path) console.log('channel.db is located at', path);
       printCheckSize();
     })
   })
