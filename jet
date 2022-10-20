@@ -73,6 +73,8 @@ cap
       const balance = walletBalance(lndClient);
       const {checkSize} = require('./api/channeldb');
       const check = checkSize();
+      const {jetDbStats} = require('./api/utils');
+      const stats = jetDbStats();
 
       console.log('lnd version:', nodeInfo.version);
       console.log('node id:', nodeInfo.identity_pubkey);
@@ -89,6 +91,10 @@ cap
       else {
         const str = (check.size >= 1000) ? withCommas(check.size) + ' gb' : check.size + ' mb'
         console.log('channel.db:', str);
+      }
+
+      if (stats) {
+        console.log('jet.db:', stats.str);
       }
     })
   })

@@ -25,6 +25,13 @@ const round = n => Math.round(n);
 const pThreshold = 1; // %
 
 module.exports = {
+  jetDbStats() {
+    const {statSync} = require('fs');
+    const stats = statSync(__dirname + '/../db/jet.db');
+    const size = Math.round(stats.size / Math.pow(10, 6));  // in mbs
+    const str = (size >= 1000) ? withCommas(size) + ' gb' : size + ' mb';
+    return { size: size, str: str }
+  },
   // ask - question to ask in the prompt
   readInput(ask) {
     const readline = require("readline");
