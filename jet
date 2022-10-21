@@ -79,10 +79,12 @@ cap
       console.log('lnd version:', nodeInfo.version);
       console.log('node id:', nodeInfo.identity_pubkey);
       console.log('node alias:', nodeInfo.alias);
-      console.log('active chans:', nodeInfo.num_active_channels);
+      console.log('total chans:', nodeInfo.num_active_channels + nodeInfo.num_inactive_channels);
+      console.log('--active:', nodeInfo.num_active_channels);
+      console.log('--inactive:', nodeInfo.num_inactive_channels);
 
       if (balance.response) {
-        console.log('total wallet balance (sats):', withCommas(balance.response.total_balance));
+        console.log('bitcoin balance (sats):', withCommas(balance.response.total_balance));
         console.log('--confirmed:', withCommas(balance.response.confirmed_balance));
         console.log('--unconfirmed:', withCommas(balance.response.unconfirmed_balance));
       }
