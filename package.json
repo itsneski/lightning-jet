@@ -3,7 +3,9 @@
     "name": "Neski",
     "url": "https://twitter.com/itsneski"
   },
-  "bin": {},
+  "bin": {
+    "jet": "./jet"
+  },
   "bugs": {
     "url": "https://github.com/itsneski/lightning-jet/issues"
   },
@@ -25,15 +27,17 @@
     "node": ">=12"
   },
   "keywords": [
-    "cli",
     "lightning",
-    "lightning-network",
+    "lightning network",
     "lnd",
-    "rebalance"
+    "rebalance",
+    "circular rebalance",
+    "rebalancer",
+    "automated rebalancer"
   ],
   "license": "MIT",
   "main": "jet",
-  "name": "Lightning Jet",
+  "name": "lightning-jet",
   "repository": {
     "type": "git",
     "url": "https://github.com/itsneski/lightning-jet.git"
