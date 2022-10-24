@@ -51,10 +51,10 @@ module.exports = {
     let done;
     let list = [];
     db.serialize(() => {
-      let q = 'SELECT txdate_ns, to_chan as chan, type, SUM(amount) as total_amount, SUM(fee) as total_fee FROM txn';
+      let q = 'SELECT txdate_ns, CAST(to_chan as TEXT) as chan, type, SUM(amount) as total_amount, SUM(fee) as total_fee FROM ' + TXN_TABLE;
       if (fromTimestamp) q += ' WHERE txdate_ns >= ' + fromTimestamp;
       if (toTimestamp) q += ' AND txdate_ns < ' + toTimestamp;
-      q += ' GROUP BY to_chan, type ORDER BY txdate_ns'; // don't need order by but it doesn't hurt;
+      q += ' GROUP BY chan, type ORDER BY txdate_ns'; // don't need order by but it doesn't hurt;
       if (testMode) console.log(q);
       db.each(q, (err, row) => {
         list.push(row);

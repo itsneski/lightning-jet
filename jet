@@ -186,7 +186,7 @@ cap
       let chanMap = {};
       const chans = listChannelsSync(lndClient);
       chans.forEach(c => {
-        chanMap[parseInt(c.chan_id)] = c.remote_pubkey;
+        chanMap[c.chan_id] = c.remote_pubkey;
       })
       let peerMap = {};
       const peers = listPeersSync(lndClient);
@@ -195,7 +195,7 @@ cap
       })
       let map = {};
       list.forEach(item => {
-        const chan = parseInt(item.chan);
+        const chan = item.chan;
         if (!map[chan]) map[chan] = {};
         let p = map[chan];
         if (item.type === 'forward') {
