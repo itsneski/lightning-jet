@@ -1,3 +1,4 @@
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 # Lightning Jet 🚀⚡️, or simply Jet
 
