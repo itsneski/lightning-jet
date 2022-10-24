@@ -135,7 +135,7 @@ module.exports = {
       const info = getInfoSync(lndClient);
       return info !== undefined;
     } catch(err) {
-      console.log('isLndAlive: error calling getInfo', err.message);
+      console.log('isLndAlive: error calling getInfo:', err.message);
       return false;
     }
   },
@@ -425,22 +425,16 @@ module.exports = {
   },
   getInfoSync: function(lndClient) {
     var info, done, error;
-    try {
-      lndClient.getInfo({}, function(err, response) {
-        if (err) error = err;
-        else info = response;
-        done = true;
-      })
-    } catch(ex) {
-      error = ex;
+    lndClient.getInfo({}, (err, resp) => {
+      error = err;
+      info = resp;
       done = true;
-    }
-    while(done === undefined) {
-      require('deasync').runLoopOnce();
-    }
+    })
+    deasync.loopWhile(() => !done);
+
     if (error) throw new Error(error);
     if (!info) throw new Error('error getting node info');
-    else return info;
+    return info;
   },
   listPeersMapSync: function(lndClient) {
     let map;

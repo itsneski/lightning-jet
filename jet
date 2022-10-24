@@ -861,11 +861,19 @@ cap
 
       const matches = resolveChannel(args.chan);
       if (!matches) return console.error('found no matches');
-      if (matches.length > 1) return console.error('found multiple matches: ' + matches);
+      if (matches.length > 1) {
+        console.error('found multiple matches: ' + matches);
+        return console.log('narrow your selection')
+      }
 
-      console.log('updating', matches[0]);
-      updateChannelSync(lndClient, {chan: matches[0], base: options.base, ppm: options.ppm});
-      console.log('updated');
+      const chan = matches[0];
+      console.log('updating channel:', chan);
+      try {
+        updateChannelSync(lndClient, {chan: chan, base: options.base, ppm: options.ppm});
+        console.log('updated', chan);
+      } catch(err) {
+        console.error('error:', err.toString());
+      }
     })
   })
 

@@ -5,27 +5,28 @@ const {getInfoSync} = require('../lnd-api/utils');
 const toBytes = id => Buffer.from(id, 'hex').reverse();
 
 module.exports = {
+  // returns true if successful, throws an error otherwise
   updateChannelSync: function(lndClient, req) {
     if (!req.chan) throw new Error('channel is missing');
     if (!req.base && !req.ppm) throw new Error('either base or ppm need to be provided');
 
     // get channel info
-    let chan;
-    let error;
-
-    lndClient.getChanInfo({chan_id: req.chan}, (err, response) => {
-      if (err) {
-        error = err;
-        chan = true;  // unblock the loop
-      } else {
-        chan = response;
-      }
+    let chan, error, done;
+    lndClient.getChanInfo({chan_id: req.chan}, (err, resp) => {
+      error = err;
+      chan = resp;
+      done = true;
     })
-    while(chan === undefined) {
-      deasync.runLoopOnce();
-    }
+    deasync.loopWhile(() => !done);
+
     if (error) throw new Error('error getting channel info: ' + error.toString());
-    let nodeInfo = getInfoSync(lndClient);
+    
+    let nodeInfo;
+    try {
+     nodeInfo = getInfoSync(lndClient);
+    } catch(err) {
+      throw new Error('error getting node info: ' + err.toString());
+    }
 
     // there is a weird bug in https://api.lightning.community/#updatechannelpolicy
     // if i don't pass the base fee, it'll zero it out. to workaround, the code
@@ -47,19 +48,14 @@ module.exports = {
     if (req.ppm) grpc.fee_rate = req.ppm / 1000000;
     //console.log(grpc);
 
-    let res;
+    done = false;
     error = undefined;
-    lndClient.updateChannelPolicy(grpc, (err, response) => {
-      if (err) {
-        error = err;
-        res = true; // unblock the loop
-      } else {
-        res = response;
-      }
+    lndClient.updateChannelPolicy(grpc, (err, resp) => {
+      error = err;
+      done = true;
     })
-    while(res === undefined) {
-      deasync.runLoopOnce();
-    }
+    deasync.loopWhile(() => !done);
+ 
     if (error) throw new Error('error updating channel: ' + error.toString());
     return true;
   }
