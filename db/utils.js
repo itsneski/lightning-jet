@@ -445,24 +445,24 @@ module.exports = {
     let done;
     let data;
     try {
+      let error;
       db.serialize(function() {
         let q = 'SELECT date, val FROM ' + NAMEVAL_TABLE + ' WHERE name="' + name + '"';
         db.each(q, function(err, row) {
           data = row;
-        }, function(error) {
-          if (error) throw new Error(error.message);
+        }, (err) => {
+          error = err;
           done = true;
         })
       })
-      while(done === undefined) {
-        require('deasync').runLoopOnce();
-      }
-      return data;
-    } catch(error) {
-      console.error('getPropAndDateSync:', error.message);
+      deasync.loopWhile(() => !done);
+      if (error) console.error('getPropAndDateSync:', error.message);
+    } catch(err) {
+      console.error('getPropAndDateSync:', err.message);
     } finally {
       closeHandle(db);
     }
+    return data;
   },
   getPropWithErrSync(name) {
     let db = getHandle();
