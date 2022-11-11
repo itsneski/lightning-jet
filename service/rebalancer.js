@@ -6,6 +6,7 @@
 // restart: jet restart rebalancer
 // log: /tmp/jet-rebalancer.log
 
+const stringify = obj => JSON.stringify(obj, null, 2);
 const testModeOn = global.testModeOn;
 if (testModeOn) console.log('test mode on');
 
@@ -53,6 +54,7 @@ const colorYellow = constants.colorYellow;
 
 const backoff = x => 2 * Math.pow(2, x);
 
+var pendingHtlcs;
 var queue = new RebalanceQueue();
 
 // build exclude map
@@ -96,11 +98,16 @@ function runLoopImpl() {
 
   console.log('run rebalancing loop');
 
+  // refresh pending htlcs
+  pendingHtlcs = stuckHtlcsSync(lndClient);
+
   // build liquidity table: how much liquidity is available on the local side
   // for inbound nodes, how much liquidity outbound nodes need, do balanced
   // peers have at least the min local liquidity
   // note that classified peers are already sorted by p%
   initRunning();    // rebalances already in-flight
+  initInFlight();
+
   let classified = classifyPeersSync(lndClient, 1);
 
   console.log('build liquidity table:');
@@ -172,13 +179,16 @@ function runLoopImpl() {
 
     // calculate sats that peers need and sats they have
     // take into account inflight sats
-    // the goal is to not overcommit available liquidity, max it at 50% of
-    // channel capacity; make sure peers have minimum sats locally, otherwise
-    // they wont revive (or it will take too long), max it at 20%
-    // of channel capacity
+    // needs - min sats that a peer needs to be revived, max it at 20% of capacity
+    // subtract sats it already has plus whatever is in-flight (outbound plus inbound)
+    // has - sats available to rebalance, the goal is not to overcommit liquidity
+    // max it at 50% of capacity, subtract the min the peer needs
+    // note: its somewhat a concervative approach when it comes to rebalancing,
+    // but justified since its for the revival of low-volume peers,
+    // as opposed to supplying liquidity to high-volume channels
     const min = Math.min(minLocal, Math.round(.2 * n.capacity));
-    const needs = min - (n.local + inflight.inbound);
-    const has = Math.min(n.local, Math.round(n.capacity / 2)) - minLocal - inflight.outbound;
+    const needs = min - (n.local + inflight.outbound + inflight.inbound);
+    const has = Math.min(n.local, Math.round(n.capacity / 2)) - minLocal;
     console.log('  sats local:,', n.local, 'min:', min, 'has:', has, 'needs:', needs);
 
     if (has > 0) {
@@ -207,6 +217,7 @@ function runLoopImpl() {
       return console.log('  neither has nor needs sats');
     }
   })
+
   // check peers with missed htlcs; limit the number of peers
   // to those that missed more than chan capacity & up to
   // a quarter of max instances
@@ -233,9 +244,11 @@ function runLoopImpl() {
       const inflight = satsInFlight(chan.peer);
       console.log('  sats inflight:', inflight);
 
-      // don't overcommit sats, up to half capacity
-      const needs = Math.round(chan.capacity/2) - inflight.inbound;
-      if (needs < minToRebalance) return console.log('  needs sats below threshod', needs);
+      // being more aggressive with liquidity than usual, base it at 50% of capacity,
+      // minus sats inflight. p.s. this should be based on the actual sats missing,
+      // calculation for missing sats is imprecise atm 
+      const needs = Math.round(chan.capacity/2) - (inflight.outbound + inflight.inbound);
+      if (needs < minToRebalance) return console.log('  needs sats below threshold', needs);
       console.log('  needs', needs, 'sats');
       liquidityTable.missed.push({id:chan.id, peer:chan.peer, name:chan.name, needs});
 
@@ -276,10 +289,8 @@ function runLoopImpl() {
   let fees = listFeesSync(lndClient);
   fees.forEach(f => feeMap[f.id] = f);
 
-  // get pending htlcs
-  let pendingHtlcs = stuckHtlcsSync(lndClient);
-
   // build rebalancing queue
+  // first process outbound peers that need liquidity
   console.log('\nbuild rebalancing queue:');
   const len = liquidityTable.outbound.length;
   for(i = 0; i < len; i++) {
@@ -310,15 +321,14 @@ function runLoopImpl() {
 
   if (currCount >= maxCount) return console.log('reached max rebalance count');
 
+  // process peers with missed sats
   const mlen = liquidityTable.missed.length;
   for(i = 0; i < mlen; i++) {
     if (currCount >= maxCount) break; // reached max
     const to = liquidityTable.missed[i];
     console.log('[missed]', to.name, to.peer, 'needs', to.needs, 'sats');
     const delta = tickDuration * i; // time delta between rebalances
-    const inflight = satsInFlight(to.peer);
-    console.log(' sats inflight', inflight);
-    let remaining = to.needs - inflight.inbound; // tracks remaining sats needed
+    let remaining = to.needs;   // tracks remaining sats needed (already adjusted for inflight sats)
     if (remaining < minToRebalance) {
       console.log(' remaining sats below threshold', remaining);
       continue;
@@ -516,6 +526,7 @@ function processQueueImpl() {
 // queue.
 
 var running;
+var inFlightMap;
 
 // is rebalance already running or in the queue
 function isInFlight(from, to) {
@@ -524,13 +535,7 @@ function isInFlight(from, to) {
 
 // count sats for peers in active rebalances or in the queue
 function satsInFlight(peer) {
-  let sats = queue.sats(peer);
-  if (!running) return sats;
-  running.forEach(entry => {
-    if (entry.from === peer) sats.outbound += entry.amount;
-    if (entry.to === peer) sats.inbound += entry.amount;
-  })
-  return sats;
+  return inFlightMap[peer] || { inbound:0, outbound: 0 };
 }
 
 function countInFlight() {
@@ -539,6 +544,72 @@ function countInFlight() {
 
 function initRunning() {
   running = listActiveRebalancesSync();
+}
+
+function initInFlight() {
+  // sats in flight per peer, inbound and outbound
+  // consists of rebalances in-flight plus pending htlcs on forwards
+  // sats for rebalances in-flight are based on jet's rebalances,
+  // as opposed to htlcs, as jet loops until the target amount is met
+  // inbound - sats flowing into a channel, boosting local
+  // outbout - sats flowing out of a channel, reducing local
+  // build a list of all htlcs
+  let list = [];
+  pendingHtlcs.forEach(item => {
+    // build a list of all htlcs in the from/to form
+    if (!item.htlcs) return;
+    item.htlcs.forEach(h => {
+      let entry = {
+        peer: item.peer,
+        sats: parseInt(h.amount)
+      }
+      let include = true;
+      if (h.forwarding_peer) {
+        entry.forwarding_peer = h.forwarding_peer;
+        // skip if an ongoing rebalance
+        include = !isInFlight(h.forwarding_peer, entry.peer);
+      }
+      if (include) list.push(entry);
+      else console.log('excluding', h.forwarding_peer, '->', entry.peer);
+    })
+  })
+  // build a map of inbound & outbound sats
+  let map = {};
+  list.forEach(item => {
+    let entry = map[item.peer];
+    if (!entry) {
+      entry = { outbound: 0, inbound: 0 };
+      map[item.peer] = entry;
+    }
+    if (item.forwarding_peer) {
+      let forward = map[item.forwarding_peer];
+      if (!forward) {
+        forward = { outbound: 0, inbound: 0 };
+        map[item.forwarding_peer] = forward;
+      }
+      entry.inbound += item.sats;
+      forward.outbound += item.sats;
+    } else {
+      entry.outbound += item.sats;
+    }
+  })
+  // populate the map with rebalance sats
+  running.forEach(entry => {
+    let from = map[entry.from];
+    if (!from) {
+      from = { outbound: 0, inbound: 0};
+      map[entry.from] = from;
+    }
+    from.outbound += entry.amount;
+    let to = map[entry.to];
+    if (!to) {
+      to = { outbound: 0, inbound: 0 };
+      map[entry.to] = to;
+    }
+    to.inbound += entry.amount;
+  })
+
+  inFlightMap = map;
 }
 
 function countRunning() {
