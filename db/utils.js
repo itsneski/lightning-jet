@@ -4,6 +4,7 @@ const fs = require('fs');
 const sqlite3 = require('sqlite3').verbose();
 const constants = require('../api/constants');
 const crypto = require('crypto');
+const deasync = require('deasync');
 
 const dbFile = global.testDb || (__dirname + '/jet.db');
 const oldDbFile = __dirname + '/../lnd_optimize.db';
