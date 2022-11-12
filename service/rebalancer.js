@@ -594,21 +594,23 @@ function initInFlight() {
     }
   })
   // populate the map with rebalance sats
-  running.forEach(entry => {
-    let from = map[entry.from];
-    if (!from) {
-      from = { outbound: 0, inbound: 0};
-      map[entry.from] = from;
-    }
-    from.outbound += entry.amount;
-    let to = map[entry.to];
-    if (!to) {
-      to = { outbound: 0, inbound: 0 };
-      map[entry.to] = to;
-    }
-    to.inbound += entry.amount;
-  })
-
+  if (running) {
+    running.forEach(entry => {
+      let from = map[entry.from];
+      if (!from) {
+        from = { outbound: 0, inbound: 0};
+        map[entry.from] = from;
+      }
+      from.outbound += entry.amount;
+      let to = map[entry.to];
+      if (!to) {
+        to = { outbound: 0, inbound: 0 };
+        map[entry.to] = to;
+      }
+      to.inbound += entry.amount;
+    })
+  }
+  
   inFlightMap = map;
 }
 
