@@ -151,13 +151,22 @@ module.exports = {
       data = response;
       done = true;
     })
-    while(done === undefined) {
-      require('deasync').runLoopOnce();
-    }
+    deasync.loopWhile(() => !done);
     if (error) throw new Error(error);
+
+    // build a map of channel ids to pubkeys
+    let map = {};
+    data.channels.forEach(c => {
+      map[c.chan_id] = c.remote_pubkey;
+    })
+
     let htlcs = [];
     data.channels.forEach(c => {
       if (c.pending_htlcs.length === 0) return;
+      // add peer ids for forwarding channels
+      c.pending_htlcs.forEach(h => {
+        if (h.forwarding_channel !== '0') h.forwarding_peer = map[h.forwarding_channel];
+      })
       htlcs.push({
         id: c.chan_id,
         peer: c.remote_pubkey,
@@ -489,14 +498,12 @@ module.exports = {
     let channels;
     let error;
     let done;
-    lndClient.listChannels({}, function(err, response) {
+    lndClient.listChannels({}, (err, response) => {
       error = err;
       channels = response && response.channels;
       done = true;
     })
-    while(done === undefined) {
-      require('deasync').runLoopOnce();
-    }
+    deasync.loopWhile(() => !done);
     if (error) throw new Error(error);
     return channels;
   },
