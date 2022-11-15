@@ -40,31 +40,31 @@ module.exports = {
   },
   checkSize() {
     if (!global.channelDbFile) {
-      let msg = 'channel.db (BOLT database) was not found. It is likely that Jet does not have read acccess to the file, or that the file is located in a different directory or remotely. Consider locating the file manually to monitor its size. For more info: https://plebnet.wiki/wiki/Compacting_Channel_DB';
-      return { msg: msg, priority: priority.warning };
+      let msg = 'channel.db (BOLT database) was not found. It\'s likely Jet does not have read access to the channel.db file, or the file is located elsewhere (perhaps remotely). Consider locating the file manually to monitor its size. For more info: https://plebnet.wiki/wiki/Compacting_Channel_DB';
+      return { msg: msg, priority: priority.warning, error: 'not found' };
     }
 
     try {
-      let stats = statSync(global.channelDbFile);
-      let size = global.testChannelDbSize || Math.round(stats.size / Math.pow(10, 6));  // in mbs
-      let str = (size >= 1000) ? withCommas(size) + ' gb' : size + ' mb';
+      const stats = statSync(global.channelDbFile);
+      const size = global.testChannelDbSize || Math.round(stats.size / Math.pow(10, 6));  // in mbs
+      const str = (size >= 1000) ? withCommas(size) + ' gb' : size + ' mb';
 
       let msg;
       if (size > priority.urgent * 1000) {
         msg  = 'channel.db size ' + str + ' exceeds ' + priority.urgent + ' gb';
         msg += '\nyou must prune & compact ASAP: https://plebnet.wiki/wiki/Compacting_Channel_DB';
-        return { msg: msg, priority: priority.urgent }
+        return { msg: msg, priority: priority.urgent, size: size }
       } else if (size > priority.serious * 1000) {
         msg  = 'channel.db size ' + str + ' exceeds ' + priority.serious + ' gb';
         msg += '\nconsider pruning & compacting: https://plebnet.wiki/wiki/Compacting_Channel_DB';
-        return { msg: msg, priority: priority.serious }
+        return { msg: msg, priority: priority.serious, size: size }
       } else if (size > priority.warning * 1000) {
         msg  = 'channel.db size ' + str + ' exceeds ' + priority.warning + ' gb';
         msg += '\nfamiliarize yourself with compacting & pruning procedure: https://plebnet.wiki/wiki/Compacting_Channel_DB';
-        return { msg: msg, priority: priority.warning }
+        return { msg: msg, priority: priority.warning, size: size }
       } else {
         msg  = 'channel.db size ' + str + ' is within normal limits';
-        return { msg: msg, priority: priority.normal }
+        return { msg: msg, priority: priority.normal, size: size }
       }
     } catch(error) {
       console.error('checkChannelDb:', error.toString());

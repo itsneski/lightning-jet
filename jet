@@ -16,6 +16,7 @@ const {listFeesSync} = importLazy('./lnd-api/utils');
 const {listPeersSync} = importLazy('./lnd-api/utils');
 const {listPeersMapSync} = importLazy('./lnd-api/utils');
 const {listChannelsSync} = importLazy('./lnd-api/utils');
+const {closeChannel} = importLazy('./lnd-api/utils');
 const {updateChannelSync} = importLazy('./lnd-api/update-channel');
 const {listChannels} = importLazy('./api/list-channels');
 const {htlcHistoryFormatted} = importLazy('./api/htlc-history');
@@ -59,6 +60,47 @@ serviceNamesPlus.push('all');
 cap
   .version(version)
 
+  .command('info', 'Information about the node')
+  .help('Returns various node stats')
+  .action((args, options, logger) => {
+    return new Promise(async (resolve, reject) => {
+      if (!isLndAlive(lndClient)) return reject('lnd is offline');
+
+      const {withCommas} = require('./lnd-api/utils');
+      const {getInfoSync} = require('./lnd-api/utils');
+      const nodeInfo = getInfoSync(lndClient);
+      const {walletBalance} = require('./lnd-api/utils');
+      const balance = walletBalance(lndClient);
+      const {checkSize} = require('./api/channeldb');
+      const check = checkSize();
+      const {jetDbStats} = require('./api/utils');
+      const stats = jetDbStats();
+
+      console.log('lnd version:', nodeInfo.version);
+      console.log('node id:', nodeInfo.identity_pubkey);
+      console.log('node alias:', nodeInfo.alias);
+      console.log('total chans:', nodeInfo.num_active_channels + nodeInfo.num_inactive_channels);
+      console.log('--active:', nodeInfo.num_active_channels);
+      console.log('--inactive:', nodeInfo.num_inactive_channels);
+
+      if (balance.response) {
+        console.log('bitcoin balance (sats):', withCommas(balance.response.total_balance));
+        console.log('--confirmed:', withCommas(balance.response.confirmed_balance));
+        console.log('--unconfirmed:', withCommas(balance.response.unconfirmed_balance));
+      }
+
+      if (check.error) console.log('channel.db:', check.error);
+      else {
+        const str = (check.size >= 1000) ? withCommas(check.size) + ' gb' : check.size + ' mb'
+        console.log('channel.db:', str);
+      }
+
+      if (stats) {
+        console.log('jet.db:', stats.str);
+      }
+    })
+  })
+
   .command('start', 'Starts a service')
   .argument('<service>', 'Service; use \'all\' to restart all services', serviceNamesPlus)
   .help(`Services: ${serviceNames.join(', ')}`)
@@ -99,6 +141,8 @@ cap
   .option('--hours [hours]', 'Depth of history in hours; max of ' + Math.floor(constants.maxTxnInterval/24) + ' days, default ' + Math.floor(constants.defaultTxnInterval/24))
   .action((args, options, logger) => {
     return new Promise(async (resolve, reject) => {
+      if (!isLndAlive(lndClient)) return reject('lnd is offline');
+
       const hours = options.hours || (options.days && options.days * 24) || constants.defaultTxnInterval;
       if (hours > constants.maxTxnInterval) return console.error('history depth exceeds the max of ' + constants.maxTxnInterval + ' hours (' + Math.floor(constants.maxTxnInterval/24) + ' days)');
 
@@ -115,6 +159,7 @@ cap
       let historyMap = {};
       let historyTotal = {
         profit: 0,
+        inbound: { amount: 0 },
         forward: { fee: 0, amount: 0 },
         rebalance: { fee: 0, amount: 0 }
       }
@@ -123,6 +168,7 @@ cap
         prevList.forEach(item => {
           if (!historyMap[item.chan]) historyMap[item.chan] = { 
             forward: { fee: 0, amount: 0 },
+            inbound: { amount: 0 },
             rebalance: { fee: 0, amount: 0 }
           }
           if (item.type === 'forward') {
@@ -130,7 +176,9 @@ cap
             historyMap[item.chan].forward.amount = item.total_amount;
             historyTotal.forward.fee += item.total_fee;
             historyTotal.forward.amount += item.total_amount;
-          } else {
+          } else if (item.type === 'inbound') {
+            historyMap[item.chan].inbound.amount = item.total_amount;
+          } else if (item.type === 'rebalance') {
             historyMap[item.chan].rebalance.fee = item.total_fee;
             historyMap[item.chan].rebalance.amount = item.total_amount;
             historyTotal.rebalance.fee += item.total_fee;
@@ -144,7 +192,7 @@ cap
       let chanMap = {};
       const chans = listChannelsSync(lndClient);
       chans.forEach(c => {
-        chanMap[parseInt(c.chan_id)] = c.remote_pubkey;
+        chanMap[c.chan_id] = c.remote_pubkey;
       })
       let peerMap = {};
       const peers = listPeersSync(lndClient);
@@ -153,7 +201,7 @@ cap
       })
       let map = {};
       list.forEach(item => {
-        const chan = parseInt(item.chan);
+        const chan = item.chan;
         if (!map[chan]) map[chan] = {};
         let p = map[chan];
         if (item.type === 'forward') {
@@ -161,7 +209,11 @@ cap
             amount: item.total_amount,
             fee: item.total_fee
           }
-        } else {
+        } else if (item.type === 'inbound') {
+          p.inbound = {
+            amount: item.total_amount
+          }
+        } else if (item.type === 'rebalance') {
           p.rebalance = {
             amount: item.total_amount,
             fee: item.total_fee
@@ -175,6 +227,7 @@ cap
         item.peer = chanMap[k];
         item.name = peerMap[chanMap[k]];
         if (map[k].forward) item.forward = map[k].forward;
+        if (map[k].inbound) item.inbound = map[k].inbound;
         if (map[k].rebalance) item.rebalance = map[k].rebalance;
         const feeForward = (item.forward && item.forward.fee) || 0;
         const feeRebalance = (item.rebalance && item.rebalance.fee) || 0;
@@ -224,12 +277,13 @@ cap
       // profitable channels
       let profitable = [];
       combined.forEach(item => {
-        if (item.delta < 0) return;
+        if (item.delta <= 0) return;
         let rec = {
           chan: item.chan,
           peer: item.name,
           profit: item.delta,
-          forwarded: (item.forward && item.forward.amount) || 0,
+          inbound: (item.inbound && item.inbound.amount) || 0,
+          outbound: (item.forward && item.forward.amount) || 0,
           earned: (item.forward && item.forward.fee) || 0,
           rebalanced: (item.rebalance && item.rebalance.amount) || 0,
           paid: (item.rebalance && item.rebalance.fee) || 0,
@@ -240,7 +294,7 @@ cap
           if (delta !== 0) {
             rec.delta = delta;
           }
-          if (historyMap[item.chan].forward.amount !== 0) rec['delta_fw %'] = Math.round(100 * (rec.forwarded - historyMap[item.chan].forward.amount) / historyMap[item.chan].forward.amount);
+          if (historyMap[item.chan].forward.amount !== 0) rec['delta_fw %'] = Math.round(100 * (rec.outbound - historyMap[item.chan].forward.amount) / historyMap[item.chan].forward.amount);
           if (historyMap[item.chan].rebalance.amount !== 0) rec['delta_rb %'] = Math.round(100 * (rec.rebalanced - historyMap[item.chan].rebalance.amount) / historyMap[item.chan].rebalance.amount);
         }
         profitable.push(rec);
@@ -251,8 +305,9 @@ cap
       if (profitable.length === 0) console.log('none found');
       else {
         console.log('-profit: profit in sats');
-        console.log('-forwarded: total sats forwarded');
-        console.log('-earned: total sats earned on forwards');
+        console.log('-inbound: total inbound sats')
+        console.log('-outbound: total outbound sats');
+        console.log('-earned: total sats earned on forwards (outbound)');
         console.log('-rebalanced: total sats rebalanced');
         console.log('-paid: total sats paid for rebalances');
         console.log('-delta: change in profit (sats) since the last interval; e.g. 15 means that the profit has increased by 15 sats');
@@ -269,7 +324,8 @@ cap
           chan: item.chan,
           peer: item.name,
           loss: Math.abs(item.delta), // present loss as a positive integer
-          forwarded: (item.forward && item.forward.amount) || 0,
+          inbound: (item.inbound && item.inbound.amount) || 0,
+          outbound: (item.forward && item.forward.amount) || 0,
           earned: (item.forward && item.forward.fee) || 0,
           rebalanced: (item.rebalance && item.rebalance.amount) || 0,
           paid: (item.rebalance && item.rebalance.fee) || 0,
@@ -280,7 +336,7 @@ cap
           if (delta !== 0) {
             rec.delta = delta;
           }
-          if (historyMap[item.chan].forward.amount !== 0) rec['delta_fw %'] = Math.round(100 * (rec.forwarded - historyMap[item.chan].forward.amount) / historyMap[item.chan].forward.amount);
+          if (historyMap[item.chan].forward.amount !== 0) rec['delta_fw %'] = Math.round(100 * (rec.outbound - historyMap[item.chan].forward.amount) / historyMap[item.chan].forward.amount);
           if (historyMap[item.chan].rebalance.amount !== 0) rec['delta_rb %'] = Math.round(100 * (rec.rebalanced - historyMap[item.chan].rebalance.amount) / historyMap[item.chan].rebalance.amount);
         }
         unprofitable.push(rec);
@@ -612,7 +668,8 @@ cap
     })
   })
 
-  .command('list-channels', 'Lists channels along force closing ones')
+  .command('list-channels', 'Lists channels: active, inactive and force closing. Lists top ten channels sorted based on channel state updates')
+  .help('Lists channels: active, inactive and force closing. Lists top ten channels sorted based on channel state updates')
   .action((args, options, logger) => {
     return new Promise(async (resolve, reject) => {
       if (!isLndAlive(lndClient)) return reject('lnd is offline');
@@ -620,7 +677,7 @@ cap
       const chans = listChannels();
       if (!chans) return console.log('no channels found, likely due to an error');
       if (chans.active && chans.active.length > 0) {
-        console.log('active channels:');
+        console.log('all channels:');
         console.table(chans.active);
       }
 
@@ -637,8 +694,16 @@ cap
         console.log('-p: channel updates as a % out of the total across all channels');
         console.table(chans.updates);
       }
+      if (chans.waitingClose && chans.waitingClose.length > 0) {
+        console.log('\nwaiting close channels:');
+        console.table(chans.waitingClose);
+      }
       if (chans.pending && chans.pending.length > 0) {
-        console.log('\nforced closing channels:');
+        console.log('\nforce closing channels:');
+        console.log('-limbo: number of sats in limbo state');
+        console.log('-htlcs: number of pending htlcs');
+        console.log('-maturity: blocks till maturity');
+        console.log('-time: hours till maturity');
         console.table(chans.pending);
       }
     })
@@ -781,7 +846,8 @@ cap
     return new Promise(async (resolve, reject) => {
       const {getPath} = require('./api/channeldb');
       const {printCheckSize} = require('./api/channeldb');
-      console.log('channel.db is located at', getPath());
+      const path = getPath();
+      if (path) console.log('channel.db is located at', path);
       printCheckSize();
     })
   })
@@ -809,11 +875,63 @@ cap
 
       const matches = resolveChannel(args.chan);
       if (!matches) return console.error('found no matches');
-      if (matches.length > 1) return console.error('found multiple matches: ' + matches);
+      if (matches.length > 1) {
+        console.error('found multiple matches: ' + matches);
+        return console.log('narrow your selection')
+      }
 
-      console.log('updating', matches[0]);
-      updateChannelSync(lndClient, {chan: matches[0], base: options.base, ppm: options.ppm});
-      console.log('updated');
+      const chan = matches[0];
+      console.log('updating channel:', chan);
+      try {
+        updateChannelSync(lndClient, {chan: chan, base: options.base, ppm: options.ppm});
+        console.log('updated', chan);
+      } catch(err) {
+        console.error('error:', err.toString());
+      }
+    })
+  })
+
+  .command('close-channel', 'Closes a channel')
+  .argument('<chan>', 'Channel id, node id, (partial or full) node alias')
+  .option('--fee [fee]', 'Sat/vbyte closing fee, default 1')
+  .option('--force', 'Force close the channel')
+  .action((args, options, logger) => {
+    return new Promise(async (resolve, reject) => {
+      if (!isLndAlive(lndClient)) return reject('lnd is offline');
+
+      const matches = resolveChannel(args.chan);
+      if (!matches) return console.error('found no matches');
+      if (matches.length > 1) {
+        console.error('found multiple matches: ' + matches);
+        return console.log('narrow your selection');
+      }
+
+      const chanId = matches[0];
+      if (args.chan !== chanId) console.log('idenfied channel id:', chanId);
+
+      const {readInput} = require('./api/utils');
+      const fee = options.fee || 1; // defailt of 1 sat/vbyte
+      if (!options.force && !options.fee) {
+        const accept = readInput('accept default fee of ' + fee + ' sat/vbyte (y/n)?');
+        if (accept !== 'y') return console.log('provide fee in --fee argument');
+      }
+
+      const resp = closeChannel(lndClient, chanId, fee, options.force);
+      if (resp.error) {
+        console.error('error closing channel:', resp.error.details);
+        if (resp.error.details.indexOf('try force closing it instead') >= 0) {
+          console.log('the error indicates that the channel is offline and can not be co-operatively closed');
+          const accept = readInput('would you like to force close the channel? (y/n)');
+          if (accept === 'y') {
+            const ret = closeChannel(lndClient, chanId, undefined, true);
+            console.log(ret);
+            if (ret.error) return console.error('error force closing the channel:', ret.error.details);
+            return console.log('the channel is force closed');
+          }
+        }
+      } else {
+        console.log('the channel is closed');
+      }
     })
   })
 

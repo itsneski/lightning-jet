@@ -4,6 +4,7 @@ const fs = require('fs');
 const sqlite3 = require('sqlite3').verbose();
 const constants = require('../api/constants');
 const crypto = require('crypto');
+const deasync = require('deasync');
 
 const dbFile = global.testDb || (__dirname + '/jet.db');
 const oldDbFile = __dirname + '/../lnd_optimize.db';
@@ -50,11 +51,13 @@ module.exports = {
     let db = getHandle();
     let done;
     let list = [];
+
+    // get forwards and rebalances
     db.serialize(() => {
-      let q = 'SELECT txdate_ns, to_chan as chan, type, SUM(amount) as total_amount, SUM(fee) as total_fee FROM txn';
+      let q = 'SELECT txdate_ns, CAST(to_chan as TEXT) as chan, type, SUM(amount) as total_amount, SUM(fee) as total_fee FROM ' + TXN_TABLE;
       if (fromTimestamp) q += ' WHERE txdate_ns >= ' + fromTimestamp;
       if (toTimestamp) q += ' AND txdate_ns < ' + toTimestamp;
-      q += ' GROUP BY to_chan, type ORDER BY txdate_ns'; // don't need order by but it doesn't hurt;
+      q += ' GROUP BY chan, type ORDER BY txdate_ns'; // don't need order by but it doesn't hurt;
       if (testMode) console.log(q);
       db.each(q, (err, row) => {
         list.push(row);
@@ -62,9 +65,27 @@ module.exports = {
         done = true;
       })
     })
-    while(!done) {
-      require('deasync').runLoopOnce();
-    }
+    deasync.loopWhile(() => !done);
+
+    // count inbound sats
+    done = false;
+    db.serialize(() => {
+      let q = 'SELECT txdate_ns, CAST(from_chan as TEXT) as chan, type, SUM(amount) as total_amount FROM ' + TXN_TABLE;
+      if (fromTimestamp) q += ' WHERE txdate_ns >= ' + fromTimestamp;
+      if (toTimestamp) q += ' AND txdate_ns < ' + toTimestamp;
+      q += ' GROUP BY chan, type ORDER BY txdate_ns'; // don't need order by but it doesn't hurt;
+      if (testMode) console.log(q);
+      db.each(q, (err, row) => {
+        if (row.type === 'forward') {
+          row.type = 'inbound';
+          list.push(row);
+        }
+      }, (err) => {
+        done = true;
+      })
+    })
+    deasync.loopWhile(() => !done);
+
     closeHandle(db);
     return list;
   },
@@ -442,27 +463,27 @@ module.exports = {
   },
   getPropAndDateSync(name) {
     let db = getHandle();
-    let done;
     let data;
     try {
-      db.serialize(function() {
+      let done;
+      let error;
+      db.serialize(() => {
         let q = 'SELECT date, val FROM ' + NAMEVAL_TABLE + ' WHERE name="' + name + '"';
-        db.each(q, function(err, row) {
+        db.each(q, (err, row) => {
           data = row;
-        }, function(error) {
-          if (error) throw new Error(error.message);
+        }, (err) => {
+          error = err;
           done = true;
         })
       })
-      while(done === undefined) {
-        require('deasync').runLoopOnce();
-      }
-      return data;
-    } catch(error) {
-      console.error('getPropAndDateSync:', error.message);
+      deasync.loopWhile(() => !done);
+      if (error) console.error('getPropAndDateSync:', error.message);
+    } catch(err) {
+      console.error('getPropAndDateSync:', err.message);
     } finally {
       closeHandle(db);
     }
+    return data;
   },
   getPropWithErrSync(name) {
     let db = getHandle();

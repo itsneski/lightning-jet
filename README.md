@@ -1,9 +1,10 @@
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 # Lightning Jet 🚀⚡️, or simply Jet
 
 Lightning Jet is a fully automated rebalancer for Lightning nodes. Jet optimizes channel liquidity allocation based on routing volume, missed routing opportunities (htlcs), and other variables.
 
-Jet runs as a daemon (background process) on a broad range of [supported platforms](#supported-platforms). It classifies peers into inbound and outbound based on routing volume; it then rebalances the channels, ensuring sufficient liquidity (inbound and outbound) to route sats.
+Jet runs as a daemon (background process) on a broad range of [supported platforms](#supported-platforms). It classifies peers into inbound and outbound based on routing volume; it then rebalances the channels (via circular rebalancing), ensuring sufficient liquidity (inbound and outbound) to route sats.
 
 The mission of Lightning Jet is to help independent node operators compete in the ever-changing landscape of the Lightning Network as big institutional players enter the space.
 
@@ -33,6 +34,14 @@ Make sure `npm` is up to date (version 8.x) by running `npm -v`. Update `npm` in
 > You may run into an issue of having multiple copies of `npm` installed if you update `npm` separately from `node`. Re-run `npm -v` after the update to ensure that your path is picking the update version. You can locate multiple copies by `find / -name npm 2> /dev/null`; identify the right copy of `npm` and update `PATH` in `~/.profile` accordingly.
 
 ## Installation
+
+Install via npm:
+
+```bash
+npm install lightning-jet --build-from-source --python=/usr/bin/python3
+```
+
+Install via git:
 
 ```bash
 git clone https://github.com/itsneski/lightning-jet

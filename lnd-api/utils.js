@@ -4,6 +4,62 @@ const deasync = require('deasync');
 const round = n => Math.round(n);
 
 module.exports = {
+  walletBalance(lndClient) {
+    let error, response, done;
+    lndClient.walletBalance({}, (err, resp) => {
+      error = err;
+      response = resp;
+      done = true;
+    })
+    deasync.loopWhile(function() { return done === undefined });
+    return { error: error, response: response };
+  },
+  closeChannel(lndClient, chanId, fee, force = false, cbk) {
+    const chanInfo = module.exports.getChanInfo(lndClient, chanId);
+    if (chanInfo.error) return cbk({ error: 'error fetching channel info: ' + chanInfo.error.details });
+    const chanPoint = chanInfo.chan.chan_point;
+    const txid = chanPoint.split(':')[0];
+    const index = parseInt(chanPoint.split(':')[1]);
+    if (txid === undefined) return cbk({ error: 'could not identify funding tx id' });
+    if (index === undefined) return cbk({ error: 'could not identify funding tx index' });
+
+    const req = { 
+      channel_point: {
+        funding_txid_str: txid,
+        output_index: index
+      }, 
+      force: force
+    }
+    if (fee !== undefined) req.sat_per_vbyte = fee;
+    let error, response, done;
+    const call = lndClient.closeChannel(req);
+    call.on('data', function(resp) {
+      response = resp;
+      done = true;
+    })
+    call.on('status', function(status) {
+      done = true;
+    })
+    call.on('end', function() {
+      done = true;
+    })
+    call.on('error', function(err) {
+      error = err;
+      done = true;
+    })
+    deasync.loopWhile(function() { return done === undefined });
+    return { error: error, response: response };
+  },
+  getChanInfo(lndClient, chanId) {
+    let chan, error, done;
+    lndClient.getChanInfo({chan_id: chanId}, (err, response) => {
+      error = err;
+      chan = response;
+      done = true;
+    })
+    deasync.loopWhile(function() { return done === undefined });
+    return { error: error, chan: chan };
+  },
   listPaymentsSync(lndClient, offset = 0, max = 100) {
     const pref = 'listPaymentsSync:';
     if (!lndClient) throw new Error(pref + ' lndClient missing');
@@ -79,7 +135,7 @@ module.exports = {
       const info = getInfoSync(lndClient);
       return info !== undefined;
     } catch(err) {
-      console.log('isLndAlive: error calling getInfo', err.message);
+      console.log('isLndAlive: error calling getInfo:', err.message);
       return false;
     }
   },
@@ -95,13 +151,22 @@ module.exports = {
       data = response;
       done = true;
     })
-    while(done === undefined) {
-      require('deasync').runLoopOnce();
-    }
+    deasync.loopWhile(() => !done);
     if (error) throw new Error(error);
+
+    // build a map of channel ids to pubkeys
+    let map = {};
+    data.channels.forEach(c => {
+      map[c.chan_id] = c.remote_pubkey;
+    })
+
     let htlcs = [];
     data.channels.forEach(c => {
       if (c.pending_htlcs.length === 0) return;
+      // add peer ids for forwarding channels
+      c.pending_htlcs.forEach(h => {
+        if (h.forwarding_channel !== '0') h.forwarding_peer = map[h.forwarding_channel];
+      })
       htlcs.push({
         id: c.chan_id,
         peer: c.remote_pubkey,
@@ -299,6 +364,7 @@ module.exports = {
     else return fees;
   },
   listFees: function(lndClient, chans, callback) {
+    const pref = 'listFees:';
     let info = module.exports.getInfoSync(lndClient);
     let peers = module.exports.listPeersMapSync(lndClient);
     //console.log(peers);
@@ -313,8 +379,9 @@ module.exports = {
       calls.push(function(cb) {
         lndClient.getChanInfo({chan_id: id.chan}, (err, response) => {
           if (err) {
-            console.log('Error: ' + err);
-            return cb(err);
+            // report the error, but make sure to continue with other channels
+            console.log(pref, 'getChanInfo error:', 'chan ' + id.chan + ':', err.message);
+            return cb(null);
           }
           response.peer = id.peer;
           return cb(null, response);
@@ -330,6 +397,7 @@ module.exports = {
       //console.log(results);
       let fees = [];
       results.forEach(r => {
+        if (!r) return; // something went wrong with getChanInfo
         let fee = {
           chan: r.channel_id,
           id: r.peer,
@@ -366,22 +434,16 @@ module.exports = {
   },
   getInfoSync: function(lndClient) {
     var info, done, error;
-    try {
-      lndClient.getInfo({}, function(err, response) {
-        if (err) error = err;
-        else info = response;
-        done = true;
-      })
-    } catch(ex) {
-      error = ex;
+    lndClient.getInfo({}, (err, resp) => {
+      error = err;
+      info = resp;
       done = true;
-    }
-    while(done === undefined) {
-      require('deasync').runLoopOnce();
-    }
+    })
+    deasync.loopWhile(() => !done);
+
     if (error) throw new Error(error);
     if (!info) throw new Error('error getting node info');
-    else return info;
+    return info;
   },
   listPeersMapSync: function(lndClient) {
     let map;
@@ -436,14 +498,12 @@ module.exports = {
     let channels;
     let error;
     let done;
-    lndClient.listChannels({}, function(err, response) {
+    lndClient.listChannels({}, (err, response) => {
       error = err;
       channels = response && response.channels;
       done = true;
     })
-    while(done === undefined) {
-      require('deasync').runLoopOnce();
-    }
+    deasync.loopWhile(() => !done);
     if (error) throw new Error(error);
     return channels;
   },

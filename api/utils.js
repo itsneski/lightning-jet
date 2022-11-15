@@ -19,12 +19,36 @@ const constants = require('./constants');
 const config = importLazy('./config');
 const findProc = require('find-process');
 const date = require('date-and-time');
-
+const deasync = require('deasync');
 
 const round = n => Math.round(n);
 const pThreshold = 1; // %
 
 module.exports = {
+  jetDbStats() {
+    const {statSync} = require('fs');
+    const stats = statSync(__dirname + '/../db/jet.db');
+    const size = Math.round(stats.size / Math.pow(10, 6));  // in mbs
+    const str = (size >= 1000) ? withCommas(size) + ' gb' : size + ' mb';
+    return { size: size, str: str }
+  },
+  // ask - question to ask in the prompt
+  readInput(ask) {
+    const readline = require("readline");
+    const rl = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout
+    })
+
+    let answer;
+    rl.question(ask + ' ', function(resp) {
+      answer = resp;
+    })
+    deasync.loopWhile(function() { return answer === undefined })
+
+    rl.close();
+    return answer;
+  },
   // spawns and detaches child process
   spawnDetached({cmd, arg, log}) {
     let parg = {

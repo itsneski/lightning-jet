@@ -117,10 +117,23 @@ module.exports = {
       })
     }
 
+    let waitingClose = [];
+    list = pending.waiting_close_channels;
+    if (list && list.length > 0) {
+      list.forEach(p => {
+        waitingClose.push({
+          peer: pendingMap[p.channel.remote_node_pub],
+          id: p.channel.remote_node_pub,
+          limbo: withCommas(p.limbo_balance),
+        })
+      })
+    }
+
     return {
       active: activeChannels,
       updates: topUpdates,
-      pending: pendingChannels
+      pending: pendingChannels,
+      waitingClose: waitingClose
     }
   }
 }

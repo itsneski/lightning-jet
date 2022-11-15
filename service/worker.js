@@ -331,7 +331,7 @@ function txnLoopImpl() {
   ret = getPropWithErrSync(paymentsOffsetProp);
   if (ret.error) return console.error(pref, 'error getting payments offset, skip', ret.error);
   offset = ret.val || 0;
-  console.log(pref, 'featching payments, offset:', offset);
+  console.log(pref, 'fetching payments, offset:', offset);
   const paymentsOffset = offset;
 
   while(true) {
