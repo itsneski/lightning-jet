@@ -137,9 +137,9 @@ function runLoopImpl() {
     const max = Math.round(Math.min(split * n.capacity, n.sum));
     const min = n.capacity - max;
     const has = n.local - min;
-    //console.log(n, max, min, has);
-    if (has < minToRebalance) return console.log('[inbound]', n.peer, n.name, 'insufficient sats', has);
-    console.log('[inbound]', n.peer, n.name, 'has', has, 'sats');
+    console.log('[inbound]', n.peer, n.name, 'local:', n.local, 'max:', max, 'min:', min, 'has:', has);
+    if (has < minToRebalance) return console.log('  insufficient local sats to rebalance');
+    console.log('  sufficient local sats to rebalance');
     liquidityTable.inbound.push({id: n.id, peer: n.peer, name: n.name, has});
   })
   liquidityTable.outbound = [];
