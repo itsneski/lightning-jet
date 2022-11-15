@@ -35,6 +35,14 @@ Make sure `npm` is up to date (version 8.x) by running `npm -v`. Update `npm` in
 
 ## Installation
 
+Install via npm:
+
+```bash
+npm install lightning-jet --build-from-source --python=/usr/bin/python3
+```
+
+Install via git:
+
 ```bash
 git clone https://github.com/itsneski/lightning-jet
 cd lightning-jet
