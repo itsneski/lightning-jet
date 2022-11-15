@@ -79,9 +79,6 @@ module.exports = {
         if (row.type === 'forward') {
           row.type = 'inbound';
           list.push(row);
-        } else if (row.type === 'rebalance') {
-          row.type = 'sent';
-          list.push(row);
         }
       }, (err) => {
         done = true;
