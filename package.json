@@ -20,7 +20,7 @@
     "import-lazy": "^4.0.0",
     "node-telegram-bot-api": "^0.54.0",
     "run-parallel": "1.2.0",
-    "sqlite3": "^4.2.0"
+    "sqlite3": "^5.1.2"
   },
   "description": "Lightning Jet is a fully automated rebalancer for Lightning nodes. Jet optimizes channel liquidity allocation based on routing volume, missed routing opportunities (htlcs), and other variables.",
   "engines": {
