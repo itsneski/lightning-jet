@@ -20,6 +20,8 @@ You can install and run Lightning Jet in [Docker](#docker) (for advanced users w
 
 Jet is available on [EmbassyOS](https://github.com/Start9Labs/embassy-os) and can rebalance channels on [Start9](https://start9.com/latest/) products that run the OS.
 
+Jet can be installed in [Ubuntu VM](#ubuntu-vm) on Windows, Mac OS, and other platforms.
+
 ## Prerequisites
 
 Make sure to [install node](https://nodejs.org/en/download/) if you don't have it already. Run `node -v` to check if you have `node` and whether it is up to date (version 16.x+). Update `node` in case of an old version (this will also update `npm`).  
@@ -164,6 +166,24 @@ Prepend [all commands](#how-to-run) with `docker exec -it lightning-jet`:
 ```shell
 docker exec -it lightning-jet jet help
 ```
+
+## Ubuntu VM
+
+Lightning Jet can be installed in Ubuntu VM on Windows, Mac OS, and other platforms.
+
+1. [Install VirtualBox and set up Ubuntu image](https://ubuntu.com/tutorials/how-to-run-ubuntu-desktop-on-a-virtual-machine-using-virtualbox#1-overview)
+
+2. [Add user to the sudo group](https://www.tecmint.com/fix-user-is-not-in-the-sudoers-file-the-incident-will-be-reported-ubuntu/)
+
+3. Install curl: `sudo snap install curl`
+
+4. [Install node](https://github.com/nodesource/distributions/blob/master/README.md#using-ubuntu)
+
+5. Install git: `sudo apt install git`
+
+6. [Install jet](#installation)
+
+7. Copy over admin.macaroon (and tls.cert if needed) as in [Voltage Cloud](#voltage-cloud)
 
 ## Voltage Cloud
 
