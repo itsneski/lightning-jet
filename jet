@@ -365,13 +365,17 @@ cap
 
       const amount = (args.amount < 1000) ? args.amount * 1000000 : args.amount;
 
-      rebalanceApi({
-        from: args.from,
-        to: args.to,
-        amount: amount,
-        ppm: options.ppm,
-        mins: options.mins
-      })  
+      try {
+        rebalanceApi({
+          from: args.from,
+          to: args.to,
+          amount: amount,
+          ppm: options.ppm,
+          mins: options.mins
+        })  
+      } catch(err) {
+        console.error(err.message);
+      }
     })
   })
 
