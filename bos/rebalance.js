@@ -58,6 +58,8 @@ module.exports = {
     const mylogger = {
       debug: (msg) => { return args.logger.debug(debug) },
       info: (msg) => {
+        if (msg && msg.evaluating_amount !== undefined) return args.logger.amount(msg.evaluating_amount);
+
         try {
           let nodes = parseNodes(msg);
           if (nodes) return args.logger.eval(nodes);

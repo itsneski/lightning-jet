@@ -22,6 +22,7 @@ const FEE_HISTORY_TABLE = 'fee_history';
 const ACTIVE_REBALANCE_TABLE = 'active_rebalance';
 const CHANNEL_EVENTS_TABLE = 'channel_events';
 const TXN_TABLE = 'txn';
+const LIQUIDITY_TABLE = 'liquidity';  // lists peers that were ready to commit liquidity for payments
 
 var testMode = false;
 
@@ -38,6 +39,20 @@ const uniqueArr = arr => arr.filter(function(elem, pos) {
 })
 
 module.exports = {
+  recordLiquidity({node, sats, ppm}) {
+    const pref = 'recordLiquidity:';
+    if (!node || !sats || ppm === undefined) throw new Error('missing params');
+
+    let db = getHandle();
+    const vals = constructInsertString([Date.now(), node, sats, ppm]);
+    const cols = '(date, node, sats, ppm)';
+    let cmd = 'INSERT INTO ' + LIQUIDITY_TABLE + ' ' + cols + ' VALUES (' + vals + ')';
+    // record async, no need to wait for completion
+    executeDb(db, cmd, (err) => {
+      if (err) console.error(pref, err.message);
+      closeHandle(db);
+    })
+  },
   txnReset() {
     let db = getHandle();
     db.serialize(() => {
@@ -766,10 +781,8 @@ module.exports = {
 }
 
 function getHandle() {
-  let handle;
-  if (testMode) handle = new sqlite3.Database(testDbFile); 
-  else handle = new sqlite3.Database(dbFile);
-  return handle;
+  if (testMode) return new sqlite3.Database(testDbFile); 
+  else return new sqlite3.Database(dbFile);
 }
 
 function closeHandle(handle) {
@@ -829,8 +842,13 @@ function createTables() {
     createActiveRebalanceTable(db);
     createChannelEventsTable(db);
     createTxnTable(db);
+    createLiquidityTable(db);
   })
   closeHandle(db);
+}
+
+function createLiquidityTable(db) {
+  executeDbSync(db, "CREATE TABLE IF NOT EXISTS " + LIQUIDITY_TABLE + " (date INTEGER NOT NULL, chan TEXT, node TEXT NOT NULL, sats INTEGER NOT NULL, ppm INTEGER NOT NULL)");
 }
 
 function createTxnTable(db) {
