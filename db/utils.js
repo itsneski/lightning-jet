@@ -39,6 +39,32 @@ const uniqueArr = arr => arr.filter(function(elem, pos) {
 })
 
 module.exports = {
+  reportLiquidity() {
+    const db = getHandle();
+    let list = [];
+
+    // get forwards and rebalances
+    try {
+      let done, error;
+      db.serialize(() => {
+        let q = 'SELECT node, COUNT() as count, SUM(sats) as sats_sum, ROUND(avg(ppm)) as avg_ppm, MIN(ppm) as min_ppm, MAX(ppm) as max_ppm FROM liquidity GROUP BY node ORDER BY count DESC;'; // don't need order by but it doesn't hurt;
+        if (testMode) console.log(q);
+        db.each(q, (err, row) => {
+          list.push(row);
+        }, (err) => {
+          error = err;
+          done = true;
+        })
+      })
+      deasync.loopWhile(() => !done);
+      if (error) console.error('reportLiquidity:', error.message);
+    } catch(err) {
+      console.error('reportLiquidity:', err.message);
+    } finally {
+      closeHandle(db);
+    }
+    return list;
+  },
   recordLiquidity({node, sats, ppm}) {
     const pref = 'recordLiquidity:';
     if (!node || !sats || ppm === undefined) throw new Error('missing params');
