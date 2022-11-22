@@ -452,26 +452,27 @@ module.exports = {
   fetchTelegramMessageSync() {
     const pref = 'fetchTelegramMessageSync:';
     let db = getHandle();
+    let done, error;
+    let messages = [];
     try {
-      let done;
-      let messages = [];
       db.serialize(function() {
         let q = 'SELECT rowid, * FROM ' + TELEGRAM_MESSAGES_TABLE + ' ORDER BY date ASC';
-        db.each(q, function(err, row) {
+        db.each(q, (err, row) => {
           messages.push({id:row.rowid, message:row.message});
-        }, function(err) {
+        }, (err) => {
           error = err;
           done = true;
         })
       })
-      deasync.loopWhile(() => !done);
-      if (error) console.error(pref, error.message);
-      return messages;
-    } catch(error) {
-      console.error('fetchTelegramMessageSync:', error.message);
+    } catch(err) {
+      error = err;
+      done = true;
     } finally {
       closeHandle(db);
     }
+    deasync.loopWhile(() => !done);
+    if (error) console.error(pref, error.message);
+    return messages;
   },
   recordTelegramMessageSync(msg) {
     let db = getHandle();
