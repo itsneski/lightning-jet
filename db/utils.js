@@ -450,6 +450,7 @@ module.exports = {
     }
   },
   fetchTelegramMessageSync() {
+    const pref = 'fetchTelegramMessageSync:';
     let db = getHandle();
     try {
       let done;
@@ -458,14 +459,13 @@ module.exports = {
         let q = 'SELECT rowid, * FROM ' + TELEGRAM_MESSAGES_TABLE + ' ORDER BY date ASC';
         db.each(q, function(err, row) {
           messages.push({id:row.rowid, message:row.message});
-        }, function(error) {
-          if (error) throw new Error(error.message);
+        }, function(err) {
+          error = err;
           done = true;
         })
       })
-      while(done === undefined) {
-        require('deasync').runLoopOnce();
-      }
+      deasync.loopWhile(() => !done);
+      if (error) console.error(pref, error.message);
       return messages;
     } catch(error) {
       console.error('fetchTelegramMessageSync:', error.message);
