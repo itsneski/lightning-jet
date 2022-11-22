@@ -359,8 +359,16 @@ cap
   .option('--sort [col]', 'Sort by a column', ['sats_sum'])
   .action((args, options, logger) => {
     return new Promise(async (resolve, reject) => {
+      if (!isLndAlive(lndClient)) return reject('lnd is offline');
+
+      if (options.top && options.top <= 1) return console.error('--top must be above or equal to 1');
+
+      const hours = options.hours || (options.days && options.days * 24) || constants.defaultProbeInterval;
+      const msec = new Date(new Date().toUTCString()).getTime();
+      const fromDate = (msec - hours * 60 * 60 * 1000);
+
       const {reportLiquidity} = require('./db/utils');
-      const list = reportLiquidity();
+      const list = reportLiquidity(fromDate);
       if (!list || list.length === 0) return console.log('no records found');
 
       if (options.sort === 'sats_sum') {
@@ -378,6 +386,12 @@ cap
         formatted.push(item);
       })
       if (options.top) formatted = formatted.slice(0, options.top);
+
+      let str = 'probe data';
+      const days = isInt(hours/24) && Math.floor(hours/24);
+      if (days) str += ' over the past ' + days + ' day(s)';
+      else str += ' over the past ' + hours + ' hour(s)';
+      console.log(str + ':');
       console.table(formatted);
     })
   })

@@ -39,7 +39,7 @@ const uniqueArr = arr => arr.filter(function(elem, pos) {
 })
 
 module.exports = {
-  reportLiquidity() {
+  reportLiquidity(fromDate, toDate) {
     const db = getHandle();
     let list = [];
 
@@ -47,7 +47,10 @@ module.exports = {
     try {
       let done, error;
       db.serialize(() => {
-        let q = 'SELECT node, COUNT() as count, SUM(sats) as sats_sum, ROUND(avg(ppm)) as avg_ppm, MIN(ppm) as min_ppm, MAX(ppm) as max_ppm FROM liquidity GROUP BY node ORDER BY count DESC;'; // don't need order by but it doesn't hurt;
+        let q = 'SELECT node, COUNT() as count, SUM(sats) as sats_sum, ROUND(avg(ppm)) as avg_ppm, MIN(ppm) as min_ppm, MAX(ppm) as max_ppm FROM liquidity';
+        if (fromDate) q += ' WHERE date >= ' + fromDate;
+        if (toDate) q += ' AND date < ' + toDate;
+        q += ' GROUP BY node ORDER BY count DESC';
         if (testMode) console.log(q);
         db.each(q, (err, row) => {
           list.push(row);
