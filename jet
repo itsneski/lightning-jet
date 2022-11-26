@@ -60,14 +60,80 @@ serviceNamesPlus.push('all');
 cap
   .version(version)
 
-  .command('info', 'Information about the node')
-  .help('Returns various node stats')
+  .command('info', 'Information about this node, another node, or a channel')
+  .argument('[id]', 'Node id, node partial alias, or channel id')
+  .help('Returns various node or channel stats')
   .action((args, options, logger) => {
     return new Promise(async (resolve, reject) => {
       if (!isLndAlive(lndClient)) return reject('lnd is offline');
 
       const {withCommas} = require('./lnd-api/utils');
+      const {getChanInfo} = require('./lnd-api/utils');
+      const {getNodeInfoSync} = require('./lnd-api/utils');
       const {getInfoSync} = require('./lnd-api/utils');
+      if (args.id) {
+        // locate node or channel
+        let matches = resolveNode(args.id);
+        if (matches && matches.length > 0) {
+          if (matches.length > 1) return console.log('multiple node matches found; narrow your selection');
+          printNode(matches[0].id);
+        } else {
+          // try to resolve channel
+          matches = resolveChannel(args.id);
+          if (matches && matches.length > 0) {
+            if (matches.length > 1) return console.error('multiple channel matches found; narrow your selection');
+            printChan(matches[0]);
+          } else {
+            // no matches out of existing peers, query for node id directly
+            if (printNode(args.id)) {
+              // already printed node stats
+            } else if (printChan(args.id)) {
+              // already printed chan stats
+            } else {
+              console.log('no matches found');
+            }
+          }
+        }
+        return;
+
+        function printNode(id) {
+           try {
+            const info = getNodeInfoSync(lndClient, id).info;
+            if (!info) return;
+            console.log('pub id:', info.node.pub_key);
+            console.log('name:', info.node.alias);
+            console.log('total chans:', info.num_channels);
+            console.log('total capacity:', withCommas(info.total_capacity), '(sats)');
+            return info;
+          } catch(err) {
+            // no need to print error
+          }
+        }
+
+        function printChan(id) {
+          try {
+            const info = getChanInfo(lndClient, id);
+            if (!info) return;
+            console.log('chan id:', info.chan.channel_id);
+            console.log('capacity:', withCommas(info.chan.capacity));
+            const myNode = getInfoSync(lndClient).identity_pubkey;
+            const peer1 = getNodeInfoSync(lndClient, info.chan.node1_pub);
+            const peer2 = getNodeInfoSync(lndClient, info.chan.node2_pub);
+            if (peer1.info.node.pub_key === myNode) {
+              console.log('peer:', peer2.info.node.alias + ', ' + peer2.info.node.pub_key);
+            } else if (peer2.info.node.pub_key === myNode) {
+              console.log('peer:', peer1.info.node.alias + ', ' + peer1.info.node.pub_key);
+            } else {
+              console.log('peer1:', peer1.info.node.alias + ', ' + peer1.info.node.pub_key);
+              console.log('peer2:', peer2.info.node.alias + ', ' + peer2.info.node.pub_key);
+            }
+            return info;
+          } catch(err) {
+            // no need to print error
+          }
+        }
+      }
+
       const nodeInfo = getInfoSync(lndClient);
       const {walletBalance} = require('./lnd-api/utils');
       const balance = walletBalance(lndClient);

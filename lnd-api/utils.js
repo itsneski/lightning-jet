@@ -507,6 +507,16 @@ module.exports = {
     if (error) throw new Error(error);
     return channels;
   },
+  getNodeInfoSync: function(lndClient, id) {
+    let done, error, info;
+    lndClient.getNodeInfo({pub_key: id}, (err, response) => {
+      error = err;
+      info = response;
+      done = true;
+    })
+    deasync.loopWhile(() => !done);
+    return {error, info};
+  },
   getNodesInfo: function(lndClient, nodes, callback) {
     let calls = [];
     nodes.forEach(n => {
@@ -536,12 +546,10 @@ module.exports = {
       return nodes;
     }
     let info;
-    module.exports.getNodesInfo(lndClient, nodes, function(result) {
+    module.exports.getNodesInfo(lndClient, nodes, (result) => {
       info = result;
     })
-    while(info === undefined) {
-      require('deasync').runLoopOnce();
-    }
+    deasync.loopWhile(() => !info);
     return info;
   },
   removeEmojis: function(str) {
