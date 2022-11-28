@@ -22,6 +22,7 @@ const FEE_HISTORY_TABLE = 'fee_history';
 const ACTIVE_REBALANCE_TABLE = 'active_rebalance';
 const CHANNEL_EVENTS_TABLE = 'channel_events';
 const TXN_TABLE = 'txn';
+const LIQUIDITY_TABLE = 'liquidity';  // lists peers that were ready to commit liquidity for payments
 
 var testMode = false;
 
@@ -38,6 +39,49 @@ const uniqueArr = arr => arr.filter(function(elem, pos) {
 })
 
 module.exports = {
+  reportLiquidity(fromDate, toDate) {
+    const db = getHandle();
+    let list = [];
+
+    // get forwards and rebalances
+    try {
+      let done, error;
+      db.serialize(() => {
+        let q = 'SELECT node, COUNT() as count, SUM(sats) as sats_sum, ROUND(avg(ppm)) as avg_ppm, MIN(ppm) as min_ppm, MAX(ppm) as max_ppm FROM liquidity';
+        if (fromDate) q += ' WHERE date >= ' + fromDate;
+        if (toDate) q += ' AND date < ' + toDate;
+        q += ' GROUP BY node ORDER BY count DESC';
+        if (testMode) console.log(q);
+        db.each(q, (err, row) => {
+          list.push(row);
+        }, (err) => {
+          error = err;
+          done = true;
+        })
+      })
+      deasync.loopWhile(() => !done);
+      if (error) console.error('reportLiquidity:', error.message);
+    } catch(err) {
+      console.error('reportLiquidity:', err.message);
+    } finally {
+      closeHandle(db);
+    }
+    return list;
+  },
+  recordLiquidity({node, sats, ppm}) {
+    const pref = 'recordLiquidity:';
+    if (!node || !sats || ppm === undefined) throw new Error('missing params');
+
+    let db = getHandle();
+    const vals = constructInsertString([Date.now(), node, sats, ppm]);
+    const cols = '(date, node, sats, ppm)';
+    let cmd = 'INSERT INTO ' + LIQUIDITY_TABLE + ' ' + cols + ' VALUES (' + vals + ')';
+    // record async, no need to wait for completion
+    executeDb(db, cmd, (err) => {
+      if (err) console.error(pref, err.message);
+      closeHandle(db);
+    })
+  },
   txnReset() {
     let db = getHandle();
     db.serialize(() => {
@@ -406,28 +450,29 @@ module.exports = {
     }
   },
   fetchTelegramMessageSync() {
+    const pref = 'fetchTelegramMessageSync:';
     let db = getHandle();
+    let done, error;
+    let messages = [];
     try {
-      let done;
-      let messages = [];
       db.serialize(function() {
         let q = 'SELECT rowid, * FROM ' + TELEGRAM_MESSAGES_TABLE + ' ORDER BY date ASC';
-        db.each(q, function(err, row) {
+        db.each(q, (err, row) => {
           messages.push({id:row.rowid, message:row.message});
-        }, function(error) {
-          if (error) throw new Error(error.message);
+        }, (err) => {
+          error = err;
           done = true;
         })
       })
-      while(done === undefined) {
-        require('deasync').runLoopOnce();
-      }
-      return messages;
-    } catch(error) {
-      console.error('fetchTelegramMessageSync:', error.message);
+    } catch(err) {
+      error = err;
+      done = true;
     } finally {
       closeHandle(db);
     }
+    deasync.loopWhile(() => !done);
+    if (error) console.error(pref, error.message);
+    return messages;
   },
   recordTelegramMessageSync(msg) {
     let db = getHandle();
@@ -766,10 +811,8 @@ module.exports = {
 }
 
 function getHandle() {
-  let handle;
-  if (testMode) handle = new sqlite3.Database(testDbFile); 
-  else handle = new sqlite3.Database(dbFile);
-  return handle;
+  if (testMode) return new sqlite3.Database(testDbFile); 
+  else return new sqlite3.Database(dbFile);
 }
 
 function closeHandle(handle) {
@@ -829,8 +872,13 @@ function createTables() {
     createActiveRebalanceTable(db);
     createChannelEventsTable(db);
     createTxnTable(db);
+    createLiquidityTable(db);
   })
   closeHandle(db);
+}
+
+function createLiquidityTable(db) {
+  executeDbSync(db, "CREATE TABLE IF NOT EXISTS " + LIQUIDITY_TABLE + " (date INTEGER NOT NULL, chan TEXT, node TEXT NOT NULL, sats INTEGER NOT NULL, ppm INTEGER NOT NULL)");
 }
 
 function createTxnTable(db) {

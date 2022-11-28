@@ -32,6 +32,7 @@ const {recordRebalanceAvoid} = require('../db/utils');
 const {listRebalanceAvoidSync} = require('../db/utils');
 const {recordActiveRebalanceSync} = require('../db/utils');
 const {deleteActiveRebalanceSync} = require('../db/utils');
+const {recordLiquidity} = require('../db/utils');
 const {listPeersMapSync} = require('../lnd-api/utils');
 const {getNodeFeeSync} = require('../lnd-api/utils');
 const {rebalanceSync} = require('../bos/rebalance');
@@ -197,7 +198,8 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
       console.log('* time left:', timeLeft, 'mins');
 
       // call bos rebalance; async logger will be notified about route evals and log messages
-      let lastRoute; // last route that was evaluated
+      let lastRoute;  // last route that was evaluated
+      let lastAmount; // last amount that was evaluated
       const rebalanceLogger = {
         eval: (route) => {
           console.log('\nprobing route:', route);
@@ -220,6 +222,10 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
               console.log('identified expensive node:', stringify(node));
             }
           })
+        },
+        amount: (amount) => {
+          console.log('evaluating amount:', amount);
+          lastAmount = amount;
         },
         debug: (msg) => {
           if (config.debugMode) console.log('bos rebalance debug:', stringify(msg));
@@ -271,6 +277,11 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
           if (lastRoute) {
             let nodes = lastRoute;
             if (nodes) {
+              // record nodes in the db for further analysis
+              nodes.forEach(n => {
+                recordLiquidity({node: n.id, sats: lastAmount, ppm: n.ppm});
+              })
+
               // find a node with max ppm that's not already on the avoid list
               // its enough to select one node to unblock the route
               let max;
@@ -434,6 +445,13 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
           // record result in the db for further optimation
           recordRebalance(iterationStart, outId, inId, AMOUNT, amount, Math.round(1000000 * fees / amount), type);
 
+          // record nodes on the route for future analysis
+          if (lastRoute) {  // shouldn't be empty but just in case
+            lastRoute.forEach(n => {
+              recordLiquidity({node: n.id, sats: amount, ppm: n.ppm});
+            })
+          }
+
           console.log('* total amount rebalanced:', numberWithCommas(amountRebalanced));
           if (fees > 0) {
             console.log('* fees spent:', fees);
@@ -501,7 +519,7 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
     let id;
     Object.values(peerMap).forEach(p => {
       if (p.name.toLowerCase().indexOf(str.toLowerCase()) >= 0) {
-        if (id) throw new Error('more than one pub id associated with ' + str);
+        if (id) throw new Error('more than one peer associated with ' + str + '; narrow your selection');
         id = p.id;
       }
     })

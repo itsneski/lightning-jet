@@ -20,6 +20,8 @@ You can install and run Lightning Jet in [Docker](#docker) (for advanced users w
 
 Jet is available on [EmbassyOS](https://github.com/Start9Labs/embassy-os) and can rebalance channels on [Start9](https://start9.com/latest/) products that run the OS.
 
+Jet can be installed in [Ubuntu VM](#ubuntu-vm) on Windows, Mac OS, and other platforms.
+
 ## Prerequisites
 
 Make sure to [install node](https://nodejs.org/en/download/) if you don't have it already. Run `node -v` to check if you have `node` and whether it is up to date (version 16.x+). Update `node` in case of an old version (this will also update `npm`).  
@@ -38,7 +40,7 @@ Make sure `npm` is up to date (version 8.x) by running `npm -v`. Update `npm` in
 ```bash
 git clone https://github.com/itsneski/lightning-jet
 cd lightning-jet
-npm install --build-from-source --python=/usr/bin/python3
+npm install
 nano ./api/config.json
 ```
 Edit `config.json`: set correct absolute (not relative) paths for `macaroonPath` and `tlsCertPath`. On umbrel, macaroons are typically located at `/home/umbrel/umbrel/lnd/data/chain/bitcoin/mainnet/admin.macaroon`, tls cert is at `/home/umbrel/umbrel/lnd/tls.cert`.
@@ -102,6 +104,7 @@ jet help
 |`jet monitor`|Monitors ongoing rebalances, rebalance history, and stuck htlcs. Warns about the state of BOLT database (channel.db); for example, jet will warn when the channel.db grows over a threshold.|
 |`jet monitor --status`|Monitors the status of rebalances; shows whether rebalances are paused or active; provides recommendation for local ppm range.|
 |`jet stats`|Displays profitability metrics over a time period, including delta(s) with previous time period. Node operators can use this tool to A/B test new channels and fee updates on existing channels.|
+|`jet probes`|Displays nodes (discovered during probes) that have signaled a commitment to liquidity. This tool can be used to identify prospects for new channels.|
 |`jet htlc-analyzer`|Analyzes failed htlcs and lists peers sorted based on missed routing opportunities. Missed routing opportunities are typically due to [outbound] peers not having sufficient liquidity and/or having low fees.|
 |`jet htlc-analyzer ln2me --hours 12`|Shows missed routing opportunities for ln2me node over the past 12 hours.|
 |`jet analyze-fees`|Analyzes fees for [outbound] peers and recommends whether to increase or decrease fees based on routing history.|
@@ -164,6 +167,24 @@ Prepend [all commands](#how-to-run) with `docker exec -it lightning-jet`:
 ```shell
 docker exec -it lightning-jet jet help
 ```
+
+## Ubuntu VM
+
+Lightning Jet can be installed in Ubuntu VM on Windows, Mac OS, and other platforms.
+
+1. [Install VirtualBox and set up Ubuntu image](https://ubuntu.com/tutorials/how-to-run-ubuntu-desktop-on-a-virtual-machine-using-virtualbox#1-overview)
+
+2. [Add user to the sudo group](https://www.tecmint.com/fix-user-is-not-in-the-sudoers-file-the-incident-will-be-reported-ubuntu/)
+
+3. Install curl: `sudo snap install curl`
+
+4. [Install node](https://github.com/nodesource/distributions/blob/master/README.md#using-ubuntu)
+
+5. Install git: `sudo apt install git`
+
+6. [Install jet](#installation)
+
+7. Copy over admin.macaroon (and tls.cert if needed) as in [Voltage Cloud](#voltage-cloud)
 
 ## Voltage Cloud
 

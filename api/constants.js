@@ -6,6 +6,8 @@ exports.logNameRegEx = /[^a-zA-Z0-9.]/g;
 exports.telegramBotHelpPage = 'https://github.com/itsneski/lightning-jet#telegram-bot';
 exports.maxTxnInterval = 30 * 24; // hours
 exports.defaultTxnInterval = 7 * 24; // hours
+exports.defaultProbeInterval = 7 * 24; // hours
+exports.defaultProbeTopN = 10;
 
 // monitor
 exports.monitor = {
