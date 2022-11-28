@@ -418,7 +418,7 @@ cap
     })
   })
 
-  .command('probes', 'Displays stats on probes showing nodes that signaled commitment of liquidity. This data can be used to determine candidate nodes for new channels')
+  .command('probes', 'Displays nodes (discovered during probes) that have signaled a commitment to liquidity. This tool can be used to identify prospects for new channels.')
   .option('--days [days]', 'Depth of history in days')
   .option('--hours [hours]', 'Depth of history in hours')
   .option('--top [n]', 'Return top n records, default ' + constants.defaultProbeTopN)
