@@ -40,7 +40,7 @@ Make sure `npm` is up to date (version 8.x) by running `npm -v`. Update `npm` in
 ```bash
 git clone https://github.com/itsneski/lightning-jet
 cd lightning-jet
-npm install --build-from-source --python=/usr/bin/python3
+npm install
 nano ./api/config.json
 ```
 Edit `config.json`: set correct absolute (not relative) paths for `macaroonPath` and `tlsCertPath`. On umbrel, macaroons are typically located at `/home/umbrel/umbrel/lnd/data/chain/bitcoin/mainnet/admin.macaroon`, tls cert is at `/home/umbrel/umbrel/lnd/tls.cert`.
