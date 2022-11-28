@@ -418,27 +418,41 @@ cap
     })
   })
 
-  .command('probes', 'Shows stats on probes')
+  .command('probes', 'Displays stats on probes showing nodes that signaled commitment of liquidity. This data can be used to determine candidate nodes for new channels')
   .option('--days [days]', 'Depth of history in days')
   .option('--hours [hours]', 'Depth of history in hours')
-  .option('--top [n]', 'Return top n records')
-  .option('--sort [col]', 'Sort by a column', ['sats_sum'])
+  .option('--top [n]', 'Return top n records, default ' + constants.defaultProbeTopN)
+  .option('--all', 'Return all records')
+  .option('--sort [col]', 'Sort by a column', ['sats_sum', 'count', 'avg_ppm', 'min_ppm', 'max_ppm'])
   .action((args, options, logger) => {
     return new Promise(async (resolve, reject) => {
       if (!isLndAlive(lndClient)) return reject('lnd is offline');
 
       if (options.top && options.top <= 1) return console.error('--top must be above or equal to 1');
+      const top = (options.all) ? options.top : options.top || constants.defaultProbeTopN;
 
-      const hours = options.hours || (options.days && options.days * 24) || constants.defaultProbeInterval;
+      const hours = (options.all) ? options.hours || (options.days && options.days * 24) : options.hours || (options.days && options.days * 24) || constants.defaultProbeInterval;
       const msec = new Date(new Date().toUTCString()).getTime();
-      const fromDate = (msec - hours * 60 * 60 * 1000);
+      const fromDate = hours && (msec - hours * 60 * 60 * 1000);
+
+      const sortCol = options.sort || 'count';
 
       const {reportLiquidity} = require('./db/utils');
       const list = reportLiquidity(fromDate);
       if (!list || list.length === 0) return console.log('no records found');
 
-      if (options.sort === 'sats_sum') {
+      if (sortCol === 'sats_sum') {
         list.sort((a, b) => { return b.sats_sum - a.sats_sum });
+      } else if (sortCol === 'count') {
+        list.sort((a, b) => { return b.count - a.count });
+      } else if (sortCol === 'avg_ppm') {
+        list.sort((a, b) => { return a.avg_ppm - b.avg_ppm });
+      } else if (sortCol === 'min_ppm') {
+        list.sort((a, b) => { return a.min_ppm - b.min_ppm });
+      } else if (sortCol === 'max_ppm') {
+        list.sort((a, b) => { return b.max_ppm - a.max_ppm });
+      } else {
+        console.error('unknown sort column,', sortCol);
       }
 
       const peers = listPeersSync(lndClient);
@@ -451,13 +465,23 @@ cap
         if (peerMap[item.node]) return; // skip node that we already have??
         formatted.push(item);
       })
-      if (options.top) formatted = formatted.slice(0, options.top);
+      if (top) formatted = formatted.slice(0, top);
 
-      let str = 'probe data';
-      const days = isInt(hours/24) && Math.floor(hours/24);
-      if (days) str += ' over the past ' + days + ' day(s)';
-      else str += ' over the past ' + hours + ' hour(s)';
-      console.log(str + ':');
+      let str = 'probe data showing nodes that signaled commitment of liquidity\n';
+      str += 'data generated'
+      if (hours) {
+        const days = isInt(hours/24) && Math.floor(hours/24);
+        if (days) str += ' over the past ' + days + ' day(s)';
+        else str += ' over the past ' + hours + ' hour(s)';
+      } else {
+        str += ' since the beginning'
+      }
+      if (top) str += '; returning top ' + top + ' records';
+      str += '; sorted by ' + sortCol;
+      console.log(str);
+      console.log('-count: total number of times a node signaled commitment of liquidity');
+      console.log('-sats_sum: total number of sats a node signaled to commit');
+      console.log('-avg_ppm: average ppm of [commited] liquidity');
       console.table(formatted);
     })
   })
