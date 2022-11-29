@@ -523,18 +523,34 @@ cap
       const days = options.days || 1;
       let peers = listPeersFormattedSync(days);
       console.log('classification of peers based on past', days, 'day(s):');
-      console.log('inbound peers:');
-      if (peers.inbound.length > 0) console.table(peers.inbound);
-      console.log('outbound peers:');
-      if (peers.outbound.length > 0) console.table(peers.outbound);
-      console.log('other peers (low routing volume):');
-      if (peers.balanced.length > 0) console.table(peers.balanced);
+      console.log('-local: total sats on local side (excluding htlcs)')
+      console.log('-remote: total sats on remote side (excluding htlcs)')
+      if (peers.inbound.length > 0) {
+        console.log('\ninbound peers:');
+        console.table(peers.inbound);
+      } else {
+        console.log('no inbound peers found');
+      }
+      if (peers.outbound.length > 0) {
+        console.log('\noutbound peers:');
+        console.table(peers.outbound);
+      } else {
+        console.log('no outbound peers found');
+      }
+      if (peers.balanced.length > 0) {
+        console.log('\nlow routing volume peers:');
+        console.table(peers.balanced);
+      }
       if (peers.skipped.length > 0) {
-        console.log('skipped peers:');
+        console.log('\nskipped peers:');
         console.table(peers.skipped);  
       }
-      console.log('all peers:');
-      if (peers.all.length > 0) console.table(peers.all);
+      if (peers.all.length > 0) {
+        console.log('\nall peers:');
+        console.table(peers.all);
+      } else {
+        console.log('no peers found');
+      }
     })
   })
 

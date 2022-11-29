@@ -304,11 +304,12 @@ module.exports = {
     let allPeers = [];
     peers.forEach(p => allPeers.push(convertPeer(p)) );
 
-    allPeers.sort(function(a, b) {
-      return a.in - b.in;
+    allPeers.sort((a, b) => {
+      if (!a.name) return -1;
+      return a.name.localeCompare(b.name);
     })
     allPeers.forEach(p => delete p.p);  // no need
-    allPeers.forEach(p => { p.in = withCommas(p.in); p.out = withCommas(p.out); });
+    allPeers.forEach(p => { p.remote = withCommas(p.remote); p.local = withCommas(p.local); });
 
     let inPeers = [];
     peers.forEach(p => {
@@ -322,7 +323,7 @@ module.exports = {
     inPeers.sort(function(a, b) {
       return b.p - a.p;
     })
-    inPeers.forEach(p => { p.in = withCommas(p.in); p.out = withCommas(p.out); });
+    inPeers.forEach(p => { p.remote = withCommas(p.remote); p.local = withCommas(p.local); });
 
     let outPeers = [];
     peers.forEach(p => {
@@ -337,7 +338,7 @@ module.exports = {
     outPeers.sort(function(a, b) {
       return b.p - a.p;
     })
-    outPeers.forEach(p => { p.in = withCommas(p.in); p.out = withCommas(p.out); });
+    outPeers.forEach(p => { p.remote = withCommas(p.remote); p.local = withCommas(p.local); });
 
     let balancedPeers = [];
     peers.forEach(p => {
@@ -349,10 +350,10 @@ module.exports = {
       }
     })
     balancedPeers.sort(function(a, b) {
-      return a.out - b.out;
+      return a.local - b.local;
     })
     balancedPeers.forEach(p => delete p.p);  // no need
-    balancedPeers.forEach(p => { p.in = withCommas(p.in); p.out = withCommas(p.out); });
+    balancedPeers.forEach(p => { p.remote = withCommas(p.remote); p.local = withCommas(p.local); });
 
     let skippedPeers = [];
     peers.forEach(p => {
@@ -362,7 +363,7 @@ module.exports = {
       return a.out - b.out;
     })
     skippedPeers.forEach(p => delete p.p);  // no need
-    skippedPeers.forEach(p => { p.in = withCommas(p.in); p.out = withCommas(p.out); });
+    skippedPeers.forEach(p => { p.remote = withCommas(p.remote); p.local = withCommas(p.local); });
 
     return {
       all: allPeers,
@@ -373,7 +374,7 @@ module.exports = {
     }
     
     function convertPeer(p, pp = undefined, inbound = false) {
-      let s = (inbound) ? { name: p.name, in: p.in, out: p.out } : { name: p.name, out: p.out, in: p.in };
+      let s = (inbound) ? { name: p.name, remote: p.in, local: p.out } : { name: p.name, local: p.out, remote: p.in };
       if (pp && pp.p) s.p = pp.p; else s.p = 0;
       if (!p.active) s.name = '💀 ' + s.name;
       return s;
