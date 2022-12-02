@@ -39,6 +39,8 @@ const serviceUtils = require('./utils');
 const RebalanceQueue = require('./queue');
 const {spawnDetached} = require('../api/utils');
 const {isLndAlive} = importLazy('../lnd-api/utils');
+const {listPeersMapSync} = importLazy('../lnd-api/utils');
+const {sendMessage} = importLazy('../api/telegram');
 
 const maxCount = config.rebalancer.maxInstances || constants.rebalancer.maxInstances;
 const defaultMaxPpm = config.rebalancer.maxAutoPpm || constants.rebalancer.maxAutoPpm;
@@ -60,21 +62,38 @@ var queue = new RebalanceQueue();
 // build exclude map
 let exclude = {};
 if (config.rebalancer.exclude && config.rebalancer.exclude.length > 0) {
-  config.rebalancer.exclude.forEach(n => {
-    let id = n;
-    let type = 'outbound';  // default
-    let ind = n.indexOf(':');
-    if (n.indexOf(':') >= 0) {
-      id = n.substring(0, ind);
-      type = n.substring(ind + 1);
-    }
-    if (['all', 'inbound', 'outbound'].includes(type)) {
-      exclude[id] = type;
-    } else {
-      console.error(colorRed, 'unknown exclude for ' + id + ': ' + type + ', skipping');
-    }
-  })
-  console.log('exclude:', exclude);
+  // get all peers to validate excludes
+  const peerMap = listPeersMapSync(lndClient);
+  if (!peerMap || peerMap.length === 0) {
+    const msg = 'no peers found, skipping exclude clause';
+    console.warn(colorYellow, msg);
+    sendMessage('rebalancer: ' + msg);
+  } else {
+    config.rebalancer.exclude.forEach(n => {
+      let id = n;
+      let type = 'outbound';  // default
+      let ind = n.indexOf(':');
+      if (n.indexOf(':') >= 0) {
+        id = n.substring(0, ind);
+        type = n.substring(ind + 1);
+      }
+      // make sure id is in the peer map to prevent typos
+      if (!peerMap[id]) {
+        const msg = 'unknown peer in exclude: ' + id + ', skipping';
+        console.error(colorRed, msg);
+        sendMessage('rebalancer: ' + msg);
+        return;
+      }
+      if (['all', 'inbound', 'outbound'].includes(type)) {
+        exclude[id] = type;
+      } else {
+        const msg = 'unknown exclude for ' + id + ': ' + type + ', skipping';
+        console.error(colorRed, msg);
+        sendMessage('rebalancer: ' + msg);
+      }
+    })
+    console.log('exclude:', exclude);
+  }
 }
 
 // main loop, build rebalancing queue
