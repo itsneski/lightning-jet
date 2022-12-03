@@ -86,13 +86,18 @@ if (config.rebalancer.exclude && config.rebalancer.exclude.length > 0) {
       }
       if (['all', 'inbound', 'outbound'].includes(type)) {
         exclude[id] = type;
+      } else if (type === 'from') {
+        exclude[id] = 'inbound';
+      } else if (type === 'to') {
+        exclude[id] = 'outbound';
       } else {
         const msg = 'unknown exclude for ' + id + ': ' + type + ', skipping';
         console.error(colorRed, msg);
         sendMessage('rebalancer: ' + msg);
       }
     })
-    console.log('exclude:', exclude);
+    if (Object.keys(exclude).length === 0) console.log('exclude: empty');
+    else console.log('exclude:', exclude);
   }
 }
 
