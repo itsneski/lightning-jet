@@ -81,7 +81,7 @@ if (config.rebalancer.exclude && config.rebalancer.exclude.length > 0) {
       }
       // make sure id is in the peer map to prevent typos
       if (!peerMap[id]) {
-        const msg = 'unknown peer in exclude: ' + id + ', skipping';
+        const msg = 'unknown node in exclude: ' + id + ', skipping';
         console.error(colorRed, msg);
         sendMessage('rebalancer: ' + msg);
         return;
