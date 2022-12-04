@@ -42,6 +42,8 @@ const {isLndAlive} = importLazy('../lnd-api/utils');
 const {listPeersMapSync} = importLazy('../lnd-api/utils');
 const {sendMessage} = importLazy('../api/telegram');
 
+console.log('\n' + date.format(new Date, 'MM/DD hh:mm:ss A') + ' rebalancer is starting up');
+
 const maxCount = config.rebalancer.maxInstances || constants.rebalancer.maxInstances;
 const defaultMaxPpm = config.rebalancer.maxAutoPpm || constants.rebalancer.maxAutoPpm;
 const maxPendingHtlcs = config.rebalancer.maxPendingHtlcs || constants.rebalancer.maxPendingHtlcs;
@@ -404,6 +406,18 @@ function runLoopImpl() {
       const pref = '  ';
 
       if (e.sats < minToRebalance) return console.log(pref, 'forwarded sats are below threshold', minToRebalance);
+
+      // https://github.com/itsneski/lightning-jet/issues/97
+      // rebalances on forwards are done outside of liquidity table where
+      // exclude checks are done. check exclude for 'from' and 'to' peers.
+      let type = exclude[from.peer];
+      if (type && ['all', 'inbound'].includes(type)) {
+        return console.log(colorYellow, '  ' + from.peer + ' excluded based on settings');
+      }
+      type = exclude[to.peer];
+      if (type && ['all', 'outbound'].includes(type)) {
+        return console.log(colorYellow, '  ' + to.peer + ' excluded based on settings');
+      }
 
       let maxPpm = checkPeers(from, to, pref);
       if (maxPpm === undefined) return;
