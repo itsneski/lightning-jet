@@ -405,19 +405,19 @@ function runLoopImpl() {
       console.log('[forward]', 'from:', from.name, from.peer, 'to:', to.name, to.peer, 'sats:', e.sats);
       const pref = '  ';
 
-      if (e.sats < minToRebalance) return console.log(pref, 'forwarded sats are below threshold', minToRebalance);
-
       // https://github.com/itsneski/lightning-jet/issues/97
       // rebalances on forwards are done outside of liquidity table where
       // exclude checks are done. check exclude for 'from' and 'to' peers.
       let type = exclude[from.peer];
       if (type && ['all', 'inbound'].includes(type)) {
-        return console.log(colorYellow, '  ' + from.peer + ' excluded based on settings');
+        return console.log(colorYellow, pref + from.peer + ' excluded based on settings');
       }
       type = exclude[to.peer];
       if (type && ['all', 'outbound'].includes(type)) {
-        return console.log(colorYellow, '  ' + to.peer + ' excluded based on settings');
+        return console.log(colorYellow, pref + to.peer + ' excluded based on settings');
       }
+
+      if (e.sats < minToRebalance) return console.log(pref, 'forwarded sats are below threshold', minToRebalance);
 
       let maxPpm = checkPeers(from, to, pref);
       if (maxPpm === undefined) return;
