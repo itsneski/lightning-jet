@@ -259,6 +259,7 @@ function txnLoopImpl() {
   const initialOffset = offset;
   console.log(pref, 'featching forwards, timestamp:', timestamp, 'offset:', offset);
 
+  let count = 0;
   while(true) {
     const ret = listForwardsSync(lndClient, initialTimestamp, offset);
     if (ret.error) {
@@ -300,11 +301,12 @@ function txnLoopImpl() {
       } else {
         timestamp = parseInt(e.timestamp);
         offset++;
+        count++;
       }
     })
     if (error) break; // terminal error, telegram notify?
   }
-  if (initialTimestamp === defStart) {
+  if (count > 0 && initialTimestamp === defStart) {
     // remember the timestamp of the latest record
     // offset is set to one so that the latest record isn't read twice
     offset = 1;

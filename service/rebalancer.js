@@ -39,6 +39,10 @@ const serviceUtils = require('./utils');
 const RebalanceQueue = require('./queue');
 const {spawnDetached} = require('../api/utils');
 const {isLndAlive} = importLazy('../lnd-api/utils');
+const {listPeersMapSync} = importLazy('../lnd-api/utils');
+const {sendMessage} = importLazy('../api/telegram');
+
+console.log('\n' + date.format(new Date, 'MM/DD hh:mm:ss A') + ' rebalancer is starting up');
 
 const maxCount = config.rebalancer.maxInstances || constants.rebalancer.maxInstances;
 const defaultMaxPpm = config.rebalancer.maxAutoPpm || constants.rebalancer.maxAutoPpm;
@@ -60,21 +64,43 @@ var queue = new RebalanceQueue();
 // build exclude map
 let exclude = {};
 if (config.rebalancer.exclude && config.rebalancer.exclude.length > 0) {
-  config.rebalancer.exclude.forEach(n => {
-    let id = n;
-    let type = 'outbound';  // default
-    let ind = n.indexOf(':');
-    if (n.indexOf(':') >= 0) {
-      id = n.substring(0, ind);
-      type = n.substring(ind + 1);
-    }
-    if (['all', 'inbound', 'outbound'].includes(type)) {
-      exclude[id] = type;
-    } else {
-      console.error(colorRed, 'unknown exclude for ' + id + ': ' + type + ', skipping');
-    }
-  })
-  console.log('exclude:', exclude);
+  // get all peers to validate excludes
+  const peerMap = listPeersMapSync(lndClient);
+  if (!peerMap || peerMap.length === 0) {
+    const msg = 'no peers found, skipping exclude clause';
+    console.warn(colorYellow, msg);
+    sendMessage('rebalancer: ' + msg);
+  } else {
+    config.rebalancer.exclude.forEach(n => {
+      let id = n;
+      let type = 'outbound';  // default
+      let ind = n.indexOf(':');
+      if (n.indexOf(':') >= 0) {
+        id = n.substring(0, ind);
+        type = n.substring(ind + 1);
+      }
+      // make sure id is in the peer map to prevent typos
+      if (!peerMap[id]) {
+        const msg = 'unknown node in exclude: ' + id + ', skipping';
+        console.error(colorRed, msg);
+        sendMessage('rebalancer: ' + msg);
+        return;
+      }
+      if (['all', 'inbound', 'outbound'].includes(type)) {
+        exclude[id] = type;
+      } else if (type === 'from') {
+        exclude[id] = 'inbound';
+      } else if (type === 'to') {
+        exclude[id] = 'outbound';
+      } else {
+        const msg = 'unknown exclude for ' + id + ': ' + type + ', skipping';
+        console.error(colorRed, msg);
+        sendMessage('rebalancer: ' + msg);
+      }
+    })
+    if (Object.keys(exclude).length === 0) console.log('exclude: empty');
+    else console.log('exclude:', exclude);
+  }
 }
 
 // main loop, build rebalancing queue
@@ -378,6 +404,18 @@ function runLoopImpl() {
       // attempt a rebalance
       console.log('[forward]', 'from:', from.name, from.peer, 'to:', to.name, to.peer, 'sats:', e.sats);
       const pref = '  ';
+
+      // https://github.com/itsneski/lightning-jet/issues/97
+      // rebalances on forwards are done outside of liquidity table where
+      // exclude checks are done. check exclude for 'from' and 'to' peers.
+      let type = exclude[from.peer];
+      if (type && ['all', 'inbound'].includes(type)) {
+        return console.log(colorYellow, pref + from.peer + ' excluded based on settings');
+      }
+      type = exclude[to.peer];
+      if (type && ['all', 'outbound'].includes(type)) {
+        return console.log(colorYellow, pref + to.peer + ' excluded based on settings');
+      }
 
       if (e.sats < minToRebalance) return console.log(pref, 'forwarded sats are below threshold', minToRebalance);
 
