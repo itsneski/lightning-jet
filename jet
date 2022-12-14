@@ -423,6 +423,7 @@ cap
   .option('--hours [hours]', 'Depth of history in hours')
   .option('--top [n]', 'Return top n records, default ' + constants.defaultProbeTopN)
   .option('--all', 'Return all records')
+  .option('--peers', 'Shows probe data for current peers (as opposed to new nodes)')
   .option('--sort [col]', 'Sort by a column', ['sats_sum', 'count', 'avg_ppm', 'min_ppm', 'max_ppm'])
   .action((args, options, logger) => {
     return new Promise(async (resolve, reject) => {
@@ -460,14 +461,53 @@ cap
       peers.forEach(p => {
         peerMap[p.id] = p;
       })
+      const days = Math.max(1, Math.round(hours / 24));
+      const classified = classifyPeersSync(lndClient, days);
+      let cmap = {};
+      if (classified.inbound) {
+        classified.inbound.forEach(p => {
+          cmap[p.peer] = { type: 'inbound', node: p }
+        })
+      }
+      if (classified.outbound) {
+        classified.outbound.forEach(p => {
+          cmap[p.peer] = { type: 'outbound', node: p }
+        })
+      }
+      if (classified.balanced) {
+        classified.balanced.forEach(p => {
+          cmap[p.peer] = { type: 'low volume', node: p }
+        })
+      }
+
       let formatted = [];
       list.forEach(item => {
-        if (peerMap[item.node]) return; // skip node that we already have??
-        formatted.push(item);
+        if (!options.peers && peerMap[item.node]) return;
+        if (options.peers && !peerMap[item.node]) return;
+        if (peerMap[item.node]) {
+          let s = {
+            peer: item.node,
+            name: peerMap[item.node].name,
+            count: item.count,
+            sats_sum: item.sats_sum,
+            avg_ppm: item.avg_ppm,
+            min_ppm: item.min_ppm,
+            max_ppm: item.max_ppm
+          }
+          if (cmap[item.node]) {
+            s.local = withCommas(cmap[item.node].node.local);
+            s.type = cmap[item.node].type;
+          }
+          formatted.push(s);
+          peerMap[item.node].included = true;
+        } else {
+          formatted.push(item);
+        }
       })
       if (top) formatted = formatted.slice(0, top);
 
       let str = 'probe data showing nodes that signaled commitment of liquidity\n';
+      if (options.peers) str += 'analyzing data for existing peers (as opposed to prospects for new channels)\n'
       str += 'data generated'
       if (hours) {
         const days = isInt(hours/24) && Math.floor(hours/24);
@@ -478,11 +518,26 @@ cap
       }
       if (top) str += '; returning top ' + top + ' records';
       str += '; sorted by ' + sortCol;
-      console.log(str);
+      console.log(str + '\n');
       console.log('-count: total number of times a node signaled commitment of liquidity');
       console.log('-sats_sum: total number of sats a node signaled to commit');
       console.log('-avg_ppm: average ppm of [commited] liquidity');
+      if (options.peers) {
+        console.log('-local: sats on the local side (assumes one channel per peer)');
+        console.log("-type: peer's classification info inbound, outbound and low-volume");
+      }
       console.table(formatted);
+
+      if (options.peers) {
+        let none = [];
+        Object.keys(peerMap).forEach(k => {
+          if (!peerMap[k].included) none.push({peer: k, name: peerMap[k].name});
+        })
+        if (none.length > 0) {
+          console.log('\npeers that havent signaled any commitment of liquidity');
+          console.table(none);
+        }
+      }
     })
   })
 
