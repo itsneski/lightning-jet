@@ -2,9 +2,9 @@
 
 # Lightning Jet 🚀⚡️, or simply Jet
 
-Lightning Jet is a fully automated rebalancer for Lightning nodes. Jet optimizes channel liquidity allocation based on routing volume, missed routing opportunities (htlcs), and other variables.
+Lightning Jet is a fully automated rebalancer for nodes on the [Lightning Network](https://en.wikipedia.org/wiki/Lightning_Network). Jet facilitates routing through optimized channel liquidity allocation based on routing volume, missed routing opportunities (htlcs), and a range of other variables.
 
-Jet runs as a daemon (background process) on a broad range of [supported platforms](#supported-platforms). It classifies peers into inbound and outbound based on routing volume; it then rebalances the channels (via circular rebalancing), ensuring sufficient liquidity (inbound and outbound) to route sats.
+Jet runs as a daemon (background service) on a broad range of [supported platforms](#supported-platforms). It classifies peers into inbound and outbound based on routing volume; it then rebalances the channels (via circular rebalancing), ensuring sufficient liquidity (inbound and outbound) for bi-directional routing.
 
 The mission of Lightning Jet is to help independent node operators compete in the ever-changing landscape of the Lightning Network as big institutional players enter the space.
 
@@ -24,11 +24,13 @@ Jet can be installed in [Ubuntu VM](#ubuntu-vm) on Windows, Mac OS, and other pl
 
 ## Prerequisites
 
-Make sure to [install node](https://nodejs.org/en/download/) if you don't have it already. Run `node -v` to check if you have `node` and whether it is up to date (version 16.x+). Update `node` in case of an old version (this will also update `npm`).  
+Make sure to [install node](https://nodejs.org/en/download/) if you don't have it already. Run `node -v` to check if you have `node` and whether it is up to date (version 16.x+). Update `node` in case of an old version (this will also update `npm`).
+
 ```bash
 curl -sL https://deb.nodesource.com/setup_16.x | sudo -E bash -
 sudo apt-get install -y nodejs
 ```
+
 > The above command updates node binaries. Alternatively, you can [download an installable](https://nodejs.org/en/download/) for your platform.
 
 Make sure `npm` is up to date (version 8.x) by running `npm -v`. Update `npm` in case of an old version; refer to `node` update steps above.
@@ -100,7 +102,7 @@ jet help
 #### Examples:
 |||
 |--|--|
-|`jet peers`|Lists peers classified into inbound, outbound, and balanced based on htlc history. Notable columns: `p` - % of [inbound or outbound] routing by the peer out of a total [inbound or outbound] across all peers; `ppm` - peer's current ppm rate; `margin` - rebalance will be profitable as long as its ppm is below the margin.|
+|`jet peers`|Lists peers classified into inbound, outbound, and low-volume based on htlc history. Notable columns: `p` - % of [inbound or outbound] routing by the peer out of a total [inbound or outbound] across all peers; `ppm` - peer's current ppm rate; `margin` - rebalance will be profitable as long as its ppm is below the margin.|
 |`jet monitor`|Monitors ongoing rebalances, rebalance history, and stuck htlcs. Warns about the state of BOLT database (channel.db); for example, jet will warn when the channel.db grows over a threshold.|
 |`jet monitor --status`|Monitors the status of rebalances; shows whether rebalances are paused or active; provides recommendation for local ppm range.|
 |`jet stats`|Displays profitability metrics over a time period, including delta(s) with previous time period. Node operators can use this tool to A/B test new channels and fee updates on existing channels.|
