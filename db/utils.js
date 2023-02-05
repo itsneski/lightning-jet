@@ -39,6 +39,22 @@ const uniqueArr = arr => arr.filter(function(elem, pos) {
 })
 
 module.exports = {
+  // vacuums the database; internal method called after db cleanup
+  vacuum() {
+    const db = getHandle();
+    try {
+    } catch(err) {
+      executeDb(db, 'vacuum');
+    } finally {
+      closeHandle(db);
+    }
+  },
+  deleteChanEvents({from, to}) {
+    deleteFromTable(CHANNEL_EVENTS_TABLE, {from, to});
+  },
+  deleteLiquidity({from, to}) {
+    deleteFromTable(LIQUIDITY_TABLE, {from, to});
+  },  
   reportLiquidity(fromDate, toDate) {
     const db = getHandle();
     let list = [];
@@ -572,6 +588,9 @@ module.exports = {
       closeHandle(db);
     }
   },
+  deleteRebalanceAvoid({from, to}) {
+    deleteFromTable(REBALANCE_AVOID_TABLE, {from, to});
+  },
   listRebalanceAvoidSync(from, to, maxPpm, mins = 60) {
     if (!from || !to || !maxPpm) throw new Error('from, to, and maxPpm are mandatory');
     let db = getHandle();
@@ -926,4 +945,18 @@ function createNamevalListTable(db) {
 
 function createRebalanceAvoidTable(db) {
   executeDbSync(db, "CREATE TABLE IF NOT EXISTS " + REBALANCE_AVOID_TABLE + " (date INTEGER NOT NULL, from_node TEXT NOT NULL, to_node TEXT NOT NULL, max_ppm INTEGER NOT NULL, avoid TEXT NOT NULL)");
+}
+
+function deleteFromTable(table, {from, to}) {
+  let db = getHandle();
+  try {
+    let cmd = 'DELETE FROM ' + table;
+    if (from) cmd += ' WHERE date >= ' + from;
+    if (to) cmd += (from) ? ' AND date < ' + to : ' WHERE date < ' + to;
+    console.log(cmd);
+  } catch(err) {
+    console.error(err);
+  } finally {
+    closeHandle(db);
+  }
 }
