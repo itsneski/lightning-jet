@@ -63,9 +63,18 @@ cap
 
   .command('info', 'Information about this node, another node, or a channel')
   .argument('[id]', 'Node id, node partial alias, or channel id')
+  .option('--db', 'Lists db tables sorted by size')
   .help('Returns various node or channel stats')
   .action((args, options, logger) => {
     return new Promise(async (resolve, reject) => {
+      if (options.db) {
+        // print db stats
+        const {stats} = require('./db/utils');
+        console.log('lists database tables sorted by size:');
+        console.table(stats());
+        return;
+      }
+
       if (!isLndAlive(lndClient)) return reject('lnd is offline');
 
       const {withCommas} = require('./lnd-api/utils');

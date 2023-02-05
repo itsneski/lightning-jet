@@ -24,6 +24,8 @@ const CHANNEL_EVENTS_TABLE = 'channel_events';
 const TXN_TABLE = 'txn';
 const LIQUIDITY_TABLE = 'liquidity';  // lists peers that were ready to commit liquidity for payments
 
+const allTables = [ REBALANCE_HISTORY_TABLE, FAILED_HTLC_TABLE, REBALANCE_AVOID_TABLE, NAMEVAL_TABLE, NAMEVAL_LIST_TABLE, TELEGRAM_MESSAGES_TABLE, FEE_HISTORY_TABLE, ACTIVE_REBALANCE_TABLE, CHANNEL_EVENTS_TABLE, TXN_TABLE, LIQUIDITY_TABLE ];
+
 var testMode = false;
 
 // rename db file based on the latest update
@@ -39,6 +41,47 @@ const uniqueArr = arr => arr.filter(function(elem, pos) {
 })
 
 module.exports = {
+  stats() {
+    const pref = 'stats:';
+    const db = getHandle();
+    try {
+      let done = false;
+      let list = [];
+
+      // filter jet tables
+      const filter = "('" + allTables.join("','") + "')";
+
+      db.serialize(() => {
+        const q = 'SELECT name, SUM("pgsize") as size FROM "dbstat" WHERE name in ' + filter + ' GROUP BY name';
+        db.each(q, (err, row) => {
+          list.push(row);
+        }, (err) => {
+          error = err;
+          done = true;
+        })
+      })
+      deasync.loopWhile(() => !done);
+      
+      // format the output
+      list.sort((a, b) => b.size - a.size);
+      list.forEach(item => {
+        item.size = formatSize(item.size);
+      })
+      return list;
+
+      function formatSize(n) {
+        const dig = n.toString().length;
+        if (dig <= 3) return n + 'b';
+        if (dig <= 6) return (n/1000).toFixed(1) + 'kb';
+        if (dig <= 9) return (n/1000000).toFixed(1) + 'mb';
+        return (n/1000000000).toFixed(1) + 'gb';
+      }
+    } catch(err) {
+      console.error(err);
+    } finally {
+      closeHandle(db);
+    }
+  },
   // vacuums the database; internal method called after db cleanup
   vacuum() {
     const db = getHandle();
