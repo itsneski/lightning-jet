@@ -47,6 +47,7 @@ const {reconnect} = importLazy('./bos/reconnect');
 const {isLndAlive} = importLazy('./lnd-api/utils');
 const {inactiveChannels} = importLazy('./api/list-channels');
 
+
 const isInt = value => {
   var x = parseFloat(value);
   return !isNaN(value) && (x | 0) === x;
@@ -433,6 +434,9 @@ cap
       const top = (options.all) ? options.top : options.top || constants.defaultProbeTopN;
 
       const hours = (options.all) ? options.hours || (options.days && options.days * 24) : options.hours || (options.days && options.days * 24) || constants.defaultProbeInterval;
+      const maxInterval = constants.maxProbeInterval;
+      if (hours > maxInterval) return console.error('provided depth exceeds the max of ' + maxInterval + ' hours (' + maxInterval / 24 + ' days)');
+
       const msec = new Date(new Date().toUTCString()).getTime();
       const fromDate = hours && (msec - hours * 60 * 60 * 1000);
 

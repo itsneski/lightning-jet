@@ -8,6 +8,7 @@ exports.maxTxnInterval = 30 * 24; // hours
 exports.defaultTxnInterval = 7 * 24; // hours
 exports.defaultProbeInterval = 7 * 24; // hours
 exports.defaultProbeTopN = 10;
+exports.maxProbeInterval = 30 * 24;  // hours
 
 // monitor
 exports.monitor = {
