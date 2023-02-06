@@ -47,6 +47,9 @@ const {reconnect} = importLazy('./bos/reconnect');
 const {isLndAlive} = importLazy('./lnd-api/utils');
 const {inactiveChannels} = importLazy('./api/list-channels');
 
+const {REPEATABLE} = cap;
+const {INT} = cap;
+
 
 const isInt = value => {
   var x = parseFloat(value);
@@ -578,6 +581,35 @@ cap
       } catch(err) {
         console.error(err.message);
       }
+    })
+  })
+
+  .command('pay', 'Pay an invoice')
+  .argument('<request>', 'Payment Request')
+  .option('--avoid <avoid>', 'Avoid forwarding via node/chan/tag', REPEATABLE)
+  .option('--in <public_key>', 'Route through specific peer of destination')
+  .option('--max-fee <max_fee>', 'Maximum fee to pay', INT, 1337)
+  .option('--max-paths <paths>', 'Maximum paths to use', INT, 1)
+  .option('--message <message>', 'Attach text message to payment')
+  .option('--no-color', 'Mute all colors')
+  .option('--node <node_name>', 'Node to use to pay payment request')
+  .option('--out <public_key>', 'Make first hop through peer', REPEATABLE)
+  .action((args, options, logger) => {
+    return new Promise(async (resolve, reject) => {
+      if (!isLndAlive(lndClient)) return reject('lnd is offline');
+
+      const pay = require('./api/pay');
+      const ret = pay({
+        request: args.request,
+        avoid: options.avoid || [],
+        in: options.in,
+        maxFee: options.maxFee,
+        maxPaths: options.maxPaths,
+        message: options.message,
+        node: options.node,
+        out: options.out || []
+      })
+      console.log(ret);
     })
   })
 
