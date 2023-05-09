@@ -942,6 +942,23 @@ cap
         console.table(inactive);
       }
 
+      if (chans.pendingOpen && chans.pendingOpen.length > 0) {
+        let pending = [];
+        chans.pendingOpen.forEach(c => {
+          pending.push({
+            peer: c.peer,
+            id: c.id,
+            txn: c.channel_point,
+            capacity: c.capacity,
+            remote: c.remote_balance,
+            local: c.local_balance
+          })
+        })
+        console.log('\npending channels:');
+        console.log('-txn: funding transaction');
+        console.table(pending);
+      }
+
       if (chans.updates && chans.updates.length > 0) {
         console.log('\ntop channels based on updates:');
         console.log('-updates: number of channel state updates');

@@ -5,6 +5,7 @@ const {listChannelsSync} = require('../lnd-api/utils');
 const {listPendingChannelsSync} = require('../lnd-api/utils');
 const {getNodesInfoSync} = require('../lnd-api/utils');
 const {withCommas} = require('../lnd-api/utils')
+const {removeEmojis} = require('../lnd-api/utils');
 const {latestChannelEvents} = require('../db/utils');
 
 const stringify = obj => JSON.stringify(obj, null, 2);
@@ -97,7 +98,7 @@ module.exports = {
     let pendingMap = {};
     pendingInfo.forEach(i => {
       if (!i) return console.error('failed to get pending peer info');
-      pendingMap[i.node.pub_key] = i.node.alias;
+      pendingMap[i.node.pub_key] = removeEmojis(i.node.alias);
     })
 
     let pendingChannels = [];
@@ -129,11 +130,28 @@ module.exports = {
       })
     }
 
+    let pendingOpen;
+    list = pending.pending_open_channels;
+    if (list && list.length > 0) {
+      pendingOpen = [];
+      list.forEach(p => {
+        pendingOpen.push({
+          channel_point: p.channel.channel_point,
+          peer: pendingMap[p.channel.remote_node_pub],
+          id: p.channel.remote_node_pub,
+          capacity: p.channel.capacity,
+          remote_balance: p.channel.remote_balance,
+          local_balance: p.channel.local_balance
+        })
+      })
+    }
+
     return {
       active: activeChannels,
       updates: topUpdates,
       pending: pendingChannels,
-      waitingClose: waitingClose
+      waitingClose: waitingClose,
+      pendingOpen: pendingOpen
     }
   }
 }
