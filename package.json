@@ -15,7 +15,7 @@
     "balanceofsatoshis": "^12.16.1",
     "caporal": "^1.4.0",
     "date-and-time": "^2.0.1",
-    "deasync": "0.1.23",
+    "deasync": "0.1.28",
     "find-process": "^1.4.5",
     "import-lazy": "^4.0.0",
     "node-telegram-bot-api": "^0.54.0",
