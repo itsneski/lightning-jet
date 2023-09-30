@@ -4,7 +4,7 @@ const winston = require('winston');
 const config = require('./config');
 
 const myFormat = winston.format.printf(({ level, message, label, timestamp }) => {
-  return `${timestamp} [${label}] [${level}] ${message}`;
+  return `${timestamp} [${level}] ${message}`;
 })
 
 const level = (config.log && config.log.level) || 'info';
@@ -13,8 +13,7 @@ const logger = winston.createLogger({
   level: level,
   format: winston.format.combine(
     level === 'debug' ? winston.format.colorize() : winston.format.uncolorize(),
-    winston.format.label({ label: 'jet' }),
-    winston.format.timestamp(),
+    winston.format.timestamp({format: 'MM/DD hh:mm:ss A'}),
     myFormat    
   ),
   transports: [
