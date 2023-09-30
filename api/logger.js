@@ -1,4 +1,5 @@
 // logger
+// https://www.npmjs.com/package//winston
 
 const winston = require('winston');
 const config = require('./config');
@@ -22,32 +23,16 @@ const logger = winston.createLogger({
 })
 
 module.exports = {
-  info(s) {
-    if (!s) return;
-    logger.log({
-      level: 'info',
-      message: s
-    })
-  },
-  warn(s) {
-    if (!s) return;
-    logger.log({
-      level: 'warn',
-      message: s
-    })
-  },
-  error(s) {
-    if (!s) return;
-    logger.log({
-      level: 'error',
-      message: s
-    })
-  },
-  debug(s) {
-    if (!s) return;
-    logger.log({
-      level: 'debug',
-      message: s
-    })
-  }
+  info: (s) => log('info', s),
+  warn: (s) => log('warn', s),
+  error: (s) => log('error', s),
+  debug: (s) => log('debug', s)
+}
+
+function log(lvl, s) {
+  if (!s) return;
+  logger.log({ 
+    level: lvl,
+    message: s
+  })
 }
