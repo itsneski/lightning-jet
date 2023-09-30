@@ -23,14 +23,16 @@ const logger = winston.createLogger({
 })
 
 module.exports = {
-  info: (s) => log('info', s),
-  warn: (s) => log('warn', s),
-  error: (s) => log('error', s),
-  debug: (s) => log('debug', s)
+  log: (...args) => log('info', args),  // for compatibility, same as info
+  info: (...args) => log('info', args),
+  warn: (...args) => log('warn', args),
+  error: (...args) => log('error', args),
+  debug: (...args) => log('debug', args)
 }
 
-function log(lvl, s) {
-  if (!s) return;
+function log(lvl, args) {
+  if (!args || args.length === 0) return;
+  let s = (args.length > 1) ? args.join(' ') : args[0];
   logger.log({ 
     level: lvl,
     message: s
