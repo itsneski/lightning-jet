@@ -1,0 +1,7 @@
+#!/usr/bin/env node
+
+const logger = require('../api/logger');
+
+logger.info('info log');
+logger.error('error log');
+logger.debug('debug log');
