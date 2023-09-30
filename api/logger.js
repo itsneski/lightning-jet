@@ -14,7 +14,7 @@ const logger = winston.createLogger({
   level: level,
   format: winston.format.combine(
     level === 'debug' ? winston.format.colorize() : winston.format.uncolorize(),
-    winston.format.timestamp({format: 'MM/DD hh:mm:ss A'}),
+    winston.format.timestamp({format: 'YYYY-MM-DD hh:mm:ss.SSS A'}),
     myFormat    
   ),
   transports: [
