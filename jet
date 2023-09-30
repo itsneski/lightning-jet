@@ -73,7 +73,7 @@ cap
       if (options.db) {
         // print db stats
         const {stats} = require('./db/utils');
-        console.log('lists database tables sorted by size:');
+        console.log('lists database tables sorted by [on-disk] size:');
         console.table(stats());
         return;
       }
@@ -216,14 +216,15 @@ cap
   })
 
   .command('stats', 'Shows channel profitability stats')
-  .option('--days [days]', 'Depth of history in days; max of ' + Math.floor(constants.maxTxnInterval/24) + ' days, default ' + Math.floor(constants.defaultTxnInterval/24))
-  .option('--hours [hours]', 'Depth of history in hours; max of ' + Math.floor(constants.maxTxnInterval/24) + ' days, default ' + Math.floor(constants.defaultTxnInterval/24))
+  .option('--days [days]', 'Depth of history in days; max of ' + Math.floor(constants.db.maxTxnDepth/2) + ' days, default ' + Math.floor(constants.defaultTxnInterval/24))
+  .option('--hours [hours]', 'Depth of history in hours; max of ' + 24 * Math.floor(constants.db.maxTxnDepth/2) + ' days, default ' + Math.floor(constants.defaultTxnInterval/24))
   .action((args, options, logger) => {
     return new Promise(async (resolve, reject) => {
       if (!isLndAlive(lndClient)) return reject('lnd is offline');
 
+      const maxDepth = 24 * Math.floor(constants.db.maxTxnDepth/2); // hours
       const hours = options.hours || (options.days && options.days * 24) || constants.defaultTxnInterval;
-      if (hours > constants.maxTxnInterval) return console.error('history depth exceeds the max of ' + constants.maxTxnInterval + ' hours (' + Math.floor(constants.maxTxnInterval/24) + ' days)');
+      if (hours > maxDepth) return console.error('history depth exceeds the max of ' + maxDepth + ' hours (' + Math.floor(maxDepth/24) + ' days)');
 
       const msec = new Date(new Date().toUTCString()).getTime();
       const fromTimestamp = (msec - hours * 60 * 60 * 1000) * Math.pow(10, 6);
@@ -446,7 +447,7 @@ cap
       const top = (options.all) ? options.top : options.top || constants.defaultProbeTopN;
 
       const hours = (options.all) ? options.hours || (options.days && options.days * 24) : options.hours || (options.days && options.days * 24) || constants.defaultProbeInterval;
-      const maxInterval = constants.maxProbeInterval;
+      const maxInterval = 24 * (config.db.maxProbeDepth || constants.db.maxProbeDepth);
       if (hours > maxInterval) return console.error('provided depth exceeds the max of ' + maxInterval + ' hours (' + maxInterval / 24 + ' days)');
 
       const msec = new Date(new Date().toUTCString()).getTime();

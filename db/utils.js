@@ -83,21 +83,34 @@ module.exports = {
     }
   },
   // vacuums the database; internal method called after db cleanup
-  vacuum() {
+  vacuum(cbk) {
+    const pref = 'vacuum:';
     const db = getHandle();
-    try {
-    } catch(err) {
-      executeDb(db, 'vacuum');
-    } finally {
+    executeDb(db, 'vacuum', (err) => {
+      // close the handle upon vacuum completion
+      if (err) console.error(pref, err.message);
       closeHandle(db);
-    }
+      if (cbk) return cbk(err);
+    })
   },
-  deleteChanEvents({from, to}) {
-    deleteFromTable(CHANNEL_EVENTS_TABLE, {from, to});
+  deleteTxn({from, to}, cbk) {
+    deleteFromTable(TXN_TABLE, {from, to}, cbk);
   },
-  deleteLiquidity({from, to}) {
-    deleteFromTable(LIQUIDITY_TABLE, {from, to});
-  },  
+  deleteFailedHtlc({from, to}, cbk) {
+    deleteFromTable(FAILED_HTLC_TABLE, {from, to}, cbk);
+  },
+  deleteLiquidity({from, to}, cbk) {
+    deleteFromTable(LIQUIDITY_TABLE, {from, to}, cbk);
+  },
+  deleteRebalanceAvoid({from, to}, cbk) {
+    deleteFromTable(REBALANCE_AVOID_TABLE, {from, to}, cbk);
+  },
+  deleteRebalanceHistory({from, to}, cbk) {
+    deleteFromTable(REBALANCE_HISTORY_TABLE, {from, to}, cbk);
+  },
+  deleteChannelEvents({from, to}, cbk) {
+    deleteFromTable(CHANNEL_EVENTS_TABLE, {from, to}, cbk);
+  },
   reportLiquidity(fromDate, toDate) {
     const db = getHandle();
     let list = [];
@@ -631,9 +644,6 @@ module.exports = {
       closeHandle(db);
     }
   },
-  deleteRebalanceAvoid({from, to}) {
-    deleteFromTable(REBALANCE_AVOID_TABLE, {from, to});
-  },
   listRebalanceAvoidSync(from, to, maxPpm, mins = 60) {
     if (!from || !to || !maxPpm) throw new Error('from, to, and maxPpm are mandatory');
     let db = getHandle();
@@ -990,16 +1000,16 @@ function createRebalanceAvoidTable(db) {
   executeDbSync(db, "CREATE TABLE IF NOT EXISTS " + REBALANCE_AVOID_TABLE + " (date INTEGER NOT NULL, from_node TEXT NOT NULL, to_node TEXT NOT NULL, max_ppm INTEGER NOT NULL, avoid TEXT NOT NULL)");
 }
 
-function deleteFromTable(table, {from, to}) {
+function deleteFromTable(table, {from, to}, cbk) {
+  const pref = 'deleteFromTable:';
   let db = getHandle();
-  try {
-    let cmd = 'DELETE FROM ' + table;
-    if (from) cmd += ' WHERE date >= ' + from;
-    if (to) cmd += (from) ? ' AND date < ' + to : ' WHERE date < ' + to;
-    console.log(cmd);
-  } catch(err) {
-    console.error(err);
-  } finally {
+  let cmd = 'DELETE FROM ' + table;
+  if (from) cmd += ' WHERE date >= ' + from;
+  if (to) cmd += (from) ? ' AND date < ' + to : ' WHERE date < ' + to;
+  if (testMode) console.log(pref, cmd);
+  executeDb(db, cmd, (err) => {
+    if (err) console.error(pref, err.message, cmd);
     closeHandle(db);
-  }
+    if (cbk) return cbk(err);
+  })
 }
