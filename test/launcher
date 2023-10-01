@@ -1,0 +1,5 @@
+#!/usr/bin/env node
+
+global.testModeOn = true;
+
+require('../service/launcher');
