@@ -14,7 +14,7 @@ const logger = winston.createLogger({
   level: level,
   format: winston.format.combine(
     level === 'debug' ? winston.format.colorize() : winston.format.uncolorize(),
-    winston.format.timestamp({format: 'YYYY-MM-DD hh:mm:ss.SSS A'}),
+    winston.format.timestamp({format: 'MM-DD hh:mm:ss.SSS A'}),
     myFormat    
   ),
   transports: [
@@ -40,17 +40,33 @@ function log(lvl, args) {
   // get function name
   let ind1 = parse.indexOf('at');
   let ind2 = parse.indexOf('(', ind1);
-  const part = parse.substring(ind1 + 2, ind2).trim();
-  const fname = (part.indexOf('Object.') !== 0) ? part : undefined;
+  let fname;
+  if (ind2 >= 0) {
+    const part = parse.substring(ind1 + 2, ind2).trim();
+    const prfx = 'Timeout.';
+    if (part.indexOf(prfx) === 0) {
+      const parts = part.substring(prfx.length).split(/\s+/);
+      fname = parts[0];
+    } else if (part.indexOf('Object.') === 0) {
+      // skip
+    } else if (part.indexOf('module.exports') === 0) {
+      // skip
+    } else {
+      fname = part;      
+    }
+  }
   const arr = parse.split('/');
-  let sub = arr[arr.length - 2] + '/' + arr[arr.length - 1];
+  let sub = arr[arr.length - 1];
   const ind = sub.indexOf(')');
-  const line = sub.substring(0, ind);
+  let line = (ind >= 0) ? sub.substring(0, ind) : sub.substring(0);
+  // drop column number, not needed
+  const arr2 = line.split(':');
+  line = arr2[0] + ':' + arr2[1];
 
   if (level === 'debug') {
     s = (fname) ? '[' + fname + ',' + line + '] ' + s : '[' + line + '] ' + s;
   } else {
-    s = (fname) ? '[' + fname + '] ' + s : s;
+    s = (fname) ? '[' + fname + '] ' + s : '[' + line + '] ' + s;
   }
 
   logger.log({ 

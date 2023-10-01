@@ -2,6 +2,23 @@
 
 const logger = require('../api/logger');
 
-logger.log('info', 'log');
-logger.error('error log');
-logger.debug('debug log');
+testLogger();
+
+function testLogger() {
+  logger.log('info', 'log');
+  logger.error('error log');
+  logger.debug('debug log');
+
+  [1, 2, 3, 4].forEach(i => logger.log(i))  
+}
+
+function loop() {
+  logger.log('running the loop');
+}
+
+module.exports = () => {
+  logger.log('logging from exports');
+}
+module.exports();
+
+setInterval(loop, 2 * 1000);
