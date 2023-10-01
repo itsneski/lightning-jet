@@ -23,6 +23,7 @@ const config = require('./config');
 const tags = require('./tags');
 const date = require('date-and-time');
 const constants = require('./constants');
+const logger = require('./logger');
 const importLazy = require('import-lazy')(require);
 const lndClient = importLazy('./connect');
 const {getNodesInfoSync} = require('../lnd-api/utils');
@@ -54,8 +55,7 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
     throw new Error('from, to and amount are mandatory arguments');
   }
 
-  console.log('\n' + date.format(new Date, 'MM/DD hh:mm:ss A'));
-  console.log('rebalancer is starting up');
+  logger.log('rebalancer is starting up');
 
   var peerMap = listPeersMapSync(lndClient);
 
@@ -86,9 +86,9 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
   if (fee) {
     let sum = fee.base/1000 + fee.rate;
     if (sum > ppm) {
-      return console.error(`exit node's fee, base:${fee.base} rate:${fee.rate}, exceeds supplied ppm of ${ppm}`);
+      return logger.error(`exit node's fee, base:${fee.base} rate:${fee.rate}, exceeds supplied ppm of ${ppm}`);
     } else if (100 * (ppm - sum) / ppm < 25) {   // enough fee buffer??
-      console.log(`exit node's fee is within 25% of supplied ppm, may not be sufficient room to rebalance`);
+      logger.log(`exit node's fee is within 25% of supplied ppm, the buffer may not be sufficient to rebalance`);
     }
   } else {
     throw new Error(`couldnt find fee for ${inId}`);
@@ -118,8 +118,10 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
   // construct avoid string based on argument
   var avoid = "";
   var nodeInfo = {};
-  if (avoidArr) {
+  if (avoidArr && avoidArr.length > 0) {
+    logger.log('excluding the following nodes based on config:');
     avoidArr.forEach(n => {
+      logger.log('  ' + n);
       avoidNodes[n] = true;
     })
   }
@@ -130,9 +132,10 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
   // the greater the depth of history.
   let avoidDepth = Math.max(60, 5 * maxRuntime);
   let dbAvoid = listRebalanceAvoidSync(outId, inId, ppm, avoidDepth);
-  console.log(`dbAvoid: ${dbAvoid && dbAvoid.length} node(s), depth: ${avoidDepth} mins, ${dbAvoid}`);
-  if (dbAvoid) {
+  if (dbAvoid && dbAvoid.length > 0) {
+    logger.log('excluding the following nodes based on past rebalances:');
     dbAvoid.forEach(n => {
+      logger.log('  ' + n);
       avoidNodes[n] = true;
     })
   }
@@ -144,35 +147,36 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
     })
   }
   let epoch = Math.floor(+new Date() / 1000);
-  Object.keys(avoidNodes).forEach(node => {
-    if (nodeInfo[node]) {
-      console.log('excluding node:', node + ', ' + nodeInfo[node].node.alias + ', channels: '  + nodeInfo[node].num_channels + ', last updated', Math.round((epoch - nodeInfo[node].node.last_update)/3600), 'hours ago');
-      avoid += ' --avoid ' + node;
-    }
-  })
+  const keys = Object.keys(avoidNodes);
+  if (keys && keys.length > 0) {
+    logger.log('more info on the excluded nodes:');
+    keys.forEach(node => {
+      if (nodeInfo[node]) {
+        logger.log('  ' + node + ', ' + nodeInfo[node].node.alias + ', channels: '  + nodeInfo[node].num_channels + ', last updated', Math.round((epoch - nodeInfo[node].node.last_update)/3600), 'hours ago');
+        avoid += ' --avoid ' + node;
+      }
+    })
+  }
 
   // store min ppm of a failed route due to high fee;
   // present it as a stat in jet rebalance-history
   let minFailedPpm = Number.MAX_SAFE_INTEGER;
 
-  console.log('\n----------------------------------------')
-  console.log(`from: ${outName}, ${outId}`);
-  console.log(`to: ${inName}, ${inId}`);
-  console.log('amount:', numberWithCommas(AMOUNT));
-  console.log('max ppm:', ppm);
-  console.log('max fee:', maxFee);
-  if (type) console.log('type:', type);
-  console.log('ppm per hop:', ppm_per_hop);
-  console.log('time left:', maxRuntime, 'mins');
-  if (aggresiveMode) console.log('aggressive mode: on');
-  if (config.debugMode) console.log('debug mode: enabled');
+  logger.log('----------------------------------------')
+  logger.log(`from: ${outName}, ${outId}`);
+  logger.log(`to: ${inName}, ${inId}`);
+  logger.log('amount:', numberWithCommas(AMOUNT));
+  logger.log('max ppm:', ppm);
+  logger.log('max fee:', maxFee);
+  if (type) logger.log('type:', type);
+  logger.log('ppm per hop:', ppm_per_hop);
+  logger.log('time left:', maxRuntime, 'mins');
+  logger.debug('aggressive mode:', (aggresiveMode) ? 'on' : 'off');
 
   // record for jet monitor
   const rebalanceId = recordActiveRebalanceSync({from: outId, to: inId, amount: AMOUNT, ppm, mins: maxRuntime});
-  if (rebalanceId) console.log('rebalance id:', rebalanceId);
-  else console.error('rebalance db record id is undefined');
-
-  console.log('----------------------------------------\n')
+  if (rebalanceId) logger.debug('rebalance id:', rebalanceId);
+  else logger.error('rebalance db record id is undefined');
 
   const startTime = Date.now();
 
@@ -183,26 +187,26 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
       let timeRunning = Math.round((Date.now() - startTime) / 1000 / 60);
       let timeLeft = maxRuntime - timeRunning;
       if (timeLeft < 0) {
-        console.log('Ran out of time');
-        lastMessage = 'Ran out of time';
+        logger.log('ran out of time');
+        lastMessage = 'ran out of time';
         break;
       }
 
       let remainingAmount = AMOUNT - amountRebalanced;
       maxFee = Math.round(remainingAmount * ppm / 1000000);
 
-      console.log('\n-------------------------------------------');
-      console.log(`* rebalancing from ${outName} to ${inName}`);
-      if (amountRebalanced > 0) console.log('* targeted amount:', numberWithCommas(AMOUNT));
-      console.log('* remaining amount:', numberWithCommas(remainingAmount));
-      console.log('* time left:', timeLeft, 'mins');
+      logger.log('-------------------------------------------');
+      if (amountRebalanced > 0) logger.log('targeted amount:', numberWithCommas(AMOUNT));
+      logger.log('remaining amount:', numberWithCommas(remainingAmount));
+      logger.log('time left:', timeLeft, 'mins');
 
       // call bos rebalance; async logger will be notified about route evals and log messages
       let lastRoute;  // last route that was evaluated
       let lastAmount; // last amount that was evaluated
       const rebalanceLogger = {
         eval: (route) => {
-          console.log('\nprobing route:', route);
+          logger.log('probing route,', route.length, 'hops');
+          logger.debug(stringify(route));
           lastRoute = route;
 
           // record the node for sats
@@ -219,27 +223,27 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
             }
 
             if (node.ppm > ppm_per_hop && canAvoidNode(node.id)) {
-              console.log('identified expensive node:', stringify(node));
+              logger.debug('identified expensive node:', stringify(node));
             }
           })
         },
         amount: (amount) => {
-          console.log('evaluating amount:', amount);
+          logger.log('evaluating amount:', amount);
           lastAmount = amount;
         },
         debug: (msg) => {
-          if (config.debugMode) console.log('bos rebalance debug:', stringify(msg));
+          logger.debug('bos rebalance debug:', stringify(msg));
         },
         info: (msg) => {
-          if (config.debugMode) console.log('bos rebalance info:', stringify(msg));
+          logger.debug('bos rebalance info:', stringify(msg));
         },
         warn: (msg) => {
-          console.warn('bos rebalance warn:', stringify(msg));
+          logger.warn('bos rebalance warn:', stringify(msg));
         },
         error: (msg) => {
           const code = errcode(msg);
-          if (code === 'TemporaryChannelFailure') console.log('(TemporaryChannelFailure) insufficient liquidity on one of the route hops, skip');
-          else console.error('bos rebalance error:', stringify(msg));
+          if (code === 'TemporaryChannelFailure') logger.debug('(TemporaryChannelFailure) insufficient liquidity on one of the route hops, skip');
+          else logger.error('bos rebalance error:', stringify(msg));
         }
       }
 
@@ -250,7 +254,7 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
         rbSuccess = rbSync.result;
         rbError = rbSync.error;
       } catch(err) {
-        console.error('error calling bos rebalance:', err.message);
+        logger.error('error calling bos rebalance:', err.message);
         // force to exit the loop, otherwise may get into infinite loop
         rep = REPS;
         continue;
@@ -270,9 +274,8 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
           // find nodes that exceed the per hop ppm in the last
           // segment of the output
           lastError = 'rebalanceFeeTooHigh';
-          console.log('\n-------------------------------------------');
-          console.log('found a prospective route, but the fee is too high');
-          //console.log('evaluating output:', stdout);
+          logger.debug('found a prospective route, but the fee is too high');
+          //logger.log('evaluating output:', stdout);
           //let index = stdout.lastIndexOf('evaluating:');
           if (lastRoute) {
             let nodes = lastRoute;
@@ -296,21 +299,21 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
                 }
                 count++;
               })
-              console.log('the route has', nodes.length, 'nodes:', stringify(nodes));
-              console.log('the route has a [cumulative] ppm of', ppmsum, 'vs', ppm, 'targeted');
+              logger.debug('the route has', nodes.length, 'nodes:', stringify(nodes));
+              logger.debug('the route has a [cumulative] ppm of', ppmsum, 'vs', ppm, 'targeted');
               minFailedPpm = Math.min(minFailedPpm, ppmsum);
               if (max) {
-                console.log('identified expensive node to exclude:', stringify(max));
+                logger.debug('identified expensive node to exclude:', stringify(max));
                 if (max.ppm > ppm_per_hop) {
                   let entry = nodeStats[max.id];
-                  console.log('identified corresponding nodeStats entry:', nodeToString(entry));
+                  logger.debug('identified corresponding nodeStats entry:', nodeToString(entry));
 
                   // in addressive more just skip the node, as opposed to
                   // giving the node more chances to prove that it's not
                   // expensive
                   if (aggresiveMode) {
-                    console.log('aggressive mode: on');
-                    console.log('excluding node:', max.id);
+                    logger.debug('aggressive mode: on');
+                    logger.log('excluding node:', max.id);
                     avoidNodes[max.id] = true;
                     avoid += ' --avoid ' + max.id;
                     // record in the db
@@ -320,8 +323,8 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
                     // basically give the node a few chances to show that it's
                     // not an expensive node before excluding it
                     if (entry.ppms.length >= MIN_PPMS_TRIES && arrAvg(entry.ppms) > ppm_per_hop) {
-                      console.log('the node was part of', entry.ppms.length, 'routes with an average ppm of', Math.round(arrAvg(entry.ppms)));
-                      console.log('excluding node:', max.id);
+                      logger.debug('the node was part of', entry.ppms.length, 'routes with an average ppm of', Math.round(arrAvg(entry.ppms)));
+                      logger.log('excluding node:', max.id);
                       avoidNodes[max.id] = true;
                       avoid += ' --avoid ' + max.id;
                       // record in the db
@@ -330,12 +333,12 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
                       // give the node a few more tries, but don't exclude it
                       if (isSkippedHop(max.id, nodes[maxIndex + 1].id)) {
                         lastMessage = 'hop already skipped';
-                        console.log('hop from', max.name, 'to', nodes[maxIndex + 1].name, 'already skipped, exiting');
+                        logger.debug('hop from', max.name, 'to', nodes[maxIndex + 1].name, 'already skipped, exiting');
                         rep = REPS;
                       } else {
                         lastMessage = 'skipping the hop';
                         skipHop(max.id, nodes[maxIndex + 1].id);
-                        console.log('skipping the hop from', max.name, 'to', nodes[maxIndex + 1].name);
+                        logger.debug('skipping the hop from', max.name, 'to', nodes[maxIndex + 1].name);
                         avoid += ' --avoid "FEE_RATE>' + computeFeeRate(max.ppm) + '/' + nodes[maxIndex + 1].id + '"';
                       }
                     }
@@ -345,28 +348,28 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
                   // but rather skip the hop
                   if (isSkippedHop(max.id, nodes[maxIndex + 1].id)) {
                     lastMessage = 'hop already skipped';
-                    console.log('hop from', max.name, 'to', nodes[maxIndex + 1].name, 'already skipped, exiting');
+                    logger.debug('hop from', max.name, 'to', nodes[maxIndex + 1].name, 'already skipped, exiting');
                     rep = REPS;
                   } else {
                     lastMessage = 'ppm is not greater than max, skipping the hop';
                     skipHop(max.id, nodes[maxIndex + 1].id);
-                    console.log(lastMessage, 'from', max.name, 'to', nodes[maxIndex + 1].name);
+                    logger.debug(lastMessage, 'from', max.name, 'to', nodes[maxIndex + 1].name);
                     avoid += ' --avoid "FEE_RATE>' + computeFeeRate(max.ppm) + '/' + nodes[maxIndex + 1].id + '"';
                   }
                 }
               } else {  // !max
                 lastMessage = 'couldnt exclude any nodes, likely already on the avoid list';
-                console.log(lastMessage + ', retrying');
+                logger.log(lastMessage + ', retrying');
                 rep++;
               }
             } else {  // !nodes
               lastMessage = 'couldnt exclude any nodes';
-              console.log(lastMessage + ', retrying');
+              logger.log(lastMessage + ', retrying');
               rep++;
             }
           } else {
             lastMessage = 'couldnt locate the segment of the output to analyze';
-            console.log(lastMessage + ', retrying');
+            logger.log(lastMessage + ', retrying');
             rep++;
           }
         } else if (failedToFindPath) {
@@ -374,72 +377,72 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
           // that have not yet been excluded and retry
           lastError = 'failedToFindPath';
           lastMessage = 'failed to find a route';
-          console.log('\n-------------------------------------------');
-          console.log(lastMessage);
-          console.log('exclude all expensive nodes and retry');
+          logger.log('-------------------------------------------');
+          logger.log(lastMessage);
+          logger.debug('exclude all expensive nodes and retry');
           let count = 0;
           Object.keys(nodeStats).forEach(id => {
             if (canAvoidNode(id) && arrAvg(nodeStats[id].ppms) > ppm_per_hop) {
-              console.log('excluding node:', nodeToString(nodeStats[id]));
+              logger.log('excluding node:', nodeToString(nodeStats[id]));
               avoidNodes[id] = true;
               avoid += ' --avoid ' + id;
               count++;
             }
           })
           if (count > 0) {
-            console.log('excluded', count, 'nodes');
+            logger.debug('excluded', count, 'nodes');
           } else {
             lastMessage += ', didnt find any nodes to exclude';
-            console.log('didnt find any nodes to exclude, retrying');
+            logger.log('didnt find any nodes to exclude, retrying');
             rep++;
           }
         } else if (lowRebalanceAmount) {
           lastError = 'lowRebalanceAmount';
           lastMessage = 'low rebalance amount';
-          console.log('\n-------------------------------------------');
-          console.log(lastMessage + ', exiting');
+          logger.log('-------------------------------------------');
+          logger.log(lastMessage + ', exiting');
           rep = REPS; // force to exit the loop
         } else if (failedToFindPeer) {
           lastError = 'failedToFindPeer';
           lastMessage = 'failed to find peer'
-          console.log(lastMessage + ', exiting');
+          logger.log(lastMessage + ', exiting');
           rep = REPS; // force to exit the loop
         } else if (noSufficientBalance) {
           lastError = 'noSufficientBalance';
           lastMessage = 'insufficient local balance';
-          console.log(lastMessage + ', exiting');
+          logger.log(lastMessage + ', exiting');
           rep = REPS;
         } else if (probeTimeout) {
           lastError = 'probeTimeout';
           lastMessage = 'ran out of time';
-          console.log(lastMessage + ', exiting');
+          logger.log(lastMessage + ', exiting');
           rep = REPS;
         } else if (failedToParseAmount) {
           lastError = 'FailedToParseSpecifiedAmount';
           lastMessage = 'failed to parse amount';
-          console.log(lastMessage + ', exiting');
+          logger.log(lastMessage + ', exiting');
           rep = REPS;
         } else if (unexpectedError) {
           lastError = 'unexpectedError';
           lastMessage = 'unexpected error';
-          console.log('\n-------------------------------------------');
-          console.log(lastMessage, JSON.stringify(rbError, null, 2), ' exiting');
+          logger.log('-------------------------------------------');
+          logger.log(lastMessage, JSON.stringify(rbError, null, 2), ' exiting');
           rep = REPS;
         } else {
           lastError = 'unidentifiedError';
           lastMessage = 'unidentified error';
-          console.log('\n-------------------------------------------');
-          console.log(lastMessage, JSON.stringify(rbError, null, 2), ' exiting');
+          logger.log('-------------------------------------------');
+          logger.log(lastMessage, JSON.stringify(rbError, null, 2), ' exiting');
           rep = REPS;
         }
       } else {  // !stderr
-        console.log('\n-------------------------------------------');
+        logger.log('-------------------------------------------');
         lastMessage = 'successful rebalance';
         // determine amount rebalanced
         let amount = rbSuccess.amount;
         let fees = rbSuccess.fees;
         if (amount > 0) {
-          console.log('* amount rebalanced:', numberWithCommas(amount));
+          logger.log('amount rebalanced:', numberWithCommas(amount));
           amountRebalanced += amount;
 
           // record result in the db for further optimation
@@ -452,26 +455,26 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
             })
           }
 
-          console.log('* total amount rebalanced:', numberWithCommas(amountRebalanced));
+          logger.log('total amount rebalanced:', numberWithCommas(amountRebalanced));
           if (fees > 0) {
-            console.log('* fees spent:', fees);
+            logger.log('fees spent:', fees);
             feesSpent += fees;
-            console.log('* total fees spent:', feesSpent);
-            console.log('* ppm:', Math.round(1000000 * feesSpent / amountRebalanced));
+            logger.log('total fees spent:', feesSpent);
+            logger.log('ppm:', Math.round(1000000 * feesSpent / amountRebalanced));
           } else {
             lastMessage = 'couldnt parse fees';
-            console.log(lastMessage + ', retrying');
+            logger.log(lastMessage + ', retrying');
           }
           if (amountRebalanced > AMOUNT) {
-            console.log('* amount rebalanced exceeds targeted, exiting the loop');
+            logger.log('amount rebalanced exceeds targeted, exiting the loop');
             rep = REPS;
           } else if (AMOUNT - amountRebalanced < 50000) {
-            console.log('* less than 50k to rebalance, exiting the loop');
+            logger.log('less than 50k to rebalance, exiting the loop');
             rep = REPS;
           }
         } else {
           lastMessage = 'successful rebalance, but couldnt extract amount rebalanced';
-          console.log(lastMessage + ', exiting');
+          logger.log(lastMessage + ', exiting');
           rep = REPS; // force to exit the loop
         }
       } // if stderr
@@ -482,7 +485,7 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
       }
     } // for
   } catch(err) {
-    console.error('error running rebalance loop:', err);
+    logger.error('error running rebalance loop:', err);
   }
 
   // record rebalance failure, success has already been recorded
@@ -494,10 +497,10 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
   printStats(lndClient, nodeStats, nodeInfo);
 
   if (rebalanceId) {
-    console.log('deleting rebalance record with id:', rebalanceId);
+    logger.debug('deleting rebalance record with id:', rebalanceId);
     deleteActiveRebalanceSync(rebalanceId);
   } else {
-    console.warn('can not delete rebalance record, id does not exist');
+    logger.warn('can not delete rebalance record, id does not exist');
   }
 
   // each jet rebalance instance runs in a seraparate process; explicitly exit
@@ -561,30 +564,19 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
       routesFormatted.push(r);
     })
 
-    console.log('\n-------------------------------------------');
-    console.log(date.format(new Date, 'MM/DD hh:mm:ss A'));
-    console.log('finished rebalance from', OUT, 'to', IN);
-    console.log('last message:', lastMessage);
-    console.log('amount targeted:', numberWithCommas(AMOUNT));
-    console.log('amount rebalanced:', numberWithCommas(amountRebalanced));
+    logger.log('-------------------------------------------');
+    logger.log('finished rebalance from', OUT, 'to', IN);
+    logger.debug('last message:', lastMessage);
+    logger.log('amount targeted:', numberWithCommas(AMOUNT));
+    logger.log('amount rebalanced:', numberWithCommas(amountRebalanced));
     if (feesSpent > 0) {
-      console.log('fees spent:', feesSpent);
-      console.log('ppm: ', Math.round(1000000 * feesSpent / amountRebalanced));
+      logger.log('fees spent:', feesSpent);
+      logger.log('ppm: ', Math.round(1000000 * feesSpent / amountRebalanced));
     }
-    if (routesFormatted.length > 0) console.log('routes:', stringify(routesFormatted));
-    console.log('nodes that exceeded per hop ppm:', stringify(sortedMax));
-    console.log('low fee nodes:', stringify(lowFeeSorted));
-    console.log('\n-------------------------------------------');
-    console.log(date.format(new Date, 'MM/DD hh:mm:ss A'));
-    console.log('finished rebalance from', OUT, 'to', IN);
-    console.log('last message:', lastMessage);
-    console.log('amount targeted:', numberWithCommas(AMOUNT));
-    console.log('amount rebalanced:', numberWithCommas(amountRebalanced));
-    if (feesSpent > 0) {
-      console.log('fees spent:', feesSpent);
-      console.log('ppm:', Math.round(1000000 * feesSpent / amountRebalanced));
-    }
-    console.log('-------------------------------------------\n');
+    if (routesFormatted.length > 0) logger.log('routes:', stringify(routesFormatted));
+    logger.debug('nodes that exceeded per hop ppm:', stringify(sortedMax));
+    logger.debug('low fee nodes:', stringify(lowFeeSorted));
+    logger.log('-------------------------------------------');
   }
 
   function computeFeeRate(ppm) {

@@ -4,6 +4,7 @@ const importLazy = require('import-lazy')(require);
 const date = require('date-and-time');
 const config = importLazy('../api/config');
 const constants = require('../api/constants');
+const logger = require('../api/logger');
 const lndClient = importLazy('../api/connect');
 const deasync = require('deasync');
 const {setPropSync} = require('../db/utils');
@@ -31,33 +32,33 @@ var lndOffline;
 
 function bosReconnect() {
   if (lndOffline) {
-    console.log('lnd is offline, skipping peer reconnect');
+    logger.log('lnd is offline, skipping peer reconnect');
     return;
   }
 
-  const logger = {
+  const apiLogger = {
     debug: (msg) => {
-      console.log(msg);
+      logger.log(msg);
     },
     info: (msg) => {
-      console.log(msg);
+      logger.log(msg);
     },
     warn: (msg) => {
-      console.warn(msg);
+      logger.warn(msg);
     },
     error: (msg) => {
-      console.error(msg);
+      logger.error(msg);
     }
   }
 
   try {
-    console.log('\n' + date.format(new Date, 'MM/DD hh:mm:ss A'), 'reconnecting peers');
-    const res = reconnect(logger);
+    logger.log('reconnecting peers');
+    const res = reconnect(apiLogger);
     res.catch((err) => {
-      console.error('error during peer reconnect:', err);
+      logger.error('error during peer reconnect:', err);
     })
   } catch (error) {
-    console.error('error launching peer reconnect:', error);
+    logger.error('error launching peer reconnect:', error);
   }
 }
 
@@ -65,18 +66,18 @@ function runLoop() {
   try {
     runLoopExec();
   } catch(error) {
-    console.error('runLoop:', error.toString());
+    logger.error(error.toString());
   }
 }
 
 function runLoopExec() {
   const pref = 'runLoopExec:';
-  console.log('\n' + date.format(new Date, 'MM/DD hh:mm:ss A'));
+  logger.log('running the loop');
 
   serviceUtils.Worker.recordHeartbeat(); // indicates that Worker isn't stuck
 
   if (lndOffline) {
-    console.warn(constants.colorYellow, 'lnd is offline, skipping the loop');
+    logger.warn('lnd is offline, skipping the loop');
     return;
   }
 
@@ -87,13 +88,13 @@ function runLoopExec() {
 
   let res = checkSize();
   if (res.priority === priority.urgent) {
-    console.error(constants.colorRed, res.msg);
+    logger.error(res.msg);
     sendTelegramMessageTimed(res.msg, telegramNotify.category, telegramNotify.urgent);
   } else if (res.priority === priority.serious) {
-    console.error(constants.colorYellow, res.msg);
+    logger.error(res.msg);
     sendTelegramMessageTimed(res.msg, telegramNotify.category, telegramNotify.serious);
   } else if (res.priority === priority.warning) {
-    console.error(res.msg);
+    logger.error(res.msg);
     sendTelegramMessageTimed(res.msg, telegramNotify.category, telegramNotify.warning);
   }
 
@@ -109,7 +110,7 @@ function runLoopExec() {
         else msg += c.mins + ' mins';
         const cat = 'telegram.notify.channel.inactive.' + c.chan;
         const int = 60 * 60;  // an hour
-        console.log(msg);
+        logger.log(msg);
         sendTelegramMessageTimed(msg, cat, int);
       }
     })
@@ -120,7 +121,7 @@ function lndPingLoop() {
   try {
     lndPingLoopExec();
   } catch(err) {
-    console.error('lndPingLoop:', err.message);
+    logger.error(err.message);
   }
 }
 
@@ -131,19 +132,16 @@ function lndPingLoopExec() {
   try {
     lndOffline = !isLndAlive(lndClient);
   } catch(err) {
-    console.error('error pinging lnd:', err.message, 'assuming lnd is offline');
+    logger.error('error pinging lnd:', err.message, 'assuming lnd is offline');
     lndOffline = true;
   }
   if (lndOffline) {
-    console.log('\n' + date.format(new Date, 'MM/DD hh:mm:ss A'));
-    console.error(constants.colorRed, 'lnd is offline');
+    logger.error('lnd is offline');
     sendTelegramMessageTimed('lnd is offline', prop, frequency);
   } else if (prev) {
-    console.log('\n' + date.format(new Date, 'MM/DD hh:mm:ss A'));
-    console.log(constants.colorGreen, 'lnd is back online');
+    logger.log('lnd is back online');
   } else if (prev === undefined) {
-    console.log('\n' + date.format(new Date, 'MM/DD hh:mm:ss A'));
-    console.log(constants.colorGreen, 'lnd is online');
+    logger.log('lnd is online');
   }
 }
 
@@ -151,7 +149,7 @@ function cleanDbRebalances() {
   try {
     cleanDbRebalancesExec();
   } catch(err) {
-    console.error('cleanDbRebalances:', err.message);
+    logger.error(err.message);
   }
 }
 
@@ -167,10 +165,10 @@ function cleanDbRebalancesExec() {
   list.forEach(l => {
     if (!isRunningPidSync(l.pid)) {
       if (first) {
-        console.log('\n' + date.format(new Date, 'MM/DD hh:mm:ss A'));
+        logger.log('cleaning db rebalances');
         first = false;
       }
-      console.log(pref, 'removing db record for process that no longer exist', l.pid);
+      logger.log('removing db record for process that no longer exist', l.pid);
       dbUtils.deleteActiveRebalanceSync(l.pid);
     } else {
       const delta = (Date.now() - l.date) / 60 / 1000;  // mins
@@ -197,7 +195,7 @@ function cleanDbRebalancesExec() {
     }
     toKill.forEach(p => {
       const msg = 'rebalance process ' + p.pid + ' from ' + (peerMap[p.from] || p.from) + ' to ' + (peerMap[p.to] || p.to) + ' has been running for ' + Math.round(p.delta) + ' mins, it is likely stuck, terminating';
-      console.error(constants.colorRed, pref + ' ' + msg);
+      logger.error(msg);
       sendMessage(msg);
       process.kill(p.pid);
       dbUtils.deleteActiveRebalanceSync(p.pid);
@@ -213,7 +211,7 @@ function dbCleanup() {
 
   // todo: atomic test & set
   if (dbCleanupInProgress) {
-    console.log(pref, 'already running, skip');
+    logger.log(pref, 'already running, skip');
     return;
   }
   dbCleanupInProgress = true;
@@ -221,16 +219,14 @@ function dbCleanup() {
   try {
     dbCleanupImpl();
   } catch(err) {
-    console.error(pref, err.message);
+    logger.error(pref, err.message);
   } finally {
     dbCleanupInProgress = false;
   }
 }
 
 function dbCleanupImpl() {
-  const pref = 'dbCleanupImpl:';
-
-  console.log(pref, 'running db cleanup');
+  logger.log('running db cleanup');
 
   const dbUtils = require('../db/utils');
   //dbUtils.enableTestMode();
@@ -242,13 +238,13 @@ function dbCleanupImpl() {
   if (isTimeToCleanup('rebalanceAvoid')) {
     const maxRuntime = 5 * (config.rebalancer.maxTime || constants.rebalancer.maxTime);
     const maxDepth = Math.max(60, maxRuntime) * 60 * 1000; // in msec
-    console.log(pref, 'rebalance avoid:', 'depth:', maxRuntime, 'mins');
+    logger.log('rebalance avoid:', 'depth:', maxRuntime, 'mins');
     done = false;
     dbUtils.deleteRebalanceAvoid({to: Date.now() - maxDepth}, (err) => {
       if (err) {
-        console.error(pref, 'rebalance avoid:', err);
+        logger.error('rebalance avoid:', err);
       } else {
-        console.log(pref, 'rebalance avoid:', 'done');
+        logger.log('rebalance avoid:', 'done');
         recordCleanup('rebalanceAvoid');
         tablesCleaned++;
       }
@@ -256,19 +252,19 @@ function dbCleanupImpl() {
     })
     deasync.loopWhile(() => !done);
   } else {
-    console.info(pref, 'rebalance avoid:', 'skip');
+    logger.info('rebalance avoid:', 'skip');
   }
 
   // liquidity table
   if (isTimeToCleanup('liquidity')) {
     const maxProbeDepth = config.db.maxProbeDepth || constants.db.maxProbeDepth; // days
-    console.log(pref, 'probe liquidity:', 'depth:', maxProbeDepth, 'days');
+    logger.log('probe liquidity:', 'depth:', maxProbeDepth, 'days');
     done = false;
     dbUtils.deleteLiquidity({to: Date.now() - maxProbeDepth * 24 * 60 * 60 * 1000}, (err) => {
       if (err) {
-        console.error(pref, 'probe liquidity:', err);
+        logger.error('probe liquidity:', err);
       } else {
-        console.log(pref, 'probe liquidity:', 'done');
+        logger.log('probe liquidity:', 'done');
         recordCleanup('liquidity');
         tablesCleaned++;
       }
@@ -276,19 +272,19 @@ function dbCleanupImpl() {
     })
     deasync.loopWhile(() => !done);
   } else {
-    console.info(pref, 'liquidity:', 'skip');
+    logger.info('liquidity:', 'skip');
   }
 
   // failed htlc table
   if (isTimeToCleanup('failedHtlc')) {
     const maxFailedHtlcDepth = config.db.maxFailedHtlcDepth || constants.db.maxFailedHtlcDepth; // days
-    console.log(pref, 'htlc:', 'depth:', maxFailedHtlcDepth, 'days');
+    logger.log('htlc:', 'depth:', maxFailedHtlcDepth, 'days');
     done = false;
     dbUtils.deleteFailedHtlc({to: Date.now() - maxFailedHtlcDepth * 24 * 60 * 60 * 1000}, (err) => {
       if (err) {
-        console.error(pref, 'htlc:', err);
+        logger.error('htlc:', err);
       } else {
-        console.log(pref, 'htlc:', 'done');
+        logger.log('htlc:', 'done');
         recordCleanup('failedHtlc');
         tablesCleaned++;
       }
@@ -296,19 +292,19 @@ function dbCleanupImpl() {
     })
     deasync.loopWhile(() => !done);
   } else {
-    console.info(pref, 'htlc:', 'skip');
+    logger.info('htlc:', 'skip');
   }
 
   // txn table
   if (isTimeToCleanup('txn')) {
     const maxTxnDepth = constants.db.maxTxnDepth;
-    console.log(pref, 'txn:', 'depth:', maxTxnDepth, 'days');
+    logger.log('txn:', 'depth:', maxTxnDepth, 'days');
     done = false;
     dbUtils.deleteTxn({to: Date.now() - maxTxnDepth * 24 * 60 * 60 * 1000}, (err) => {
       if (err) {
-        console.error(pref, 'txn:', err);
+        logger.error('txn:', err);
       } else {
-        console.log(pref, 'txn:', 'done');
+        logger.log('txn:', 'done');
         recordCleanup('txn');
         tablesCleaned++;
       }
@@ -316,20 +312,20 @@ function dbCleanupImpl() {
     })
     deasync.loopWhile(() => !done);
   } else {
-    console.info(pref, 'txn:', 'skip');
+    logger.info('txn:', 'skip');
   }
 
   // rebalance history table
   const maxRebalanceHistoryDepth = config.db.maxRebalanceHistoryDepth;
   if (maxRebalanceHistoryDepth) {
     if (isTimeToCleanup('rebalanceHistory')) {
-      console.log(pref, 'rebalance history:', 'depth:', maxRebalanceHistoryDepth, 'days');
+      logger.log('rebalance history:', 'depth:', maxRebalanceHistoryDepth, 'days');
       done = false;
       dbUtils.deleteRebalanceHistory({to: Date.now() - maxRebalanceHistoryDepth * 24 * 60 * 60 * 1000}, (err) => {
         if (err) {
-          console.error(pref, 'rebalance history:', err);
+          logger.error('rebalance history:', err);
         } else {
-          console.log(pref, 'rebalance history:', 'done');
+          logger.log('rebalance history:', 'done');
           recordCleanup('rebalanceHistory');
           tablesCleaned++;
         }
@@ -337,23 +333,23 @@ function dbCleanupImpl() {
       })
       deasync.loopWhile(() => !done);
     } else {
-      console.log(pref, 'rebalance history: skip');
+      logger.log('rebalance history: skip');
     }
   } else {
-    console.log(pref, 'rebalance history: skip (depth is not configured)');
+    logger.log('rebalance history: skip (depth is not configured)');
   }
 
   // channel events table
   const maxChanEventsDepth = config.db.maxChannelEventsDepth;
   if (maxChanEventsDepth) {
     if (isTimeToCleanup('channelEvents')) {
-      console.log(pref, 'channel events:', 'depth:', maxChanEventsDepth, 'days');
+      logger.log('channel events:', 'depth:', maxChanEventsDepth, 'days');
       done = false;
       dbUtils.deleteChannelEvents({to: Date.now() - maxChanEventsDepth * 24 * 60 * 60 * 1000}, (err) => {
         if (err) {
-          console.error(pref, 'channel events:', err);
+          logger.error('channel events:', err);
         } else {
-          console.log(pref, 'channel events:', 'done');
+          logger.log('channel events:', 'done');
           recordCleanup('channelEvents');
           tablesCleaned++;
         }
@@ -361,24 +357,24 @@ function dbCleanupImpl() {
       })
       deasync.loopWhile(() => !done);
     } else {
-      console.log(pref, 'channel events: skip');
+      logger.log('channel events: skip');
     }
   } else {
-    console.log(pref, 'channel events: depth is not configured, skip');
+    logger.log('channel events: depth is not configured, skip');
   }
 
   // vacuum
   if (tablesCleaned > 0) {
-    console.log(pref, 'vacuum');
+    logger.log('vacuum');
     done = false;
     dbUtils.vacuum((err) => {
-      if (err) console.error(pref, 'vacuum:', err.message);
-      else console.error(pref, 'vacuum:', 'done');
+      if (err) logger.error('vacuum:', err.message);
+      else logger.log('vacuum:', 'done');
       done = true;
     })
     deasync.loopWhile(() => !done);
   } else {
-    console.log(pref, 'no tables changed, skip vacuum');
+    logger.log('no tables changed, skip vacuum');
   }
 
   // returns
@@ -387,7 +383,10 @@ function dbCleanupImpl() {
     const ret = getPropWithErrSync(prop);
 
     // can't cleanup if on db error
-    if (ret.error) return false;
+    if (ret.error) {
+      logger.error(ret.error);
+      return false;
+    }
 
     // is it time to cleanup
     const interval = constants.db.cleanupInterval;
@@ -406,13 +405,12 @@ function dbCleanupImpl() {
 
 var txnLoopRunning = false; // just a precaution in case the initial loop runs too long
 function txnLoop() {
-  const pref = 'txnLoop:';
-  if (txnLoopRunning) return console.warn(pref, 'already running, skip');
+  if (txnLoopRunning) return logger.warn('already running, skip');
   try {
     txnLoopRunning = true;
     txnLoopImpl();
   } catch(err) {
-    console.error('txnLoop:', err);
+    logger.error(err);
   } finally {
     txnLoopRunning = false; // assumes that txnLoopImpl is sync
   }
@@ -425,12 +423,10 @@ function txnLoop() {
 // https://api.lightning.community/#listpayments
 // https://api.lightning.community/#forwardinghistory
 function txnLoopImpl() {
-  const pref = 'txnLoopImpl:';
   const propPref = 'txn';
 
   if (lndOffline) {
-    console.log('\n' + date.format(new Date, 'MM/DD hh:mm:ss A'));
-    return console.warn(constants.colorYellow, pref + ' lnd is offline, skipping the loop');
+    return logger.warn('lnd is offline, skipping the loop');
   }
 
   // default start date is unix timestamp from 2x of max interval
@@ -442,14 +438,14 @@ function txnLoopImpl() {
   const timestampProp = propPref + '.forwards.timestamp';
   const offsetProp = propPref + '.forwards.offset';
   let ret = getPropWithErrSync(timestampProp);
-  if (ret.error) return console.warn(pref, 'error getting timestamp prop, skip', ret.error);
+  if (ret.error) return logger.warn('error getting timestamp prop, skip', ret.error);
   let timestamp = ret.val;
   ret = getPropWithErrSync(offsetProp);
-  if (ret.error) return console.warn(pref, 'error getting offset prop, skip', ret.error);
+  if (ret.error) return logger.warn('error getting offset prop, skip', ret.error);
   let offset = ret.val || 0;
   if (timestamp) {
     if (timestamp < defStart) {
-      console.log(pref, 'reset timestamp since its older than default');
+      logger.log('reset timestamp since its older than default');
       timestamp = defStart;
     }
   } else {
@@ -457,25 +453,25 @@ function txnLoopImpl() {
   }
   const initialTimestamp = timestamp;
   const initialOffset = offset;
-  console.log(pref, 'featching forwards, timestamp:', timestamp, 'offset:', offset);
+  logger.log('featching forwards, timestamp:', timestamp, 'offset:', offset);
 
   let count = 0;
   while(true) {
     const ret = listForwardsSync(lndClient, initialTimestamp, offset);
     if (ret.error) {
-      console.error(pref, ret.error);
+      logger.error(ret.error);
       break;
     }
 
     const list = ret.response.forwarding_events;
     const len = list.length;
     if (len === 0) {
-      console.log(pref, 'no new forwards found');
+      logger.log('no new forwards found');
       break;
     }
 
     // record in the db
-    console.log(pref, 'found', len, 'new forwards');
+    logger.log('found', len, 'new forwards');
     let error;
     list.forEach(e => {
       if (error) return;  // break from forEach
@@ -492,10 +488,10 @@ function txnLoopImpl() {
       if (err) {
         if (err.code === 'SQLITE_CONSTRAINT') {
           // trying to record a record that already exists, just a warning
-          console.warn(pref, 'forward record already exists in db, skip', e);
+          logger.warn('forward record already exists in db, skip', e);
           offset++;
         } else {
-          console.error(pref, 'db error:', err);
+          logger.error('db error:', err);
           error = err;
         }
       } else {
@@ -510,11 +506,11 @@ function txnLoopImpl() {
     // remember the timestamp of the latest record
     // offset is set to one so that the latest record isn't read twice
     offset = 1;
-    console.log(pref, 'saving the latest valid timestamp:', timestamp);
+    logger.log('saving the latest valid timestamp:', timestamp);
     setPropSync(timestampProp, timestamp);
   }
   if (offset !== initialOffset) {
-    console.log(pref, 'saving the latest offset:', offset);
+    logger.log('saving the latest offset:', offset);
     setPropSync(offsetProp, offset);
   }
 
@@ -525,31 +521,31 @@ function txnLoopImpl() {
     const nodeData = getInfoSync(lndClient);
     nodeId = nodeData && nodeData.identity_pubkey;
   } catch(err) {
-    console.error(pref, err);
+    logger.error(err);
   }
-  if (!nodeId) return console.error(pref, 'error getting node id');
+  if (!nodeId) return logger.error('error getting node id');
 
   const paymentsOffsetProp = propPref + '.payments.offset';
   ret = getPropWithErrSync(paymentsOffsetProp);
-  if (ret.error) return console.error(pref, 'error getting payments offset, skip', ret.error);
+  if (ret.error) return logger.error('error getting payments offset, skip', ret.error);
   offset = ret.val || 0;
-  console.log(pref, 'fetching payments, offset:', offset);
+  logger.log('fetching payments, offset:', offset);
   const paymentsOffset = offset;
 
   while(true) {
     const ret = listPaymentsSync(lndClient, offset);
     if (ret.error) {
-      console.error(pref, ret.error);
+      logger.error(ret.error);
       break;
     }
 
     const list = ret.response.payments;
     if (list.length === 0) {
-      console.log(pref, 'no new payments found');
+      logger.log('no new payments found');
       break;
     }
 
-    console.log(pref, 'found', list.length, 'new payments');
+    logger.log('found', list.length, 'new payments');
     let skipped = 0;
     let error;  // terminal error, will cause an exit from the loop
     list.forEach(e => {
@@ -565,14 +561,14 @@ function txnLoopImpl() {
       })
       if (!route) {
         error = 'failed to identify route';
-        return console.error(pref, error, e);
+        return logger.error(error, e);
       }
 
       // confirm that it's a rebalance, the last hop has to be this node
       const lastId = route.hops[route.hops.length - 1].pub_key;
       if (lastId !== nodeId) {
         offset = e.payment_index;
-        return console.log(pref, 'not a rebalance, skip');
+        return logger.log('not a rebalance, skip');
       }
 
       const fromChan = route.hops[0].chan_id;
@@ -590,10 +586,10 @@ function txnLoopImpl() {
       if (err) {
         if (err.code === 'SQLITE_CONSTRAINT') {
           // trying to record a record that already exists, just a warning
-          console.warn(pref, 'payment record already exists in db, skip', e);
+          logger.warn('payment record already exists in db, skip', e);
           offset = e.payment_index;
         } else {
-          console.error(pref, 'db error:', err);
+          logger.error('db error:', err);
           error = err;
         }
       } else {
@@ -601,7 +597,7 @@ function txnLoopImpl() {
         offset = e.payment_index;
       }
     })
-    if (skipped > 0) console.log(pref, 'skipping', skipped, 'old payments');
+    if (skipped > 0) logger.log('skipping', skipped, 'old payments');
     if (offset != paymentsOffset) setPropSync(paymentsOffsetProp, offset);
 
     if (error) break; // terminal error, exit the loop

@@ -66,7 +66,8 @@ exports.services = {
   },
   launcher: {
     lndTelegramNotify: 5 * 60,  // seconds
-    txnInterval: 1  // mins
+    txnInterval: 1,  // mins
+    loopInterval: 1  // mins
   },
   worker: {
     loopInterval: 5   // minutes

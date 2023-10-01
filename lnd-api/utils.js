@@ -1,5 +1,6 @@
 const parallel = require('run-parallel');
 const deasync = require('deasync');
+const logger = require('../api/logger');
 
 const round = n => Math.round(n);
 
@@ -130,12 +131,12 @@ module.exports = {
   isLndAlive: function(lndClient) {
     if (!lndClient) throw new Error('isLndAlive: need lndClient');
     // do a simple ping (perhaps replace it with getVersion)
-    const {getInfoSync} = module.exports;
+    const { getInfoSync } = module.exports;
     try {
       const info = getInfoSync(lndClient);
       return info !== undefined;
     } catch(err) {
-      console.log('isLndAlive: error calling getInfo:', err.message);
+      logger.debug('error calling getInfo: ' + err.message);
       return false;
     }
   },
@@ -380,7 +381,7 @@ module.exports = {
         lndClient.getChanInfo({chan_id: id.chan}, (err, response) => {
           if (err) {
             // report the error, but make sure to continue with other channels
-            console.log(pref, 'getChanInfo error:', 'chan ' + id.chan + ':', err.message);
+            logger.warn(pref, 'chan ' + id.chan + ':', err.message);
             return cb(null);
           }
           response.peer = id.peer;

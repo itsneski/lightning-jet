@@ -6,6 +6,8 @@ const constants = require('../api/constants');
 const crypto = require('crypto');
 const deasync = require('deasync');
 
+const logger = require('../api/logger');
+
 const dbFile = global.testDb || (__dirname + '/jet.db');
 const oldDbFile = __dirname + '/../lnd_optimize.db';
 const testDbFile = '/tmp/jet_test.db';  
@@ -1006,9 +1008,9 @@ function deleteFromTable(table, {from, to}, cbk) {
   let cmd = 'DELETE FROM ' + table;
   if (from) cmd += ' WHERE date >= ' + from;
   if (to) cmd += (from) ? ' AND date < ' + to : ' WHERE date < ' + to;
-  if (testMode) console.log(pref, cmd);
+  logger.debug(pref, cmd);
   executeDb(db, cmd, (err) => {
-    if (err) console.error(pref, err.message, cmd);
+    if (err) logger.error(pref, err.message, cmd);
     closeHandle(db);
     if (cbk) return cbk(err);
   })

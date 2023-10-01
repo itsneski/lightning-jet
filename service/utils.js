@@ -1,9 +1,13 @@
 const config = require('../api/config');
+const logger = require('../api/logger');
 const findProc = require('find-process');
 const {spawnDetached} = require('../api/utils');
 const {sendMessage} = require('../api/telegram');
 const {setPropSync} = require('../db/utils');
 const {getPropAndDateSync} = require('../db/utils');
+
+const testModeOn = global.testModeOn;
+const stringify = obj => JSON.stringify(obj, null, 2);
 
 class Service {
   stop() {
@@ -35,11 +39,14 @@ class Service {
     if (this.isDisabled()) return console.log('service is disabled');
 
     // spawn the process
-    spawnDetached({
+    const p = {
       cmd: 'node',
       arg: [ this.path() ],
       log: this.log
-    })
+    }
+    logger.debug('spawning process', stringify(p));
+    if (testModeOn) logger.debug('test mode on, skip spawning');
+    else spawnDetached(p);
 
     sendMessage('started ' + this.name);
     return 'started';

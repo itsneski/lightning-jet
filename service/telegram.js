@@ -2,6 +2,7 @@
 
 const config = require('../api/config');
 const constants = require('../api/constants');
+const logger = require('../api/logger');
 const TelegramBot = require('node-telegram-bot-api');
 const {getPropSync} = require('../db/utils');
 const {getPropAndDateSync} = require('../db/utils');
@@ -17,6 +18,8 @@ const {analyzeFees} = require('../api/analyze-fees');
 const serviceUtils = require('./utils');
 const util = require('util');
 const date = require('date-and-time');
+
+const stringify = obj => JSON.stringify(obj, null, 2);
 
 const pollInterval = constants.services.telegram.pollInterval;
 const feeInterval = constants.services.telegram.feeInterval;
@@ -38,14 +41,13 @@ function monitorFees() {
   try {
     monitorFeesExec();
   } catch(error) {
-    console.error('monitorFees:', error.message);
+    logger.error(error.message);
   }
 }
 
 // monitor fee updates
 function monitorFeesExec() {
-  console.log(date.format(new Date, 'MM/DD hh:mm A'));
-  console.log('checking fee updates');
+  logger.log('checking fee updates');
 
   serviceUtils.TelegramBot.recordHeartbeat('fees');
   let fees = listFeesSync(lndClient);
@@ -63,20 +65,20 @@ function monitorFeesExec() {
   }
 
   let prevFees = JSON.parse(decode(prev.val));
-  console.log('\nidentified existing fees recorded on', formatDate(prev.date));
+  logger.log('identified existing fees recorded on', formatDate(prev.date));
   let prevMap = {};
   prevFees.forEach(f => prevMap[f.chan] = f);
   let feeMap = {};
   fees.forEach(f => feeMap[f.chan] = f);
   fees.forEach(f => {
     let p = prevMap[f.chan];
-    if (!p) return console.log('new channel', f.chan, 'with ', f.name);
+    if (!p) return logger.log('new channel', f.chan, 'with ', f.name);
     // compare the stats
     let newFee = {};
     if (f.remote.base != p.remote.base) {
       newFee.base = f.remote.base;
       let msg = util.format('channel %s with %s: base changed from %d to %d', f.chan, f.name, p.remote.base, f.remote.base);
-      console.log(msg);
+      logger.log(msg);
       // format for telegram
       msg = util.format('channel %s with <b>%s</b>: base changed from %d to %d', f.chan, f.name, p.remote.base, f.remote.base);
       sendMessageFormatted(msg);
@@ -84,7 +86,7 @@ function monitorFeesExec() {
     if (f.remote.rate != p.remote.rate) {
       newFee.ppm = f.remote.rate;
       let msg = util.format('channel %s with %s: ppm changed from %d to %d', f.chan, f.name, p.remote.rate, f.remote.rate);
-      console.log(msg);
+      logger.log(msg);
       msg = util.format('channel %s with <b>%s</b>: ppm changed from %d to %d', f.chan, f.name, p.remote.rate, f.remote.rate);
       sendMessageFormatted(msg);
     }
@@ -107,16 +109,16 @@ function monitorFeesExec() {
           if (status.range || status.summary) {
             if (status.range) msg += ', suggested local ppm range: ' + status.range;
             if (status.summary) msg += ', ' + status.summary;
-            console.log(msg);
+            logger.log(msg);
             sendMessageFormatted(msg);
           } else {
-            console.log(p.name + ': no range or summary found, skipping');
+            logger.log(p.name + ': no range or summary found, skipping');
           }
         } else {
-          console.log(p.name + ': analysis not generated, weird, skipping');
+          logger.log(p.name + ': analysis not generated, weird, skipping');
         }
       } else {
-        console.log(p.name + ': is not an outbound or balanced peer, skipping');
+        logger.log(p.name + ': is not an outbound or balanced peer, skipping');
       }
     }
   })
@@ -125,7 +127,7 @@ function monitorFeesExec() {
     let p = feeMap[f.chan];
     if (!p) {
       let msg = util.format('channel %s with %s: could not find the fee, the channel was likely closed', f.chan, f.name);
-      console.log(msg);
+      logger.log(msg);
       msg = util.format('channel %s with <b>%s</b>: could not find the fee, the channel was likely closed', f.chan, f.name);
       sendMessageFormatted(msg);
     }
@@ -140,7 +142,7 @@ function pollMessages() {
   try {
     pollMessagesExec();
   } catch(err) {
-    console.log('pollMessages:', err.message);
+    logger.log(err.message);
   }
 }
 
@@ -149,13 +151,13 @@ function pollMessagesExec() {
   serviceUtils.TelegramBot.recordHeartbeat('poll');
   let list = fetchTelegramMessageSync();
   if (!list || list.length === 0) return;
-  console.log('processing', list.length, 'messages');
+  logger.log('processing', list.length, 'messages');
   let chatId = getChatId();
   let ids = [];
   try {
     let count = 0;
     list.forEach(m => {
-      console.log('processing message:', m);
+      logger.log('processing message:', stringify(m));
       // make sure that messages are delivered sequentially
       // the best way i found so far to do it is by adding a small
       // interval between each message. just waiting for async promise
@@ -164,7 +166,7 @@ function pollMessagesExec() {
       ids.push(m.id);
     })
   } catch(error) {
-    console.error('pollMessages:', error.message);
+    logger.error(error.message);
   } finally {
     deleteTelegramMessages(ids);
   }
@@ -175,14 +177,12 @@ function pollMessagesExec() {
 }
 
 function initBot() {
-  console.log();
-  console.log('-----------------------------');
-  console.log(date.format(new Date, 'MM/DD hh:mm A'));
-  console.log('initializing bot');
+  logger.log('-----------------------------');
+  logger.log('initializing bot');
 
   if (global.bot) return;
   const token = config.telegramToken;
-  if (!token) return console.error('could not find telegram token. check your config file');
+  if (!token) return logger.error('could not find telegram token. check your config file');
 
   // initialize
   global.bot = new TelegramBot(token, { polling: true });
@@ -208,7 +208,7 @@ function initBot() {
 }
 
 function setChatId(id) {
-  console.log('setting chat id:', id);
+  logger.log('setting chat id:', id);
   setPropSync('botChatId', id);
 }
 

@@ -4,6 +4,7 @@ const {withCommas} = require('../lnd-api/utils');
 const constants = require('./constants');
 const config = require('./config');
 const path = require('path');
+const logger = require('./logger');
 
 const priority = constants.channeldb.sizeThreshold;
 
@@ -12,13 +13,13 @@ global.channelDbFile = global.channelDbFile || config.channelDbPath;
 // channel.db size
 if (!global.channelDbFile) {
   const conf = config.macaroonPath;
-  if (!conf) return console.error('macaroonPath is not defined in the config.json');
+  if (!conf) return logger.error('macaroonPath is not defined in the config.json');
   const base = path.normalize(path.dirname(conf) + '/../../../');
   let cmd = 'find ' + base + ' -name channel.db 2> /dev/null';
   try {
     global.channelDbFile = execSync(cmd).toString().trim();
   } catch(error) {
-    console.error('error locating channel.db:', error.toString());
+    logger.error('error locating channel.db:', error.toString());
   }
 }
 
@@ -67,7 +68,7 @@ module.exports = {
         return { msg: msg, priority: priority.normal, size: size }
       }
     } catch(error) {
-      console.error('checkChannelDb:', error.toString());
+      logger.error(error.toString());
     }
   }
 }
