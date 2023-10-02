@@ -73,7 +73,7 @@ cap
       if (options.db) {
         // print db stats
         const {stats} = require('./db/utils');
-        console.log('lists database tables sorted by [on-disk] size:');
+        console.log('list of database tables sorted by [on-disk] size:');
         console.table(stats());
         return;
       }
