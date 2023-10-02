@@ -13,6 +13,7 @@ const oldDbFile = __dirname + '/../lnd_optimize.db';
 const testDbFile = '/tmp/jet_test.db';  
 
 const digest = (str) => crypto.createHash('sha256').update(str).digest('hex');
+const stringify = obj => JSON.stringify(obj, null, 2);
 
 const REBALANCE_HISTORY_TABLE = 'rebalance_history';
 const FAILED_HTLC_TABLE = 'failed_htlc';
@@ -55,19 +56,43 @@ module.exports = {
 
       db.serialize(() => {
         const q = 'SELECT name, SUM("pgsize") as size FROM "dbstat" WHERE name in ' + filter + ' GROUP BY name';
+        logger.debug(q);
         db.each(q, (err, row) => {
           list.push(row);
         }, (err) => {
-          error = err;
+          if (err) logger.error(err);
           done = true;
         })
       })
       deasync.loopWhile(() => !done);
       
+      // get the date of the oldest record for each table
+      let qArray = [];
+      allTables.forEach(t => {
+        qArray.push('SELECT * FROM (SELECT "' + t + '" AS name, date FROM ' + t + ' ORDER BY date ASC LIMIT 1)');
+      })
+      const q = qArray.join(' UNION ');
+      logger.debug(q);
+      done = false;
+      let oldestRecord = {};
+      db.serialize(() => {
+        db.each(q, (err, row) => {
+          oldestRecord[row.name] = row.date;
+        }, (err) => {
+          if (err) logger.error(err);
+          done = true;
+        })
+      })
+      deasync.loopWhile(() => !done);
+
       // format the output
       list.sort((a, b) => b.size - a.size);
       list.forEach(item => {
         item.size = formatSize(item.size);
+        if (oldestRecord[item.name]) {
+          const delta = Math.floor((Date.now() - oldestRecord[item.name])/1000/60/60);
+          item.oldest_record = (delta >= 24) ? Math.round(delta/24) + 'd' : delta + 'h';
+        }
       })
       return list;
 
