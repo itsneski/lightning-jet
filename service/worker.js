@@ -611,7 +611,7 @@ setInterval(bosReconnect, bosReconnectInterval * 60 * 1000);
 setInterval(lndPingLoop, lndPingInterval * 1000);
 setInterval(cleanDbRebalances, cleanDbRebalancesInterval * 60 * 1000);
 setInterval(txnLoop, txnInterval * 60 * 1000);
-setInterval(dbCleanup, constants.db.cleanupInterval * 24 * 60 * 60 * 1000);
+setInterval(dbCleanup, constants.db.loopInterval * 60 * 60 * 1000);
 
 // early kick off
 txnLoop();

@@ -11,6 +11,7 @@ exports.defaultProbeTopN = 10;
 
 // database
 exports.db = {
+  loopInterval: 24,   // hours
   cleanupInterval: 7, // days
   maxProbeDepth: 30,  // days
   maxFailedHtlcDepth: 60, // days
