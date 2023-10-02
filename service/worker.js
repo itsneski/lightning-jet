@@ -28,6 +28,8 @@ const lndPingInterval = 60; // seconds
 const cleanDbRebalancesInterval = 1;  // mins
 const txnInterval = constants.services.launcher.txnInterval; // mins
 
+const stringify = obj => JSON.stringify(obj, null, 2);
+
 var lndOffline;
 
 function bosReconnect() {
@@ -207,11 +209,9 @@ var dbCleanupInProgress;  // only one instance of dbCleanup is allowed
 
 // removes old records from the database
 function dbCleanup() {
-  const pref = 'dbCleanup:';
-
   // todo: atomic test & set
   if (dbCleanupInProgress) {
-    logger.log(pref, 'already running, skip');
+    logger.log('already running, skip');
     return;
   }
   dbCleanupInProgress = true;
@@ -219,7 +219,7 @@ function dbCleanup() {
   try {
     dbCleanupImpl();
   } catch(err) {
-    logger.error(pref, err.message);
+    logger.error(err);
   } finally {
     dbCleanupInProgress = false;
   }
@@ -229,164 +229,171 @@ function dbCleanupImpl() {
   logger.log('running db cleanup');
 
   const dbUtils = require('../db/utils');
-  //dbUtils.enableTestMode();
 
   let done;
   let tablesCleaned = 0;
 
-  // rebalance avoid table
-  if (isTimeToCleanup('rebalanceAvoid')) {
-    const maxRuntime = 5 * (config.rebalancer.maxTime || constants.rebalancer.maxTime);
-    const maxDepth = Math.max(60, maxRuntime) * 60 * 1000; // in msec
-    logger.log('rebalance avoid:', 'depth:', maxRuntime, 'mins');
-    done = false;
-    dbUtils.deleteRebalanceAvoid({to: Date.now() - maxDepth}, (err) => {
-      if (err) {
-        logger.error('rebalance avoid:', err);
-      } else {
-        logger.log('rebalance avoid:', 'done');
-        recordCleanup('rebalanceAvoid');
-        tablesCleaned++;
-      }
-      done = true;
-    })
-    deasync.loopWhile(() => !done);
-  } else {
-    logger.info('rebalance avoid:', 'skip');
-  }
-
-  // liquidity table
-  if (isTimeToCleanup('liquidity')) {
-    const maxProbeDepth = config.db.maxProbeDepth || constants.db.maxProbeDepth; // days
-    logger.log('probe liquidity:', 'depth:', maxProbeDepth, 'days');
-    done = false;
-    dbUtils.deleteLiquidity({to: Date.now() - maxProbeDepth * 24 * 60 * 60 * 1000}, (err) => {
-      if (err) {
-        logger.error('probe liquidity:', err);
-      } else {
-        logger.log('probe liquidity:', 'done');
-        recordCleanup('liquidity');
-        tablesCleaned++;
-      }
-      done = true;
-    })
-    deasync.loopWhile(() => !done);
-  } else {
-    logger.info('liquidity:', 'skip');
-  }
-
-  // failed htlc table
-  if (isTimeToCleanup('failedHtlc')) {
-    const maxFailedHtlcDepth = config.db.maxFailedHtlcDepth || constants.db.maxFailedHtlcDepth; // days
-    logger.log('htlc:', 'depth:', maxFailedHtlcDepth, 'days');
-    done = false;
-    dbUtils.deleteFailedHtlc({to: Date.now() - maxFailedHtlcDepth * 24 * 60 * 60 * 1000}, (err) => {
-      if (err) {
-        logger.error('htlc:', err);
-      } else {
-        logger.log('htlc:', 'done');
-        recordCleanup('failedHtlc');
-        tablesCleaned++;
-      }
-      done = true;
-    })
-    deasync.loopWhile(() => !done);
-  } else {
-    logger.info('htlc:', 'skip');
-  }
-
-  // txn table
-  if (isTimeToCleanup('txn')) {
-    const maxTxnDepth = constants.db.maxTxnDepth;
-    logger.log('txn:', 'depth:', maxTxnDepth, 'days');
-    done = false;
-    dbUtils.deleteTxn({to: Date.now() - maxTxnDepth * 24 * 60 * 60 * 1000}, (err) => {
-      if (err) {
-        logger.error('txn:', err);
-      } else {
-        logger.log('txn:', 'done');
-        recordCleanup('txn');
-        tablesCleaned++;
-      }
-      done = true;
-    })
-    deasync.loopWhile(() => !done);
-  } else {
-    logger.info('txn:', 'skip');
-  }
-
-  // rebalance history table
-  const maxRebalanceHistoryDepth = config.db.maxRebalanceHistoryDepth;
-  if (maxRebalanceHistoryDepth) {
-    if (isTimeToCleanup('rebalanceHistory')) {
-      logger.log('rebalance history:', 'depth:', maxRebalanceHistoryDepth, 'days');
+  try {
+    // rebalance avoid table
+    if (isTimeToCleanup('rebalanceAvoid')) {
+      const maxRuntime = 5 * (config.rebalancer.maxTime || constants.rebalancer.maxTime);
+      const maxDepth = Math.max(60, maxRuntime) * 60 * 1000; // in msec
+      logger.log('rebalance avoid:', 'depth:', maxRuntime, 'mins');
       done = false;
-      dbUtils.deleteRebalanceHistory({to: Date.now() - maxRebalanceHistoryDepth * 24 * 60 * 60 * 1000}, (err) => {
+      dbUtils.deleteRebalanceAvoid({to: Date.now() - maxDepth}, (err) => {
         if (err) {
-          logger.error('rebalance history:', err);
+          logger.error('rebalance avoid:', err);
         } else {
-          logger.log('rebalance history:', 'done');
-          recordCleanup('rebalanceHistory');
+          logger.log('rebalance avoid:', 'done');
+          recordCleanup('rebalanceAvoid');
           tablesCleaned++;
         }
         done = true;
       })
       deasync.loopWhile(() => !done);
     } else {
-      logger.log('rebalance history: skip');
+      logger.info('rebalance avoid:', 'skip');
     }
-  } else {
-    logger.log('rebalance history: skip (depth is not configured)');
-  }
 
-  // channel events table
-  const maxChanEventsDepth = config.db.maxChannelEventsDepth;
-  if (maxChanEventsDepth) {
-    if (isTimeToCleanup('channelEvents')) {
-      logger.log('channel events:', 'depth:', maxChanEventsDepth, 'days');
+    // liquidity table
+    if (isTimeToCleanup('liquidity')) {
+      const maxProbeDepth = (config.db && config.db.maxProbeDepth) || constants.db.maxProbeDepth; // days
+      logger.log('probe liquidity:', 'depth:', maxProbeDepth, 'days');
       done = false;
-      dbUtils.deleteChannelEvents({to: Date.now() - maxChanEventsDepth * 24 * 60 * 60 * 1000}, (err) => {
+      dbUtils.deleteLiquidity({to: Date.now() - maxProbeDepth * 24 * 60 * 60 * 1000}, (err) => {
         if (err) {
-          logger.error('channel events:', err);
+          logger.error('probe liquidity:', err);
         } else {
-          logger.log('channel events:', 'done');
-          recordCleanup('channelEvents');
+          logger.log('probe liquidity:', 'done');
+          recordCleanup('liquidity');
           tablesCleaned++;
         }
         done = true;
       })
       deasync.loopWhile(() => !done);
     } else {
-      logger.log('channel events: skip');
+      logger.info('liquidity:', 'skip');
     }
-  } else {
-    logger.log('channel events: depth is not configured, skip');
-  }
 
-  // vacuum
-  if (tablesCleaned > 0) {
-    logger.log('vacuum');
-    done = false;
-    dbUtils.vacuum((err) => {
-      if (err) logger.error('vacuum:', err.message);
-      else logger.log('vacuum:', 'done');
-      done = true;
-    })
-    deasync.loopWhile(() => !done);
-  } else {
-    logger.log('no tables changed, skip vacuum');
+    // failed htlc table
+    if (isTimeToCleanup('failedHtlc')) {
+      const maxFailedHtlcDepth = (config.db && config.db.maxFailedHtlcDepth) || constants.db.maxFailedHtlcDepth; // days
+      logger.log('htlc:', 'depth:', maxFailedHtlcDepth, 'days');
+      done = false;
+      dbUtils.deleteFailedHtlc({to: Date.now() - maxFailedHtlcDepth * 24 * 60 * 60 * 1000}, (err) => {
+        if (err) {
+          logger.error('htlc:', err);
+        } else {
+          logger.log('htlc:', 'done');
+          recordCleanup('failedHtlc');
+          tablesCleaned++;
+        }
+        done = true;
+      })
+      deasync.loopWhile(() => !done);
+    } else {
+      logger.info('htlc:', 'skip');
+    }
+
+    // txn table
+    if (isTimeToCleanup('txn')) {
+      const maxTxnDepth = constants.db.maxTxnDepth;
+      logger.log('txn:', 'depth:', maxTxnDepth, 'days');
+      done = false;
+      dbUtils.deleteTxn({to: Date.now() - maxTxnDepth * 24 * 60 * 60 * 1000}, (err) => {
+        if (err) {
+          logger.error('txn:', err);
+        } else {
+          logger.log('txn:', 'done');
+          recordCleanup('txn');
+          tablesCleaned++;
+        }
+        done = true;
+      })
+      deasync.loopWhile(() => !done);
+    } else {
+      logger.info('txn:', 'skip');
+    }
+
+    // rebalance history table
+    const maxRebalanceHistoryDepth = config.db && config.db.maxRebalanceHistoryDepth;
+    if (maxRebalanceHistoryDepth) {
+      if (isTimeToCleanup('rebalanceHistory')) {
+        logger.log('rebalance history:', 'depth:', maxRebalanceHistoryDepth, 'days');
+        done = false;
+        dbUtils.deleteRebalanceHistory({to: Date.now() - maxRebalanceHistoryDepth * 24 * 60 * 60 * 1000}, (err) => {
+          if (err) {
+            logger.error('rebalance history:', err);
+          } else {
+            logger.log('rebalance history:', 'done');
+            recordCleanup('rebalanceHistory');
+            tablesCleaned++;
+          }
+          done = true;
+        })
+        deasync.loopWhile(() => !done);
+      } else {
+        logger.log('rebalance history: skip');
+      }
+    } else {
+      logger.log('rebalance history: depth is not configured, skip');
+    }
+
+    // channel events table
+    const maxChanEventsDepth = config.db && config.db.maxChannelEventsDepth;
+    if (maxChanEventsDepth) {
+      if (isTimeToCleanup('channelEvents')) {
+        logger.log('channel events:', 'depth:', maxChanEventsDepth, 'days');
+        done = false;
+        dbUtils.deleteChannelEvents({to: Date.now() - maxChanEventsDepth * 24 * 60 * 60 * 1000}, (err) => {
+          if (err) {
+            logger.error('channel events:', err);
+          } else {
+            logger.log('channel events:', 'done');
+            recordCleanup('channelEvents');
+            tablesCleaned++;
+          }
+          done = true;
+        })
+        deasync.loopWhile(() => !done);
+      } else {
+        logger.log('channel events: skip');
+      }
+    } else {
+      logger.log('channel events: depth is not configured, skip');
+    }
+  } catch(err) {
+    logger.error(err);
+  } finally {
+    // vacuum
+    if (tablesCleaned > 0) {
+      logger.log('vacuum,', tablesCleaned, 'table(s) were cleaned');
+      done = false;
+      dbUtils.vacuum((err) => {
+        if (err) logger.error('vacuum:', err.message);
+        else logger.log('vacuum:', 'done');
+        done = true;
+      })
+      deasync.loopWhile(() => !done);
+    } else {
+      logger.log('no tables changed, skip vacuum');
+    }
   }
 
   // returns
   function isTimeToCleanup(table) {
+    logger.debug(table);
     const prop = 'dbCleanup.' + table;
     const ret = getPropWithErrSync(prop);
+    logger.debug(prop, stringify(ret));
 
     // can't cleanup if on db error
     if (ret.error) {
       logger.error(ret.error);
       return false;
     }
+
+    if (!ret.val) return true;  // hasn't been set yet
 
     // is it time to cleanup
     const interval = constants.db.cleanupInterval;
