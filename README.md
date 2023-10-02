@@ -87,13 +87,19 @@ The following step may not be necessary in case you get read access to channel.d
 chmod +r /home/bos/.lnd/data/chain/bitcoin/mainnet/admin.macaroon
 ```
 
-## Post-Installation
+## Start Jet
 
 ```shell
 jet start daddy
 ```
 
-## How to run
+> The above is a watchdog service that will start and keep-alive rest of the sevices.
+
+> Familiarize yourself with [Database Management](#database-management) and [Logging](#logging). 
+
+## How to use
+
+Jet runs as a daemon (background process). You can interact with Jet by using the following command line tools:
 
 ```shell
 jet help
@@ -231,6 +237,7 @@ Example of config file:
 Run `jet peers` once installation is completed and ensure you get a correct answer as opposed to an error. `jet start daddy` to kick off Jet's automated rebalancer.
 
 ## Telegram bot
+
 Lightning Jet telegram bot (jet bot) will notify you about important events such as changes in fees for your remote peers.
 
 To create jet bot: initiate a conversation with [BotFather](https://core.telegram.org/bots#3-how-do-i-create-a-bot) on your Telegram app. Then, select the bot's name (e.g., JET bot) and bot's username (e.g., JET_bot).
@@ -241,7 +248,43 @@ Copy the telegram token from the Telegram app chat with BotFather (right under '
 
 > Make sure to restart the telegram service if it was already running prior to updating the config file: `jet restart telegram`.
 
+## Database management
+
+Jet uses sqlite database to store operational data. The database is located under `./db/jet.db`. You can monitor the size of individual tables by `jet info --db`. Jet automatically cleans old records, with the exception of two tables: `rebalance_history` that stores the history of rebalances and `channel_events` that stores the history of channel events (open/closed, active/inactive). To manage the size of those tables, first check the size by `jet info --db`, then add the following variables to [config](#config-file), set them to desired history depth (in days):
+
+```json
+{
+  ...
+  "db": {
+    "maxRebalanceHistoryDepth": "180",
+    "maxChannelEventsDepth": "180"
+  }
+}
+```
+
+In the above example, the `rebalance_history` and `channel_events` table depth is set to 180 days.
+
+Restart the worker service: `jet restart worker`.
+
+## Logging
+
+Each jet's service has a separate log file under `/tmp` directory: `/tmp/jet-daddy.log`, `/tmp/jet-rebalancer.log`, `/tmp/jet-telegram.log`, etc. Individual rebalances have separate log files under `/tmp` in the following format `/tmp/rebalance_*`. For example, `/tmp/rebalance_WalletOfSatoshi_LNBiGlnd03.log` corresponds to a rebalance from Wallet of Satosh to LNBig.
+
+By default, the log level is set to `info`, with info, warnings and errors being logged. To see debug-level information, set the log level to `debug` by adding the following setting to the [config](#config-file):
+
+```json
+{
+  ...
+  "log": {
+    "level": "debug"
+  }
+}
+```
+
+Restart the service(s) for the setting to take effect.
+
 ## Config file
+
 A list of config settings under `./api/config.json`:
 |||
 |--|--|
