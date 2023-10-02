@@ -2,11 +2,11 @@
 
 # Lightning Jet 🚀⚡️, or simply Jet
 
-Lightning Jet is a fully automated rebalancer for nodes on the [Lightning Network](https://en.wikipedia.org/wiki/Lightning_Network). Jet facilitates routing through optimized channel liquidity allocation based on routing volume, missed routing opportunities (htlcs), and a range of other variables.
+Lightning Jet is a fully automated rebalancer for nodes on the [Lightning Network](https://en.wikipedia.org/wiki/Lightning_Network). Jet facilitates routing by moving channel liquidity to where its needed the most, taking into account routing volume, missed routing opportunities (htlcs), and a variety of other factors.
 
-Jet runs as a daemon (background service) on a broad range of [supported platforms](#supported-platforms). It classifies peers into inbound and outbound based on routing volume; it then rebalances the channels (via circular rebalancing), ensuring sufficient liquidity (inbound and outbound) for bi-directional routing.
+Jet runs as a daemon (background service) on a broad range of [supported platforms](#supported-platforms). It categorizes peers into inbound and outbound based on routing volume; it then rebalances the channels (via circular rebalancing), ensuring sufficient liquidity (inbound and outbound) for bi-directional routing.
 
-The mission of Lightning Jet is to help independent node operators compete in the ever-changing landscape of the Lightning Network as big institutional players enter the space.
+Lightning Jet's mission is to assist independent node operators in competing in the ever-changing landscape of the Lightning Network as large institutional players enter the space.
 
 Join [Lightning Jet telegram chat](https://t.me/lnjet).
 
