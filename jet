@@ -447,7 +447,7 @@ cap
       const top = (options.all) ? options.top : options.top || constants.defaultProbeTopN;
 
       const hours = (options.all) ? options.hours || (options.days && options.days * 24) : options.hours || (options.days && options.days * 24) || constants.defaultProbeInterval;
-      const maxInterval = 24 * (config.db.maxProbeDepth || constants.db.maxProbeDepth);
+      const maxInterval = 24 * ((config.db && config.db.maxProbeDepth) || constants.db.maxProbeDepth);
       if (hours > maxInterval) return console.error('provided depth exceeds the max of ' + maxInterval + ' hours (' + maxInterval / 24 + ' days)');
 
       const msec = new Date(new Date().toUTCString()).getTime();
