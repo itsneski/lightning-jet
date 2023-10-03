@@ -8,6 +8,7 @@ exports.telegramBotHelpPage = 'https://github.com/itsneski/lightning-jet#telegra
 exports.defaultTxnInterval = 7 * 24; // hours
 exports.defaultProbeInterval = 7 * 24; // hours
 exports.defaultProbeTopN = 10;
+exports.defaultRebalanceHistoryDepth = 24; // hours
 
 // database
 exports.db = {

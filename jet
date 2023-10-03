@@ -868,14 +868,38 @@ cap
   .argument('[node]', 'Pub id or an alias (full or partial)')
   .option('--mins [mins]', 'Depth of history in minutes')
   .option('--hours [hours]', 'Depth of history in hours')
+  .option('--days [days]', 'Depth of history in days')
+  .option('--all', 'Show all records from the beginning')
   .option('--filter [filter]', 'Filter by success or failed', ['success', 'failed'])
   .action((args, options, logger) => {
     return new Promise(async (resolve, reject) => {
       if (!isLndAlive(lndClient)) return reject('lnd is offline');
 
-      let secs = (options.hours) ? options.hours * 60 * 60 : -1;
-      secs = (options.mins) ? options.mins * 60 : secs;
-      
+      let secs = constants.defaultRebalanceHistoryDepth * 60 * 60;
+      if (options.mins) secs = options.mins * 60;
+      if (options.hours) secs = options.hours * 60 * 60;
+      if (options.days) secs = options.days * 24 * 60 * 60;
+      if (options.all) secs = undefined;
+
+      if (secs && secs <= 0) return reject('depth of history must be a positive number');
+
+      // readable format
+      let readable;
+      if (secs) {
+        const mins = Math.round(secs / 60);
+        if (mins < 60) {
+          readable = Math.round(secs / 60) + ' min(s)';
+        } else if (mins > 60 * 24) {
+          const rm = mins % (60 *24);
+          if (rm === 0) readable = mins / (60 * 24) + ' day(s)';
+          else readable = Math.floor(mins / (60 * 24)) + ' days(s) and ' + Math.round(rm / 60) + ' hour(s)';
+        } else {
+          const rm = mins % 60;
+          if (rm === 0) readable = mins / 60 + ' hour(s)';
+          else readable = Math.floor(mins / 60) + ' hour(s) and ' + rm + ' min(s)';
+        }
+      }
+
       // find matches
       let id;
       let name;
@@ -889,8 +913,7 @@ cap
 
       let formatted = rebalanceHistoryFormattedSync(secs, options.filter, id);
       let msg = 'rebalance history';
-      if (options.mins) msg += ' over the past ' + options.mins + ' min(s)';
-      if (options.hours) msg += ' over the past ' + options.hours + ' hour(s)';
+      msg += (options.all) ? ' showing all transactions since the beginning' : ' over the past ' + readable;
       if (name) msg += ' for ' + name;
       msg += '\n  date  - when rebalance started';
       msg += '\n  secs  - how long rebalance ran in seconds';
