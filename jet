@@ -31,6 +31,7 @@ const {latestChannelEvents} = importLazy('./db/utils');
 
 const {statSync} = require('fs');
 const date = require('date-and-time');
+const deasync = require('deasync');
 
 const serviceUtils = importLazy('./service/utils');
 const {getServiceNames} = importLazy('./service/utils');
@@ -46,6 +47,8 @@ const rebalanceApi = importLazy('./api/rebalance');
 const {reconnect} = importLazy('./bos/reconnect');
 const {isLndAlive} = importLazy('./lnd-api/utils');
 const {inactiveChannels} = importLazy('./api/list-channels');
+
+const stringify = obj => JSON.stringify(obj, null, 2);
 
 const {REPEATABLE} = cap;
 const {INT} = cap;
@@ -67,6 +70,7 @@ cap
   .command('info', 'Information about this node, another node, or a channel')
   .argument('[id]', 'Node id, node partial alias, or channel id')
   .option('--db', 'Lists db tables sorted by size')
+  .option('--os', 'Prints OS stats (cpu & mem)')
   .help('Returns various node or channel stats')
   .action((args, options, logger) => {
     return new Promise(async (resolve, reject) => {
@@ -75,6 +79,37 @@ cap
         const {stats} = require('./db/utils');
         console.log('list of database tables sorted by [on-disk] size:');
         console.table(stats());
+        return;
+      }
+
+      if (options.os) {
+        // print os stats
+        const osu = require('node-os-utils');
+        const cpu = osu.cpu;
+        const mem = osu.mem;
+        const drive = osu.drive;
+        let stats = {};
+        let done = false;
+        cpu.free().then(info => {
+          stats.cpu = Math.round(info);
+          done = true;
+        })
+        deasync.loopWhile(() => !done);
+        done = false;
+        mem.info().then(info => {
+          stats.mem = Math.round(info.freeMemPercentage);
+          stats.memGb = Number((info.freeMemMb) > 1000 ? (info.freeMemMb / 1000).toFixed(1) : info.freeMemMb);
+          done = true;
+        })
+        deasync.loopWhile(() => !done);
+        done = false;
+        drive.free().then(info => {
+          stats.diskGb = Number(info.totalGb);
+          stats.freeGb = Number(info.freeGb);
+          done = true;
+        })
+        deasync.loopWhile(() => !done);
+        console.table(stats);
         return;
       }
 
