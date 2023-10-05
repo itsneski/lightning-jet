@@ -25,6 +25,27 @@ const round = n => Math.round(n);
 const pThreshold = 1; // %
 
 module.exports = {
+  // prints an array as table excluding the index column
+  // @see https://stackoverflow.com/a/67859384
+  table(arr) {
+    const { Console } = require('console');
+    const { Transform } = require('stream');
+
+    const ts = new Transform({ transform(chunk, enc, cb) { cb(null, chunk) } });
+    const lgr = new Console({ stdout: ts });
+    lgr.table(arr);
+    const table = (ts.read() || '').toString();
+    let result = '';
+    for (let row of table.split(/[\r\n]+/)) {
+      let r = row.replace(/[^┬]*┬/, '┌');
+      r = r.replace(/^├─*┼/, '├');
+      r = r.replace(/│[^│]*/, '');
+      r = r.replace(/^└─*┴/, '└');
+      r = r.replace(/'/g, ' ');
+      result += `${r}\n`;
+    }
+    console.log(result);
+  },
   jetDbStats() {
     const {statSync} = require('fs');
     const stats = statSync(__dirname + '/../db/jet.db');

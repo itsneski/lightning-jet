@@ -88,28 +88,49 @@ cap
         const cpu = osu.cpu;
         const mem = osu.mem;
         const drive = osu.drive;
-        let stats = {};
+        let stats = [];
         let done = false;
         cpu.free().then(info => {
-          stats.cpu = Math.round(info);
+          stats.push({
+            name: 'cpu %',
+            val: Math.round(info)
+          })
           done = true;
         })
         deasync.loopWhile(() => !done);
         done = false;
         mem.info().then(info => {
-          stats.mem = Math.round(info.freeMemPercentage);
-          stats.memGb = Number((info.freeMemMb) > 1000 ? (info.freeMemMb / 1000).toFixed(1) : info.freeMemMb);
+          stats.push({
+            name: 'mem %',
+            val: 100 - Math.round(info.freeMemPercentage)
+          })
+          stats.push({
+            name: 'mem(gb)',
+            val: Number((info.freeMemMb) > 1000 ? (info.freeMemMb / 1000).toFixed(1) : info.freeMemMb)
+          })
           done = true;
         })
         deasync.loopWhile(() => !done);
         done = false;
         drive.free().then(info => {
-          stats.diskGb = Number(info.totalGb);
-          stats.freeGb = Number(info.freeGb);
+          stats.push({
+            name: 'disk(gb)',
+            val: Number(info.totalGb)
+          })
+          stats.push({
+            name: 'free(gb)',
+            val: Number(info.freeGb)
+          })
           done = true;
         })
         deasync.loopWhile(() => !done);
-        console.table(stats);
+        const {table} = require('./api/utils');
+        console.log('cpu % - cpu utilization');
+        console.log('mem % - memory utlization');
+        console.log('mem(gb) - available memory in Gb');
+        console.log('disk(gb) - hard drive size in Gb');
+        console.log('free(gb) - available hard drive space in Gb');
+        table(stats);
         return;
       }
 
@@ -1219,7 +1240,7 @@ cap
       console.log('updating channel:', chan);
       try {
         updateChannelSync(lndClient, {chan: chan, base: options.base, ppm: options.ppm});
-        console.log('updated', chan);
+        console.log('done');
       } catch(err) {
         console.error('error:', err.toString());
       }
