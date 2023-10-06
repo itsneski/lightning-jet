@@ -19,9 +19,13 @@ module.exports = {
       cat: constants.osStats.issues.cat.mem,
       pri: constants.osStats.issues.pri.critical,
       msg: '[CRITICAL] memory utilization exceeds ' + stats.mem + ' %' })
-    else if (stats.mem >= 80) issues.push({
+    else if (stats.mem >= 90) issues.push({
       cat: constants.osStats.issues.cat.mem,
       pri: constants.osStats.issues.pri.serious,
+      msg: '[SERIOUS] memory utilization exceeds ' + stats.mem + ' %' })
+    else if (stats.mem >= 85) issues.push({
+      cat: constants.osStats.issues.cat.mem,
+      pri: constants.osStats.issues.pri.warning,
       msg: '[WARNING] memory utilization exceeds ' + stats.mem + ' %' })
     if (issues.length > 0) return issues;
   }
