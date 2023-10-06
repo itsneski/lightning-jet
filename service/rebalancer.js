@@ -196,7 +196,7 @@ function runLoopImpl() {
     }
 
     const inflight = satsInFlight(n.peer);
-    logger.debug('  sats inflight:', inflight);
+    logger.debug('  sats inflight, outbound:', inflight.outbound, 'inbound:', inflight.inbound);
 
     // calculate sats that peers need and sats they have
     // take into account inflight sats
@@ -474,7 +474,7 @@ function runLoopImpl() {
     const key = from.peer + ':' + to.peer;
     if (history[key] && history[key].count > 0) {
       const tplus = backoff(history[key].count);  // mins
-      logger.debug(pref + 'EXP backoff:', history[key], 'backoff:', tplus, 'mins');
+      logger.debug(pref + 'EXP backoff:', stringify(history[key]), 'backoff:', tplus, 'mins');
       const left = history[key].last + tplus * 60 * 1000 - Date.now();
       if (left > 0) {
         return logger.debug(pref + 'wait for backoff, remaining', (left/(60 * 1000)).toFixed(1), 'mins');
