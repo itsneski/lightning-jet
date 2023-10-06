@@ -1,3 +1,4 @@
+const logger = require('./logger');
 const constants = require('./constants');
 const config = require('./config');
 const importLazy = require('import-lazy')(require);
@@ -8,6 +9,7 @@ const {classifyPeersSync} = require('./utils');
 
 module.exports = {
   rebalanceStatus() {
+    const pref = 'rebalanceStatus:';
     const analyzeFees = module.exports.analyzeFees;
     let classified = classifyPeersSync(lndClient);
     let chans = [];
@@ -26,6 +28,9 @@ module.exports = {
     function doIt(peerList) {
       let arr = [];
       peerList.forEach(c => {
+        if (!feeMap[c.peer]) {
+          return logger.debug(pref, 'fee map for', c.name, 'does not exist, skip');
+        }
         let list = analyzeFees(c.name, c.peer, feeMap[c.peer].local, feeMap[c.peer].remote);
         let entry = {
           peer: c.name,
