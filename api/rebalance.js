@@ -274,7 +274,7 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
           // find nodes that exceed the per hop ppm in the last
           // segment of the output
           lastError = 'rebalanceFeeTooHigh';
-          logger.debug('found a prospective route, but the fee is too high');
+          logger.log('found a prospective route, but the fee is too high');
           //logger.log('evaluating output:', stdout);
           //let index = stdout.lastIndexOf('evaluating:');
           if (lastRoute) {
@@ -300,7 +300,7 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
                 count++;
               })
               logger.debug('the route has', nodes.length, 'nodes:', stringify(nodes));
-              logger.debug('the route has a [cumulative] ppm of', ppmsum, 'vs', ppm, 'targeted');
+              logger.log('the route has a [cumulative] ppm of', ppmsum, 'vs', ppm, 'targeted');
               minFailedPpm = Math.min(minFailedPpm, ppmsum);
               if (max) {
                 logger.debug('identified expensive node to exclude:', stringify(max));
@@ -383,7 +383,7 @@ module.exports = ({from, to, amount, ppm = config.rebalancer.maxPpm || constants
           let count = 0;
           Object.keys(nodeStats).forEach(id => {
             if (canAvoidNode(id) && arrAvg(nodeStats[id].ppms) > ppm_per_hop) {
-              logger.log('excluding node:', nodeToString(nodeStats[id]));
+              logger.log('excluding node:', nodeStats[id].name);
               avoidNodes[id] = true;
               avoid += ' --avoid ' + id;
               count++;
