@@ -1,0 +1,7 @@
+#!/usr/bin/env node
+
+const osStats = require('../api/os-stats');
+const stats = osStats.getStats();
+console.log(stats);
+const issues = osStats.checkStats();
+console.log(issues);

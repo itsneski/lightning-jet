@@ -611,6 +611,32 @@ function txnLoopImpl() {
   }
 }
 
+function osStatsLoop() {
+  try {
+    // check os stats
+    const issues = require('../api/os-stats').checkStats();
+    if (issues) {
+      issues.forEach(issue => {
+        // log
+        if (issue.pri === constants.osStats.issues.pri.warning) {
+          logger.warn(issue.msg);
+        } else if (issue.pri === constants.osStats.issues.pri.serious) {
+          logger.error(issue.msg);
+        } else if (issue.pri === constants.osStats.issues.pri.critical) {
+          logger.error(issue.msg);
+        } else {
+          logger.error('unknown priority for ' + issue);
+        }
+        // telegram
+        const label = constants.osStats.issues.label + '.' + issue.cat + '.' + issue.pri.label;
+        sendTelegramMessageTimed(issue.msg, label, issue.pri.notify);
+      })
+    }
+  } catch(err) {
+    logger.error(err.message);
+  }
+}
+
 lndPingLoop();  // detect if lnd is online, run it first
 
 setInterval(runLoop, loopInterval * 60 * 1000);
@@ -619,6 +645,7 @@ setInterval(lndPingLoop, lndPingInterval * 1000);
 setInterval(cleanDbRebalances, cleanDbRebalancesInterval * 60 * 1000);
 setInterval(txnLoop, txnInterval * 60 * 1000);
 setInterval(dbCleanup, constants.db.loopInterval * 60 * 60 * 1000);
+setInterval(osStatsLoop, constants.osStats.issues.loopInterval * 1000);
 
 // early kick off
 txnLoop();

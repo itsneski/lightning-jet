@@ -84,46 +84,16 @@ cap
 
       if (options.os) {
         // print os stats
-        const osu = require('node-os-utils');
-        const cpu = osu.cpu;
-        const mem = osu.mem;
-        const drive = osu.drive;
-        let stats = [];
-        let done = false;
-        cpu.free().then(info => {
-          stats.push({
-            name: 'cpu %',
-            val: Math.round(info)
-          })
-          done = true;
-        })
-        deasync.loopWhile(() => !done);
-        done = false;
-        mem.info().then(info => {
-          stats.push({
-            name: 'mem %',
-            val: 100 - Math.round(info.freeMemPercentage)
-          })
-          stats.push({
-            name: 'mem(gb)',
-            val: Number((info.freeMemMb) > 1000 ? (info.freeMemMb / 1000).toFixed(1) : info.freeMemMb)
-          })
-          done = true;
-        })
-        deasync.loopWhile(() => !done);
-        done = false;
-        drive.free().then(info => {
-          stats.push({
-            name: 'disk(gb)',
-            val: Number(info.totalGb)
-          })
-          stats.push({
-            name: 'free(gb)',
-            val: Number(info.freeGb)
-          })
-          done = true;
-        })
-        deasync.loopWhile(() => !done);
+        const osStats = require('./api/os-stats').getStats();
+        if (!osStats) return reject('error generating OS stats');
+        const stats = [
+          { name: 'cpu %', val: osStats.cpu },
+          { name: 'mem %', val: osStats.mem },
+          { name: 'mem (gb)', val: osStats.memGb },
+          { name: 'disk', val: osStats.diskGb },
+          { name: 'free', val: osStats.freeGb }
+        ]
+
         const {table} = require('./api/utils');
         console.log('cpu % - cpu utilization');
         console.log('mem % - memory utlization');

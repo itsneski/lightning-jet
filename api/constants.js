@@ -92,3 +92,30 @@ exports.channeldb = {
     urgent: 60 * 60 // one hour
   }
 }
+
+// os stats
+exports.osStats = {
+  issues: {
+    loopInterval: 60, // secs
+    label: 'notify.osStats',  // to keep track of the notification timer in the db
+    pri: {    // priority
+      warning: {
+        label: 'warning',
+        notify: 24 * 60 * 60,  // 24 hours
+      },
+      serious: {
+        label: 'serious',
+        notify: 60 * 60,   // an hour
+      },
+      critical: {
+        label: 'critical',
+        notify: 60 // one min
+      }
+    },
+    cat: {    // category
+      mem: 'mem',
+      cpu: 'cpu',
+      disk: 'disk'
+    }
+  }
+}
