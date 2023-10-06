@@ -67,7 +67,7 @@ serviceNamesPlus.push('all');
 cap
   .version(version)
 
-  .command('info', 'Information about this node, another node, or a channel')
+  .command('info', 'Prints info about a node (this or another), or a channel')
   .argument('[id]', 'Node id, node partial alias, or channel id')
   .option('--db', 'Lists db tables sorted by size')
   .option('--os', 'Prints OS stats (cpu & mem)')
