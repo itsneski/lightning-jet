@@ -381,7 +381,7 @@ module.exports = {
         lndClient.getChanInfo({chan_id: id.chan}, (err, response) => {
           if (err) {
             // report the error, but make sure to continue with other channels
-            logger.warn(pref, 'chan ' + id.chan + ':', err.message);
+            logger.debug(pref, 'chan ' + id.chan + ':', err.message);
             return cb(null);
           }
           response.peer = id.peer;
