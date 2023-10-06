@@ -104,7 +104,7 @@ module.exports = {
         return (n/1000000000).toFixed(1) + 'gb';
       }
     } catch(err) {
-      console.error(err);
+      logger.error(err);
     } finally {
       closeHandle(db);
     }
@@ -115,7 +115,7 @@ module.exports = {
     const db = getHandle();
     executeDb(db, 'vacuum', (err) => {
       // close the handle upon vacuum completion
-      if (err) console.error(pref, err.message);
+      if (err) logger.error(pref, err.message);
       closeHandle(db);
       if (cbk) return cbk(err);
     })
@@ -150,7 +150,7 @@ module.exports = {
         if (fromDate) q += ' WHERE date >= ' + fromDate;
         if (toDate) q += ' AND date < ' + toDate;
         q += ' GROUP BY node ORDER BY count DESC';
-        if (testMode) console.log(q);
+        logger.debug(q);
         db.each(q, (err, row) => {
           list.push(row);
         }, (err) => {
@@ -159,9 +159,9 @@ module.exports = {
         })
       })
       deasync.loopWhile(() => !done);
-      if (error) console.error('reportLiquidity:', error.message);
+      if (error) logger.error(error.message);
     } catch(err) {
-      console.error('reportLiquidity:', err.message);
+      logger.error(err.message);
     } finally {
       closeHandle(db);
     }
@@ -177,7 +177,7 @@ module.exports = {
     let cmd = 'INSERT INTO ' + LIQUIDITY_TABLE + ' ' + cols + ' VALUES (' + vals + ')';
     // record async, no need to wait for completion
     executeDb(db, cmd, (err) => {
-      if (err) console.error(pref, err.message);
+      if (err) logger.error(err.message);
       closeHandle(db);
     })
   },
@@ -201,7 +201,7 @@ module.exports = {
       if (fromTimestamp) q += ' WHERE txdate_ns >= ' + fromTimestamp;
       if (toTimestamp) q += ' AND txdate_ns < ' + toTimestamp;
       q += ' GROUP BY chan, type ORDER BY txdate_ns'; // don't need order by but it doesn't hurt;
-      if (testMode) console.log(q);
+      logger.debug(q);
       db.each(q, (err, row) => {
         list.push(row);
       }, (err) => {
@@ -217,7 +217,7 @@ module.exports = {
       if (fromTimestamp) q += ' WHERE txdate_ns >= ' + fromTimestamp;
       if (toTimestamp) q += ' AND txdate_ns < ' + toTimestamp;
       q += ' GROUP BY chan, type ORDER BY txdate_ns'; // don't need order by but it doesn't hurt;
-      if (testMode) console.log(q);
+      logger.debug(q);
       db.each(q, (err, row) => {
         if (row.type === 'forward') {
           row.type = 'inbound';
@@ -240,7 +240,7 @@ module.exports = {
 
     if (doIt()) {
       // retry in case of an error
-      console.log(pref, 'retrying due to an error');
+      logger.log('retrying due to an error');
       return doIt();  // return the last error if any
     }
 
@@ -255,11 +255,11 @@ module.exports = {
           const err = executeDbSync(db, cmd);
           if (err) {
             error = err;
-            console.error(pref, err);
+            logger.error(pref, err);
           }
         })
       } catch(err) {
-        console.error(pref, err.message);
+        logger.error(pref, err.message);
       } finally {
         closeHandle(db);
       }
@@ -272,7 +272,7 @@ module.exports = {
     let list = [];
     db.serialize(() => {
       let q = 'SELECT type, txid, ind, MAX(date) as date FROM ' + CHANNEL_EVENTS_TABLE + ' GROUP BY txid';
-      if (testMode) console.log(q);
+      logger.debug(q);
       db.each(q, (err, row) => {
         list.push(row);
       }, (err) => {
@@ -293,7 +293,7 @@ module.exports = {
       let q = 'SELECT rowid, * FROM ' + CHANNEL_EVENTS_TABLE;
       if (hours) q += ' WHERE date > ' + (Date.now() - hours * 60 * 60 * 1000);
       q += ' ORDER BY date DESC';
-      if (testMode) console.log(q);
+      logger.debug(q);
       db.each(q, function(err, row) {
         list.push(row);
       }, (err) => {
@@ -310,7 +310,7 @@ module.exports = {
     const pref = 'recordChannelEvent:';
     if (doIt()) {
       // retry in case of an error
-      console.log(pref, 'retrying due to an error');
+      logger.log('retrying due to an error');
       doIt();
     }
 
@@ -325,11 +325,11 @@ module.exports = {
           const err = executeDbSync(db, cmd);
           if (err) {
             error = err;
-            console.error(pref, err);
+            logger.error(pref, err);
           }
         })
       } catch(err) {
-        console.error(pref, err.message);
+        logger.error(pref, err.message);
       } finally {
         closeHandle(db);
       }
@@ -340,7 +340,7 @@ module.exports = {
     const pref = 'deleteActiveRebalanceSync:';
     if (doIt()) {
       // retry in case of an error
-      console.log(pref, 'retrying due to an error');
+      logger.log('retrying due to an error');
       doIt();
     }
 
@@ -353,7 +353,7 @@ module.exports = {
           error = executeDbSync(db, cmd);
         })
       } catch(err) {
-        console.error(pref, err.message);
+        logger.error(pref, err.message);
         error = err;
       } finally {
         closeHandle(db);
@@ -367,7 +367,7 @@ module.exports = {
     let list = [];
     db.serialize(function() {
       let q = 'SELECT rowid, * FROM ' + ACTIVE_REBALANCE_TABLE;
-      if (testMode) console.log(q);
+      logger.debug(q);
       db.each(q, function(err, row) {
         list.push(row);
       }, function(err) {
@@ -385,7 +385,7 @@ module.exports = {
     const pref = 'recordActiveRebalanceSync:';
     let id = doIt();
     if (!id) {
-      console.log(pref, 'retrying due to an error');
+      logger.log(pref, 'retrying due to an error');
       id = doIt();
     }
     return id;
@@ -403,7 +403,7 @@ module.exports = {
           ret = proc; // process id
         })
       } catch(error) {
-        console.error(pref, error.message);
+        logger.error(pref, error.message);
       } finally {
         closeHandle(db);
       }
@@ -429,7 +429,7 @@ module.exports = {
       }
       return data.length > 0 ? data : undefined;
     } catch(error) {
-      console.error('getValByFilterSync:', error.message);
+      logger.error(error.message);
     } finally {
       closeHandle(db);
     }
@@ -454,7 +454,7 @@ module.exports = {
       }
       return data.length > 0 ? data : undefined;
     } catch(error) {
-      console.error('getValSync:', error.message);
+      logger.error(error.message);
     } finally {
       closeHandle(db);
     }
@@ -468,7 +468,7 @@ module.exports = {
         executeDbSync(db, cmd);
       })
     } catch(error) {
-      console.error('addValSync:', error.message);
+      logger.error(error.message);
     } finally {
       closeHandle(db);
     }
@@ -482,7 +482,7 @@ module.exports = {
       q += ' WHERE date > ' + (Date.now() - mins * 60 * 1000);
       if (node) q += ' AND node="' + node + '"';
       q += ' ORDER BY date ASC';
-      if (testMode) console.log(q);
+      logger.debug(q);
       db.each(q, function(err, row) {
         list.push(row);
       }, function(err) {
@@ -502,7 +502,7 @@ module.exports = {
 
     if (doIt()) {
       // retry in case of an error
-      console.log('recordFee: retrying due to an error');
+      logger.log('retrying due to an error');
       doIt();
     }
 
@@ -527,7 +527,7 @@ module.exports = {
         })
       } catch(error) {
         err = error;
-        console.error('recordFee:', error);
+        logger.error('recordFee:', error);
       } finally {
         closeHandle(db);
       }
@@ -543,7 +543,7 @@ module.exports = {
         executeDb(db, cmd);
       })
     } catch(error) {
-      console.error('deleteTelegramMessages:', error.message);
+      logger.error(error.message);
     } finally {
       closeHandle(db);
     }
@@ -570,7 +570,7 @@ module.exports = {
       closeHandle(db);
     }
     deasync.loopWhile(() => !done);
-    if (error) console.error(pref, error.message);
+    if (error) logger.error(error.message);
     return messages;
   },
   recordTelegramMessageSync(msg) {
@@ -582,7 +582,7 @@ module.exports = {
         executeDbSync(db, cmd);
       })
     } catch(error) {
-      console.error('recordTelegramMessage:', error.message);
+      logger.error(error.message);
     } finally {
       closeHandle(db);
     }
@@ -596,7 +596,7 @@ module.exports = {
         executeDb(db, cmd);
       })
     } catch(error) {
-      console.error('deleteProp:', error.message);
+      logger.error(error.message);
     } finally {
       closeHandle(db);
     }
@@ -621,9 +621,9 @@ module.exports = {
         })
       })
       deasync.loopWhile(() => !done);
-      if (error) console.error('getPropAndDateSync:', error.message);
+      if (error) logger.error(error.message);
     } catch(err) {
-      console.error('getPropAndDateSync:', err.message);
+      logger.error('getPropAndDateSync:', err.message);
     } finally {
       closeHandle(db);
     }
@@ -648,7 +648,7 @@ module.exports = {
         require('deasync').runLoopOnce();
       }
     } catch(err) {
-      console.error('getPropWithErrSync:', err.message);
+      logger.error(err.message);
       error = err;
     } finally {
       closeHandle(db);
@@ -666,7 +666,7 @@ module.exports = {
         executeDbSync(db, cmd);
       })
     } catch(error) {
-      console.error('setPropSync:', error.message);
+      logger.error(error.message);
     } finally {
       closeHandle(db);
     }
@@ -699,7 +699,7 @@ module.exports = {
 
     if (doIt()) {
       // retry in case of an error
-      console.log('recordRebalanceAvoid: retrying due to an error');
+      logger.log('retrying due to an error');
       doIt();
     }
 
@@ -714,7 +714,7 @@ module.exports = {
         })
       } catch(error) {
         err = error;
-        console.error('recordRebalanceAvoid:', error);
+        logger.error('recordRebalanceAvoid:', error);
       } finally {
         closeHandle(db);
       }
@@ -744,7 +744,7 @@ module.exports = {
         else { q += ' WHERE'; init = true; }
         q += ' date > ' + (Date.now() - Math.round(days * 24 * 60 * 60 * 1000));
       }
-      if (testMode) console.log(q);
+      logger.debug(q);
       db.each(q, function(err, row) {
         list.push(row);
       }, function(err) {
@@ -761,7 +761,7 @@ module.exports = {
     const pref = 'recordHtlc:';
     if (doIt()) {
       // retry in case of an error
-      console.log(pref, 'retrying due to an error');
+      logger.log('retrying due to an error');
       doIt();
     }
 
@@ -781,12 +781,12 @@ module.exports = {
           const error = executeDbSync(db, cmd);
           if (error) {
             err = error;
-            console.error(pref, err);
+            logger.error(pref, err);
           }
         })
       } catch(error) {
         err = error;
-        console.error(pref, error);
+        logger.error(pref, error);
       } finally {
         closeHandle(db);          
       }
@@ -796,7 +796,7 @@ module.exports = {
   recordRebalance(startDate, from, to, amount, rebalanced, ppm, type) {
     if (doIt()) {
       // retry in case of an error
-      console.log('recordRebalance: retrying due to an error');
+      logger.log('retrying due to an error');
       doIt();
     }
 
@@ -816,7 +816,7 @@ module.exports = {
         })
       } catch(error) {
         err = error;
-        console.error('recordRebalance:', error);
+        logger.error('recordRebalance:', error);
       } finally {
         closeHandle(db);
       }
@@ -826,7 +826,7 @@ module.exports = {
   recordRebalanceFailure(startDate, from, to, amount, errorMsg, ppm, min, type) {
     if (doIt()) {
       // retry in case of an error
-      console.log('recordRebalanceFailure: retrying due to an error');
+      logger.log('retrying due to an error');
       doIt();
     }
 
@@ -851,7 +851,7 @@ module.exports = {
         })
       } catch(error) {
         err = error;
-        console.error('recordRebalanceFailure:', error);
+        logger.error('recordRebalanceFailure:', error);
       } finally {
         closeHandle(db);
       }
@@ -903,7 +903,7 @@ module.exports = {
     return res;
   },
   enableTestMode() {
-    console.log('test mode enabled');
+    logger.log('test mode enabled');
     testMode = true;
     createTables(); // for test mode
   }
@@ -920,20 +920,20 @@ function closeHandle(handle) {
 
 function executeDb(db, cmd, cbk) {
   const pref = 'executeDb:';
-  if (testMode) console.log(cmd);
+  logger.debug(cmd);
   db.run(cmd, [], (err) => {
-    if (err & testMode) console.error(pref, cmd, 'err:', err);
+    if (err) logger.debug(pref, cmd, 'err:', err);
     if (cbk) return cbk(err);
   })
 }
 
 function executeDbSync(db, cmd) {
   const pref = 'executeDbSync:';
-  if (testMode) console.log(cmd);
+  logger.debug(cmd);
   let finished = false;
   let error;
   db.run(cmd, [], (err) => {
-    if (err && testMode) console.error(pref, cmd, 'err:', err);
+    if (err) logger.debug(pref, cmd, 'err:', err);
     error = err;
     finished = true;
   })
@@ -944,7 +944,7 @@ function executeDbSync(db, cmd) {
 }
 
 function execInsertDbSync(db, cmd) {
-  if (testMode) console.log(cmd);
+  logger.debug(cmd);
   let finished;
   let rowid;
   db.run(cmd, function() { rowid = this.lastID; finished = true; })
@@ -1033,7 +1033,7 @@ function deleteFromTable(table, {from, to}, cbk) {
   let cmd = 'DELETE FROM ' + table;
   if (from) cmd += ' WHERE date >= ' + from;
   if (to) cmd += (from) ? ' AND date < ' + to : ' WHERE date < ' + to;
-  logger.debug(pref, cmd);
+  logger.debug(cmd);
   executeDb(db, cmd, (err) => {
     if (err) logger.error(pref, err.message, cmd);
     closeHandle(db);
