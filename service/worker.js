@@ -102,7 +102,7 @@ function runLoopExec() {
 
   // check for inactive channels
   const inactive = inactiveChannels();
-  console.log(inactive);
+  logger.debug(stringify(inactive));
   if (inactive) {
     inactive.forEach(c => {
       // typical node maintenance shouldn't take longer than 60 minutes; notify if a node
