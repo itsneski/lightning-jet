@@ -458,6 +458,7 @@ module.exports = {
     return map;
   },
   listPeersSync: function(lndClient) {
+    const pref = 'listPeersSync:';
     let channels = module.exports.listChannelsSync(lndClient);
     let peerIds = [];
     channels.forEach(c => peerIds.push(c.remote_pubkey));
@@ -471,6 +472,9 @@ module.exports = {
     channels.forEach(c => {
       // fix funkiness in the alias that screws up the output
       // IMPORTANT: this is temporary, needs to be removed
+      if (!peerInfo[c.remote_pubkey]) {
+        return logger.debug(pref, 'couldnt find info for', c.remote_pubkey);
+      }
       let name = peerInfo[c.remote_pubkey].node.alias;
       name = module.exports.removeEmojis(name);  // get rid of emojis to avoid skewed tables
 
@@ -524,7 +528,7 @@ module.exports = {
       calls.push(function(cb) {
         lndClient.getNodeInfo({pub_key: n}, (err, response) => {
           if (err) {
-            console.error('getNodesInfo: ' + n + ', error: ' + err);
+            logger.warn('getNodesInfo: ' + n + ', error: ' + err);
             return cb(null, null);
           }
           return cb(null, response);

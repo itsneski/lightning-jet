@@ -107,6 +107,7 @@ function runLoop() {
     runLoopImpl();
   } catch(err) {
     logger.error(err);
+    sendMessage('error in the rebalancing loop: ' + err.message);
   }
 }
 

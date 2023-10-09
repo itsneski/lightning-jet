@@ -575,9 +575,10 @@ module.exports = {
   },
   recordTelegramMessageSync(msg) {
     let db = getHandle();
+    const m = msg.replaceAll("'", '"');
     try {
       db.serialize(function() {
-        let values = constructInsertString([Date.now(), msg]);
+        let values = constructInsertString([Date.now(), m]);
         let cmd = 'INSERT INTO ' + TELEGRAM_MESSAGES_TABLE + ' VALUES (' + values + ')';
         executeDbSync(db, cmd);
       })
