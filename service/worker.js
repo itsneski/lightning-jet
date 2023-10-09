@@ -102,14 +102,22 @@ function runLoopExec() {
 
   // check for inactive channels
   const inactive = inactiveChannels();
+  console.log(inactive);
   if (inactive) {
     inactive.forEach(c => {
       // typical node maintenance shouldn't take longer than 60 minutes; notify if a node
       // is inactive for longer.
-      if (c.mins >= 60) {   // mins
-        let msg = 'channel ' + c.chan + ' with ' + (c.name || c.peer) + ' has been inactive for ';
+      let msg;
+      if (!c.mins) {
+        // warn about inactive channels without determined duration
+        msg = 'channel ' + c.chan + ' with ' + (c.name || c.peer) + ' has been inactive (undermined duration)'
+
+      } else if (c.mins >= 60) {   // mins
+        msg = 'channel ' + c.chan + ' with ' + (c.name || c.peer) + ' has been inactive for ';
         if (c.mins > 60) msg += Math.floor(c.mins/60) + ' hours ' + c.mins % 60 + ' mins';
         else msg += c.mins + ' mins';
+      }
+      if (msg) {
         const cat = 'telegram.notify.channel.inactive.' + c.chan;
         const int = 60 * 60;  // an hour
         logger.log(msg);
