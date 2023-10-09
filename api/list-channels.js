@@ -7,6 +7,7 @@ const {getNodesInfoSync} = require('../lnd-api/utils');
 const {withCommas} = require('../lnd-api/utils')
 const {removeEmojis} = require('../lnd-api/utils');
 const {latestChannelEvents} = require('../db/utils');
+const logger = require('./logger');
 
 const stringify = obj => JSON.stringify(obj, null, 2);
 
@@ -42,7 +43,7 @@ module.exports = {
       let item = {};
       item.chan = chan.chan_id;
       item.peer = chan.remote_pubkey;
-      item.name = peerMap[chan.remote_pubkey].name;
+      item.name = peerMap[chan.remote_pubkey] && peerMap[chan.remote_pubkey].name;
       const event = eventMap[chan.chan_id];
       if (event) item.mins = Math.round((Date.now() - event.date)/1000/60);
       inactive.push(item);
@@ -57,6 +58,9 @@ module.exports = {
     let topUpdates = [];
     let sum = 0;
     channels.forEach(c => {
+      if (!peerMap[c.remote_pubkey]) {
+        return logger.debug('couldnt find info for peer', c.remote_pubkey, 'channel:', c.chan_id);
+      }
       let name = peerMap[c.remote_pubkey].name;
       if (!c.active) name = '💀 ' + name;
       activeChannels.push({
