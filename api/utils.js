@@ -20,6 +20,7 @@ const config = importLazy('./config');
 const findProc = require('find-process');
 const date = require('date-and-time');
 const deasync = require('deasync');
+const logger = require('./logger');
 
 const round = n => Math.round(n);
 const pThreshold = 1; // %
@@ -214,6 +215,9 @@ module.exports = {
         entry.local = parseInt(c.local_balance);
         entry.remote = parseInt(c.remote_balance);
         return;
+      }
+      if (!peers[c.remote_pubkey]) {
+        return logger.warn('cound find peer record for', c.remote_pubkey, 'chan:', c.chan_id);
       }
       let map;
       if (c.capacity < minCapacity) {  // should we even have tiny nodes?
