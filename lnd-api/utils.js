@@ -528,7 +528,8 @@ module.exports = {
       calls.push(function(cb) {
         lndClient.getNodeInfo({pub_key: n}, (err, response) => {
           if (err) {
-            logger.warn('getNodesInfo: ' + n + ', error: ' + err);
+            logger.warn('getNodesInfo: error locating', n);
+            logger.debug('getNodesInfo:', n, err);
             return cb(null, null);
           }
           return cb(null, response);
