@@ -101,7 +101,11 @@ module.exports = {
     let pendingInfo = getNodesInfoSync(lndClient, pendingPeers);
     let pendingMap = {};
     pendingInfo.forEach(i => {
-      if (!i) return console.error('failed to get pending peer info');
+      if (!i) {
+        // likely due to an error fetching node's info, due to
+        // peer being unavailable. handled in getNodesInfoSync
+        return logger.debug('error getting an info on pending peer');
+      }
       pendingMap[i.node.pub_key] = removeEmojis(i.node.alias);
     })
 
