@@ -1275,14 +1275,15 @@ cap.parse(process.argv);
 
 
 function runMonitorStatusLoop() {
-  console.clear();
-  console.log(date.format(new Date, 'MM/DD hh:mm:ss A'));
-
   if (!serviceUtils.Rebalancer.isRunning()) {
     return console.log('rebalancer isnt running');
   }
 
   let arr = rebalanceStatus();
+
+  console.clear();
+  console.log(date.format(new Date, 'MM/DD hh:mm:ss A'));
+
   if (arr.outbound.length === 0)  {
     console.log('no [outbound] peers found');
   } else {
@@ -1290,9 +1291,9 @@ function runMonitorStatusLoop() {
     console.table(arr.outbound);
   }
   if (arr.balanced.length === 0)  {
-    console.log('no [balanced] peers found');
+    console.log('no [low-volume] peers found');
   } else {
-    console.log('\nrebalance status for [balanced] peers');
+    console.log('\nrebalance status for [low-volume] peers');
     console.table(arr.balanced);
   }
 }
