@@ -110,7 +110,7 @@ function runLoopExec() {
       let msg;
       if (!c.mins) {
         // warn about inactive channels without determined duration
-        msg = 'channel ' + c.chan + ' with ' + (c.name || c.peer) + ' has been inactive (undermined duration)'
+        msg = 'channel ' + c.chan + ' with ' + (c.name || c.peer) + ' is inactive (unknown duration)'
 
       } else if (c.mins >= 60) {   // mins
         msg = 'channel ' + c.chan + ' with ' + (c.name || c.peer) + ' has been inactive for ';
