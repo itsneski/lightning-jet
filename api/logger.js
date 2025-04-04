@@ -1,76 +1,92 @@
-// logger
-// https://www.npmjs.com/package//winston
-
 const winston = require('winston');
 const config = require('./config');
+const path = require('path');
 
-const myFormat = winston.format.printf(({ level, message, label, timestamp }) => {
+// Custom format for log messages
+const logFormat = winston.format.printf(({ level, message, timestamp }) => {
   return `${timestamp} [${level}] ${message}`;
-})
+});
 
-const level = (config.log && config.log.level) || 'info';
+// Get log level from config with fallback to 'info'
+const logLevel = config?.log?.level || 'info';
 
+// Configure Winston logger
 const logger = winston.createLogger({
-  level: level,
+  level: logLevel,
   format: winston.format.combine(
-    level === 'debug' ? winston.format.colorize() : winston.format.uncolorize(),
-    winston.format.timestamp({format: 'MM-DD hh:mm:ss.SSS A'}),
-    myFormat    
+    logLevel === 'debug' ? winston.format.colorize() : winston.format.uncolorize(),
+    winston.format.timestamp({ format: 'MM-DD hh:mm:ss.SSS A' }),
+    logFormat
   ),
   transports: [
-    new winston.transports.Console()
+    new winston.transports.Console({
+      handleExceptions: true,
+      handleRejections: true
+    })
   ]
-})
+});
 
-module.exports = {
-  log: (...args) => log('info', args),  // for compatibility, same as info
-  info: (...args) => log('info', args),
-  warn: (...args) => log('warn', args),
-  error: (...args) => log('error', args),
-  debug: (...args) => log('debug', args)
-}
+// Log level methods
+const logMethods = {
+  log: 'info',
+  info: 'info',
+  warn: 'warn',
+  error: 'error',
+  debug: 'debug'
+};
 
-function log(lvl, args) {
-  if (!args || args.length === 0) return;
-  let s = (args.length > 1) ? args.join(' ') : args[0];
+// Create logging functions
+const createLogger = (level) => (...args) => {
+  if (!args?.length) return;
+  
+  const message = args.length > 1 ? args.join(' ') : String(args[0]);
+  const meta = getCallerInfo();
+  
+  logger.log({
+    level,
+    message: formatMessage(message, meta)
+  });
+};
 
-  // get function name and line number
-  const stack = new Error().stack;
-  const parse = stack.split('\n').slice(2)[1];
-  // get function name
-  let ind1 = parse.indexOf('at');
-  let ind2 = parse.indexOf('(', ind1);
-  let fname;
-  if (ind2 >= 0) {
-    const part = parse.substring(ind1 + 2, ind2).trim();
-    const prfx = 'Timeout.';
-    if (part.indexOf(prfx) === 0) {
-      const parts = part.substring(prfx.length).split(/\s+/);
-      fname = parts[0];
-    } else if (part.indexOf('Object.') === 0) {
-      // skip
-    } else if (part.indexOf('module.exports') === 0) {
-      // skip
-    } else {
-      fname = part;      
-    }
-  }
-  const arr = parse.split('/');
-  let sub = arr[arr.length - 1];
-  const ind = sub.indexOf(')');
-  let line = (ind >= 0) ? sub.substring(0, ind) : sub.substring(0);
-  // drop column number, not needed
-  const arr2 = line.split(':');
-  line = arr2[0] + ':' + arr2[1];
+// Format message with caller info
+const formatMessage = (message, { functionName, fileLocation }) => {
+  const prefix = logLevel === 'debug'
+    ? `[${functionName || 'anonymous'},${fileLocation}]`
+    : `[${functionName || fileLocation}]`;
+  return `${prefix} ${message}`;
+};
 
-  if (level === 'debug') {
-    s = (fname) ? '[' + fname + ',' + line + '] ' + s : '[' + line + '] ' + s;
-  } else {
-    s = (fname) ? '[' + fname + '] ' + s : '[' + line + '] ' + s;
-  }
+// Get caller information using Error stack
+const getCallerInfo = () => {
+  const stack = new Error().stack.split('\n');
+  const callerLine = stack[3]; // 0: Error, 1: getCallerInfo, 2: createLogger, 3: caller
+  
+  if (!callerLine) return { fileLocation: 'unknown', functionName: null };
 
-  logger.log({ 
-    level: lvl,
-    message: s
-  })
-}
+  // Parse stack line: "    at functionName (filePath:line:column)"
+  const match = callerLine.match(/at\s+(?:([^\s]+)\s+)?\(?([^:]+):(\d+):(\d+)\)?/);
+  if (!match) return { fileLocation: 'unknown', functionName: null };
+
+  const [, functionName, filePath, line] = match;
+  const fileName = path.basename(filePath || 'unknown');
+  
+  return {
+    fileLocation: `${fileName}:${line}`,
+    functionName: functionName === 'Object.<anonymous>' ? null : functionName
+  };
+};
+
+// Export logging methods
+module.exports = Object.fromEntries(
+  Object.entries(logMethods).map(([method, level]) => [method, createLogger(level)])
+);
+
+// Process event handlers
+process.on('unhandledRejection', (reason) => {
+  logger.error(`Unhandled Rejection: ${reason.stack || reason}`);
+});
+
+process.on('uncaughtException', (error) => {
+  logger.error(`Uncaught Exception: ${error.stack}`);
+  process.exit(1);
+});
