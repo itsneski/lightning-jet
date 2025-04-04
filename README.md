@@ -45,9 +45,7 @@ cd lightning-jet
 npm install
 nano ./api/config.json
 ```
-Edit `config.json`: set correct absolute (not relative) paths for `macaroonPath` and `tlsCertPath`. On umbrel, macaroons are typically located at `/home/umbrel/umbrel/lnd/data/chain/bitcoin/mainnet/admin.macaroon`, tls cert is at `/home/umbrel/umbrel/lnd/tls.cert`.
-
-> On umbrel0.5.0+, macaroons are located at `/home/umbrel/umbrel/app-data/lightning/data/lnd/data/chain/bitcoin/mainnet/admin.macaroon` and tls cert at `/home/umbrel/umbrel/app-data/lightning/data/lnd/tls.cert`.
+Edit `config.json`: set correct absolute (not relative) paths for `macaroonPath` and `tlsCertPath`. On umbrel, macaroons are typically located at `/home/umbrel/umbrel/app-data/lightning/data/lnd/data/chain/bitcoin/mainnet/admin.macaroon`, tls cert is at `/home/umbrel/umbrel/app-data/lightning/data/lnd/tls.cert`.
 
 ```bash
 nano ~/.profile
