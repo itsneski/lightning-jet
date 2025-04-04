@@ -19,7 +19,8 @@ if (!global.channelDbFile) {
   try {
     global.channelDbFile = execSync(cmd).toString().trim();
   } catch(error) {
-    logger.error('error locating channel.db:', error.toString());
+    logger.warn('couldn\'t locate channel.db');
+    logger.debug(error.toString());
   }
 }
 
