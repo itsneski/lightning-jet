@@ -181,6 +181,7 @@ cap
       const {jetDbStats} = require('./api/utils');
       const stats = jetDbStats();
 
+      console.log('jet version:', version);
       console.log('lnd version:', nodeInfo.version);
       console.log('node id:', nodeInfo.identity_pubkey);
       console.log('node alias:', nodeInfo.alias);
