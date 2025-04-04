@@ -557,7 +557,11 @@ module.exports = {
       db.serialize(function() {
         let q = 'SELECT rowid, * FROM ' + TELEGRAM_MESSAGES_TABLE + ' ORDER BY date ASC';
         db.each(q, (err, row) => {
-          messages.push({id:row.rowid, message:row.message});
+          if (!row.rowid || !row.message) {
+            logger.error(pref, 'error reading row from select', err);
+          } else {
+            messages.push({id:row.rowid, message:row.message});
+          }
         }, (err) => {
           error = err;
           done = true;
