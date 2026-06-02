@@ -13,7 +13,7 @@
     "@grpc/grpc-js": "^1.6.8",
     "@grpc/proto-loader": "^0.7.0",
     "balanceofsatoshis": "^19.4.10",
-    "caporal": "^1.4.0",
+    "commander": "^14.0.3",
     "date-and-time": "^2.0.1",
     "deasync": "0.1.28",
     "find-process": "^1.4.5",
