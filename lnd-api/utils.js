@@ -129,6 +129,7 @@ module.exports = {
   },
   // return true if lnd is alive, false otherwise
   isLndAlive: function(lndClient) {
+    logger.debug('lnd alive check');
     if (!lndClient) throw new Error('isLndAlive: need lndClient');
     // do a simple ping (perhaps replace it with getVersion)
     const { getInfoSync } = module.exports;
@@ -434,6 +435,7 @@ module.exports = {
     })
   },
   getInfoSync: function(lndClient) {
+    logger.debug('getting node info');
     var info, done, error;
     lndClient.getInfo({}, (err, resp) => {
       error = err;
@@ -561,5 +563,11 @@ module.exports = {
   removeEmojis: function(str) {
     const {isEmoji} = require('../api/constants');
     return str.replace(isEmoji, String()).trim();
+  },
+  closeLndHandle(lndClient) {
+    if (lndClient && typeof lndClient.close === 'function') {
+      logger.debug('closing lnd handle');
+      lndClient.close();
+    }
   }
 }

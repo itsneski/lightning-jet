@@ -1,9 +1,21 @@
 const { Command } = require('commander');
+const { styleText } = require('node:util');
 const { version } = require('../package.json');
 
 const { registerStatusCommand } = require('./commands/status');
+const { registerInfoCommand } = require('./commands/info');
+const { registerPeersCommand } = require('./commands/peers');
 
 const program = new Command();
+
+program.configureHelp({
+  styleTitle: (str) => styleText('bold', str),
+  styleCommandText: (str) => styleText('cyan', str),
+  styleCommandDescription: (str) => styleText('dim', str),
+  styleOptionText: (str) => styleText('green', str),
+  styleArgumentText: (str) => styleText('yellow', str),
+  styleSubcommandText: (str) => styleText('cyan', str),
+});
 
 program
   .name('jet')
@@ -11,6 +23,8 @@ program
   .version(version);
 
 registerStatusCommand(program);
+registerInfoCommand(program);
+registerPeersCommand(program);
 
 program.parseAsync(process.argv).catch((err) => {
   console.error(err.message || err);
