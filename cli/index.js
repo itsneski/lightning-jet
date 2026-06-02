@@ -2,7 +2,7 @@ const { Command } = require('commander');
 const { styleText } = require('node:util');
 const { version } = require('../package.json');
 
-const { registerStatusCommand } = require('./commands/status');
+const { registerServiceCommands } = require('./commands/services');
 const { registerInfoCommand } = require('./commands/info');
 const { registerPeersCommand } = require('./commands/peers');
 
@@ -22,7 +22,7 @@ program
   .description('Lightning Jet CLI')
   .version(version);
 
-registerStatusCommand(program);
+registerServiceCommands(program);
 registerInfoCommand(program);
 registerPeersCommand(program);
 
