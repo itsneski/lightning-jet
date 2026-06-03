@@ -5,6 +5,7 @@ const { version } = require('../package.json');
 const { registerServiceCommands } = require('./commands/services');
 const { registerStatsCommand } = require('./commands/stats');
 const { registerProbesCommand } = require('./commands/probes');
+const { registerRebalanceCommand } = require('./commands/rebalance');
 const { registerInfoCommand } = require('./commands/info');
 const { registerPeersCommand } = require('./commands/peers');
 
@@ -27,6 +28,7 @@ program
 registerServiceCommands(program);
 registerStatsCommand(program);
 registerProbesCommand(program);
+registerRebalanceCommand(program);
 registerInfoCommand(program);
 registerPeersCommand(program);
 
