@@ -46,7 +46,15 @@
   },
   "scripts": {
     "postinstall": "./tools/genconfig",
-    "check:cli": "node jet --help && node jet status --help && node jet info --help && node jet stats --help && node jet probes --help && node jet rebalance --help && node jet pay --help && node jet peers --help && node jet fees --help && node jet analyze-fees --help && node jet htlc-history --help && node jet htlc-analyzer --help && node jet rebalance-history --help && node jet list-peers --help && node jet list-channels --help && node jet monitor --help && node jet fee-history --help && node jet channel-events --help && node jet channeldb --help && node jet send-message --help && node jet update-channel --help && node jet close-channel --help && node jet reconnect --help"
+    "check:cli": "node jet --help && node jet status --help && node jet info --help && node jet stats --help && node jet probes --help && node jet rebalance --help && node jet pay --help && node jet peers --help && node jet fees --help && node jet analyze-fees --help && node jet htlc-history --help && node jet htlc-analyzer --help && node jet rebalance-history --help && node jet list-peers --help && node jet list-channels --help && node jet monitor --help && node jet fee-history --help && node jet channel-events --help && node jet channeldb --help && node jet send-message --help && node jet update-channel --help && node jet close-channel --help && node jet reconnect --help",
+    "lint:cli": "eslint jet cli/**/*.js",
+    "lint:cli:errors": "eslint jet cli/**/*.js --quiet",
+    "check": "npm run check:cli && npm run lint:cli:errors"
   },
-  "version": "1.6.0"
+  "version": "1.6.0",
+  "devDependencies": {
+    "@eslint/js": "^9.39.4",
+    "eslint": "^9.39.4",
+    "globals": "^17.6.0"
+  }
 }

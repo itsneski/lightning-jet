@@ -2,7 +2,6 @@ const importLazy = require('import-lazy')(require);
 
 const { version } = require('../../package.json');
 const lndClient = importLazy('../../api/connect');
-const logger = require('../../api/logger');
 
 const {
   isLndAlive,
@@ -158,7 +157,7 @@ function printNode(id) {
     console.log('total capacity:', withCommas(info.total_capacity), '(sats)');
 
     return info;
-  } catch (err) {
+  } catch {
     return undefined;
   }
 }
@@ -188,7 +187,7 @@ function printChan(id) {
     }
 
     return info;
-  } catch (err) {
+  } catch {
     return undefined;
   }
 }
