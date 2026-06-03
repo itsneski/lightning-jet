@@ -19,6 +19,7 @@ const { registerMonitorCommand } = require('./commands/monitor');
 const { registerFeeHistoryCommand } = require('./commands/fee-history');
 const { registerChannelEventsCommand } = require('./commands/channel-events');
 const { registerChanneldbCommand } = require('./commands/channeldb');
+const { registerSendMessageCommand } = require('./commands/send-message');
 const { registerInfoCommand } = require('./commands/info');
 
 const program = new Command();
@@ -54,6 +55,7 @@ registerMonitorCommand(program);
 registerFeeHistoryCommand(program);
 registerChannelEventsCommand(program);
 registerChanneldbCommand(program);
+registerSendMessageCommand(program);
 registerInfoCommand(program);
 
 program.parseAsync(process.argv).catch((err) => {
