@@ -2,6 +2,7 @@ const { Command } = require('commander');
 const { styleText } = require('node:util');
 const { version } = require('../package.json');
 
+const { registerInfoCommand } = require('./commands/info');
 const { registerServiceCommands } = require('./commands/services');
 const { registerStatsCommand } = require('./commands/stats');
 const { registerProbesCommand } = require('./commands/probes');
@@ -23,7 +24,6 @@ const { registerSendMessageCommand } = require('./commands/send-message');
 const { registerUpdateChannelCommand } = require('./commands/update-channel');
 const { registerCloseChannelCommand } = require('./commands/close-channel');
 const { registerReconnectCommand } = require('./commands/reconnect');
-const { registerInfoCommand } = require('./commands/info');
 
 const program = new Command();
 
@@ -41,6 +41,7 @@ program
   .description('Lightning Jet CLI')
   .version(version);
 
+registerInfoCommand(program);
 registerServiceCommands(program);
 registerStatsCommand(program);
 registerProbesCommand(program);
@@ -62,7 +63,6 @@ registerSendMessageCommand(program);
 registerUpdateChannelCommand(program);
 registerCloseChannelCommand(program);
 registerReconnectCommand(program);
-registerInfoCommand(program);
 
 program.parseAsync(process.argv).catch((err) => {
   console.error(err.message || err);
