@@ -7,8 +7,8 @@ const { registerStatsCommand } = require('./commands/stats');
 const { registerProbesCommand } = require('./commands/probes');
 const { registerRebalanceCommand } = require('./commands/rebalance');
 const { registerPayCommand } = require('./commands/pay');
-const { registerInfoCommand } = require('./commands/info');
 const { registerPeersCommand } = require('./commands/peers');
+const { registerInfoCommand } = require('./commands/info');
 
 const program = new Command();
 
@@ -31,8 +31,8 @@ registerStatsCommand(program);
 registerProbesCommand(program);
 registerRebalanceCommand(program);
 registerPayCommand(program);
-registerInfoCommand(program);
 registerPeersCommand(program);
+registerInfoCommand(program);
 
 program.parseAsync(process.argv).catch((err) => {
   console.error(err.message || err);
