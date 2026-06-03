@@ -22,6 +22,7 @@ const { registerChanneldbCommand } = require('./commands/channeldb');
 const { registerSendMessageCommand } = require('./commands/send-message');
 const { registerUpdateChannelCommand } = require('./commands/update-channel');
 const { registerCloseChannelCommand } = require('./commands/close-channel');
+const { registerReconnectCommand } = require('./commands/reconnect');
 const { registerInfoCommand } = require('./commands/info');
 
 const program = new Command();
@@ -60,6 +61,7 @@ registerChanneldbCommand(program);
 registerSendMessageCommand(program);
 registerUpdateChannelCommand(program);
 registerCloseChannelCommand(program);
+registerReconnectCommand(program);
 registerInfoCommand(program);
 
 program.parseAsync(process.argv).catch((err) => {
