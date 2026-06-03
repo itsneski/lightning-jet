@@ -3,6 +3,7 @@ const { styleText } = require('node:util');
 const { version } = require('../package.json');
 
 const { registerServiceCommands } = require('./commands/services');
+const { registerStatsCommand } = require('./commands/stats');
 const { registerInfoCommand } = require('./commands/info');
 const { registerPeersCommand } = require('./commands/peers');
 
@@ -23,6 +24,7 @@ program
   .version(version);
 
 registerServiceCommands(program);
+registerStatsCommand(program);
 registerInfoCommand(program);
 registerPeersCommand(program);
 

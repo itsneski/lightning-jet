@@ -7,6 +7,8 @@
 const fs = require('fs');
 const grpc = require("@grpc/grpc-js");
 const protoLoader = require('@grpc/proto-loader');
+const logger = require('../api/logger');
+
 const loaderOptions = {
   keepCase: true,
   longs: String,
@@ -17,12 +19,14 @@ const loaderOptions = {
 
 module.exports = {
   routerrpc(protoPath, macaroonPath, tlsCertPath, serverAddress = 'localhost:10009') {
+    logger.debug('connecting to ' + serverAddress);
     let descriptor = generateDescriptor(protoPath, macaroonPath, tlsCertPath);
     let routerrpc = descriptor.desc.routerrpc;
     let client = new routerrpc.Router(serverAddress, descriptor.creds);
     return client;
   },
   lnrpc(protoPath, macaroonPath, tlsCertPath, serverAddress = 'localhost:10009') {
+    logger.debug('connecting to ' + serverAddress);
     let descriptor = generateDescriptor(protoPath, macaroonPath, tlsCertPath);
     let lnrpc = descriptor.desc.lnrpc;
     return new lnrpc.Lightning(serverAddress, descriptor.creds);
