@@ -6,6 +6,7 @@ const { registerServiceCommands } = require('./commands/services');
 const { registerStatsCommand } = require('./commands/stats');
 const { registerProbesCommand } = require('./commands/probes');
 const { registerRebalanceCommand } = require('./commands/rebalance');
+const { registerPayCommand } = require('./commands/pay');
 const { registerInfoCommand } = require('./commands/info');
 const { registerPeersCommand } = require('./commands/peers');
 
@@ -29,6 +30,7 @@ registerServiceCommands(program);
 registerStatsCommand(program);
 registerProbesCommand(program);
 registerRebalanceCommand(program);
+registerPayCommand(program);
 registerInfoCommand(program);
 registerPeersCommand(program);
 
