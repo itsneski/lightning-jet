@@ -11,6 +11,7 @@ const { registerPeersCommand } = require('./commands/peers');
 const { registerFeesCommand } = require('./commands/fees');
 const { registerAnalyzeFeesCommand } = require('./commands/analyze-fees');
 const { registerHtlcHistoryCommand } = require('./commands/htlc-history');
+const { registerHtlcAnalyzerCommand } = require('./commands/htlc-analyzer');
 const { registerInfoCommand } = require('./commands/info');
 
 const program = new Command();
@@ -38,6 +39,7 @@ registerPeersCommand(program);
 registerFeesCommand(program);
 registerAnalyzeFeesCommand(program);
 registerHtlcHistoryCommand(program);
+registerHtlcAnalyzerCommand(program);
 registerInfoCommand(program);
 
 program.parseAsync(process.argv).catch((err) => {
