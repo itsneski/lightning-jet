@@ -16,6 +16,7 @@ const { registerRebalanceHistoryCommand } = require('./commands/rebalance-histor
 const { registerListPeersCommand } = require('./commands/list-peers');
 const { registerListChannelsCommand } = require('./commands/list-channels');
 const { registerMonitorCommand } = require('./commands/monitor');
+const { registerFeeHistoryCommand } = require('./commands/fee-history');
 const { registerInfoCommand } = require('./commands/info');
 
 const program = new Command();
@@ -48,6 +49,7 @@ registerRebalanceHistoryCommand(program);
 registerListPeersCommand(program);
 registerListChannelsCommand(program);
 registerMonitorCommand(program);
+registerFeeHistoryCommand(program);
 registerInfoCommand(program);
 
 program.parseAsync(process.argv).catch((err) => {
