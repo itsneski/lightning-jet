@@ -14,6 +14,7 @@ const { registerHtlcHistoryCommand } = require('./commands/htlc-history');
 const { registerHtlcAnalyzerCommand } = require('./commands/htlc-analyzer');
 const { registerRebalanceHistoryCommand } = require('./commands/rebalance-history');
 const { registerListPeersCommand } = require('./commands/list-peers');
+const { registerListChannelsCommand } = require('./commands/list-channels');
 const { registerInfoCommand } = require('./commands/info');
 
 const program = new Command();
@@ -44,6 +45,7 @@ registerHtlcHistoryCommand(program);
 registerHtlcAnalyzerCommand(program);
 registerRebalanceHistoryCommand(program);
 registerListPeersCommand(program);
+registerListChannelsCommand(program);
 registerInfoCommand(program);
 
 program.parseAsync(process.argv).catch((err) => {
