@@ -14,9 +14,9 @@ module.exports = [
   js.configs.recommended,
 
   {
-    files: ['jet', 'cli/**/*.js'],
+    files: ['jet', 'cli/**/*.js', 'service/**/*.js'],
     languageOptions: {
-      ecmaVersion: 2021,
+      ecmaVersion: 2022,
       sourceType: 'commonjs',
       globals: {
         ...globals.node,

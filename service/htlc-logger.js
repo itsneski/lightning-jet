@@ -54,7 +54,7 @@ async function subscribeToChannelEvents() {
 }
 
 function logHtlc(event) {
-  if (event.incoming_channel_id == '0') {
+  if (event.incoming_channel_id === '0') {
     return console.log('skipping htlc since the incoming chan id is 0 (due to rebalance as opposed to a forward)')
   }
   console.log('\n' + date.format(new Date, 'MM/DD hh:mm:ss A'));
@@ -102,7 +102,7 @@ function runLoop() {
     runLoopImpl();
   } catch(err) {
     // trigger restart?
-    console.error(formattedDate(), pref, error);
+    console.error(formattedDate(), pref, err);
     console.error(formattedDate(), pref, 'triggering restart');
     setPropSync(constants.services.logger.errorProp, err.toString());
   }

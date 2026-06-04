@@ -299,7 +299,7 @@ function runLoopImpl() {
       let list = history[key];
       list.sort((a, b) => {return b.date - a.date});
       let countFailed = 0;
-      for(i = 0; i < list.length; i++) {
+      for(let i = 0; i < list.length; i++) {
         if (list[i].status) break;
         countFailed++;
       }
@@ -316,7 +316,7 @@ function runLoopImpl() {
   // first process outbound peers that need liquidity
   logger.debug('build rebalancing queue:');
   const len = liquidityTable.outbound.length;
-  for(i = 0; i < len; i++) {
+  for(let i = 0; i < len; i++) {
     if (currCount >= maxCount) break; // reached max
     const to = liquidityTable.outbound[i];
     logger.debug('[outbound]', to.name, to.peer, 'needs', to.needs, 'sats');
@@ -346,7 +346,7 @@ function runLoopImpl() {
 
   // process peers with missed sats
   const mlen = liquidityTable.missed.length;
-  for(i = 0; i < mlen; i++) {
+  for(let i = 0; i < mlen; i++) {
     if (currCount >= maxCount) break; // reached max
     const to = liquidityTable.missed[i];
     logger.debug('[missed]', to.name, to.peer, 'needs', to.needs, 'sats');
@@ -434,7 +434,7 @@ function runLoopImpl() {
   // sort peers by those that need the most sats
   liquidityTable.balancedNeeds.sort((a, b) => {return b.needs - a.needs});
   const blen = liquidityTable.balancedNeeds.length;
-  for(i = 0; i < blen; i++) {
+  for(let i = 0; i < blen; i++) {
     if (currCount >= maxCount) break;
     const to = liquidityTable.balancedNeeds[i];
     logger.debug('[low volume]', to.name, to.peer, 'needs', to.needs, 'sats');
