@@ -26,7 +26,7 @@
   },
   "description": "Lightning Jet is a fully automated rebalancer for Lightning nodes. It optimizes channel liquidity allocation based on routing volume, missed routing opportunities (HTLCs), and other variables.",
   "engines": {
-    "node": ">=12"
+    "node": ">=22"
   },
   "keywords": [
     "lightning",
