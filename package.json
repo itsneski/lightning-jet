@@ -10,8 +10,8 @@
     "url": "https://github.com/itsneski/lightning-jet/issues"
   },
   "dependencies": {
-    "@grpc/grpc-js": "^1.6.8",
-    "@grpc/proto-loader": "^0.7.0",
+    "@grpc/grpc-js": "^1.14.4",
+    "@grpc/proto-loader": "^0.7.15",
     "balanceofsatoshis": "^19.4.10",
     "commander": "^14.0.3",
     "date-and-time": "^2.0.1",
