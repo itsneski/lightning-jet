@@ -20,10 +20,9 @@ const logger = winston.createLogger({
     logFormat
   ),
   transports: [
-    new winston.transports.Console({
-      handleExceptions: true,
-      handleRejections: true
-    })
+    // handleExceptions/handleRejections are deliberately not set here; see the
+    // process handlers at the bottom of this file
+    new winston.transports.Console()
   ]
 });
 
@@ -91,12 +90,23 @@ module.exports.setLevel = (level) => {
   logger.level = level;
 };
 
-// Process event handlers
+// Process event handlers. These log the crash and exit non-zero so the
+// launcher's watchdog restarts the service.
+//
+// The Console transport's handleExceptions/handleRejections are not used
+// because they duplicate these handlers - every crash gets logged twice - and
+// winston defers its exit long enough that the process keeps running in a
+// broken state after the throw.
+//
+// reason/error are optional-chained: Promise.reject() with no argument gives an
+// undefined reason, and reading .stack off it throws inside the handler, which
+// masks the original failure.
 process.on('unhandledRejection', (reason) => {
-  logger.error(`Unhandled Rejection: ${reason.stack || reason}`);
+  logger.error(`Unhandled Rejection: ${reason?.stack || reason}`);
+  process.exit(1);
 });
 
 process.on('uncaughtException', (error) => {
-  logger.error(`Uncaught Exception: ${error.stack}`);
+  logger.error(`Uncaught Exception: ${error?.stack || error}`);
   process.exit(1);
 });
