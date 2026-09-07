@@ -7,8 +7,9 @@ const logFormat = winston.format.printf(({ level, message, timestamp }) => {
   return `${timestamp} [${level}] ${message}`;
 });
 
-// Get log level from config with fallback to 'info'
-const logLevel = config?.log?.level || 'info';
+// Get log level from config with fallback to 'info'. Mutable so that the CLI's
+// --quiet/--verbose flags can override it at runtime; see setLevel below.
+let logLevel = config?.log?.level || 'info';
 
 // Configure Winston logger
 const logger = winston.createLogger({
@@ -80,6 +81,15 @@ const getCallerInfo = () => {
 module.exports = Object.fromEntries(
   Object.entries(logMethods).map(([method, level]) => [method, createLogger(level)])
 );
+
+// Override the configured log level at runtime. Note that the colorize choice
+// is baked into the format chain at construction, so this changes filtering and
+// the caller-info prefix, not colorization.
+module.exports.setLevel = (level) => {
+  if (!level) return;
+  logLevel = level;
+  logger.level = level;
+};
 
 // Process event handlers
 process.on('unhandledRejection', (reason) => {

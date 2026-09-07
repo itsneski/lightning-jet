@@ -60,7 +60,7 @@ Next, execute the updated `.profile` for your current terminal session. The path
 ```bash
 . ~/.profile
 ```
-Test your path by running `jet -v`. Your path is set correctly if it prints out help. Fix the `PATH` in `~/.profile` in case of an error.
+Test your path by running `jet -v`. Your path is set correctly if it prints out the version. Fix the `PATH` in `~/.profile` in case of an error.
 
 #### Upgrade to Umbrel0.5.0 (Umbrel5)
 
