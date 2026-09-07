@@ -102,13 +102,25 @@ if (config.rebalancer.exclude && config.rebalancer.exclude.length > 0) {
 
 // main loop, build rebalancing queue
 
+// last error notified via telegram; the loop runs every couple of minutes, so
+// without this a persistent failure would notify on every iteration
+let lastLoopError;
+
 function runLoop() {
   try {
     runLoopImpl();
+    if (lastLoopError) {
+      lastLoopError = undefined;
+      logger.log('rebalancing loop recovered');
+    }
   } catch(err) {
     logger.error(err);
     logger.debug(err.stack);
-    sendMessage('error in the rebalancing loop: ' + err.message);
+    // notify when the error first occurs or changes, stay quiet while it persists
+    if (err.message !== lastLoopError) {
+      lastLoopError = err.message;
+      sendMessage('error in the rebalancing loop: ' + err.message);
+    }
   }
 }
 
