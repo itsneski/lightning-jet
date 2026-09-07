@@ -108,8 +108,11 @@ function runLoopExec() {
       // typical node maintenance shouldn't take longer than 60 minutes; notify if a node
       // is inactive for longer.
       let msg;
-      if (!c.mins) {
-        // warn about inactive channels without determined duration
+      if (c.mins === undefined) {
+        // warn about inactive channels without determined duration. note this
+        // has to test for undefined rather than falsiness: mins is 0 for a
+        // channel that went inactive less than 30 seconds ago, which is a known
+        // duration and should fall through to the 60 minute threshold below.
         msg = 'channel ' + c.chan + ' with ' + (c.name || c.peer) + ' is inactive (unknown duration)'
 
       } else if (c.mins >= 60) {   // mins
