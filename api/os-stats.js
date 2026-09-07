@@ -31,31 +31,35 @@ module.exports = {
   }
 }
 
+// resolve a promise synchronously, rethrowing a rejection on this stack.
+// the rejection handler is not optional: without it a failing stat call (drive
+// .free() shells out to df and can fail on unusual mounts or in a container)
+// escapes as an unhandled rejection and takes the worker service down. it never
+// reaches osStatsLoop's try/catch, because that catch only sees synchronous
+// throws.
+function awaitSync(promise) {
+  let done = false;
+  let value, error;
+  promise.then(v => { value = v }, e => { error = e }).finally(() => { done = true });
+  deasync.loopWhile(() => !done);
+  if (error) throw error;
+  return value;
+}
+
 function osStats() {
   const osu = require('node-os-utils');
-  const cpu = osu.cpu;
-  const mem = osu.mem;
-  const drive = osu.drive;
   let stats = {};
-  let done = false;
-  cpu.free().then(info => {
-    stats.cpu = Math.round(info);
-    done = true;
-  })
-  deasync.loopWhile(() => !done);
-  done = false;
-  mem.info().then(info => {
-    stats.mem = 100 - Math.round(info.freeMemPercentage);
-    stats.memGb = Number((info.freeMemMb) > 1000 ? (info.freeMemMb / 1000).toFixed(1) : info.freeMemMb);
-    done = true;
-  })
-  deasync.loopWhile(() => !done);
-  done = false;
-  drive.free().then(info => {
-    stats.diskGb = Number(info.totalGb);
-    stats.freeGb = Number(info.freeGb);
-    done = true;
-  })
-  deasync.loopWhile(() => !done);
+
+  const cpuInfo = awaitSync(osu.cpu.free());
+  stats.cpu = Math.round(cpuInfo);
+
+  const memInfo = awaitSync(osu.mem.info());
+  stats.mem = 100 - Math.round(memInfo.freeMemPercentage);
+  stats.memGb = Number((memInfo.freeMemMb) > 1000 ? (memInfo.freeMemMb / 1000).toFixed(1) : memInfo.freeMemMb);
+
+  const driveInfo = awaitSync(osu.drive.free());
+  stats.diskGb = Number(driveInfo.totalGb);
+  stats.freeGb = Number(driveInfo.freeGb);
+
   return stats;
 }
