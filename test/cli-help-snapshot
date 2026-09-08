@@ -1,0 +1,124 @@
+#!/usr/bin/env node
+
+// Golden-file snapshot of the CLI surface.
+//
+// Captures `jet --help` and `jet <command> --help` for every command and
+// compares the result against test/cli-help.snapshot. Any change to the
+// surface - a dropped option, a changed default, a reworded description, a
+// command that disappears - shows up as a diff.
+//
+// This exists because `npm run check:cli` already shells every command with
+// --help and stayed green through four flag regressions: rendering help does
+// not assert anything about what the help says. The commander migration
+// silently dropped -v, --quiet, --verbose and global --no-color, and the
+// README documents `jet -v` as the post-install check, so a new user hit an
+// error on the first command they ran.
+//
+// Only --help is executed, which never touches lnd and never takes an action.
+// See test/cli-documented-flags for the invocation-level checks and the
+// reasoning about which commands are unsafe to run.
+//
+//   node test/cli-help-snapshot            compare against the snapshot
+//   node test/cli-help-snapshot --update   regenerate it after an intended change
+
+const { execFileSync } = require('node:child_process');
+const fs = require('node:fs');
+const path = require('node:path');
+
+const ROOT = path.join(__dirname, '..');
+const JET = path.join(ROOT, 'jet');
+const SNAPSHOT = path.join(__dirname, 'cli-help.snapshot');
+const SEP = '='.repeat(72);
+
+function help(args) {
+  try {
+    return execFileSync(process.execPath, [JET, ...args, '--help'], {
+      cwd: ROOT,
+      encoding: 'utf8',
+      // NO_COLOR keeps the output stable regardless of where this runs;
+      // styleText already drops colour when stdout is not a tty, but the
+      // snapshot should not depend on that.
+      env: { ...process.env, NO_COLOR: '1' },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+  } catch (err) {
+    const label = ['jet', ...args, '--help'].join(' ');
+    console.error(`failed to run \`${label}\`:`);
+    console.error((err.stderr || err.stdout || err.message).toString().trim());
+    process.exit(1);
+  }
+}
+
+// Read the command list out of the help output rather than importing the
+// registration modules, so this checks what a user actually sees.
+function commandNames() {
+  const section = help([]).split(/^Commands:$/m)[1] || '';
+  return section
+    .split('\n')
+    .map((line) => line.match(/^ {2}([a-z][a-z-]*)/))
+    .filter(Boolean)
+    .map((m) => m[1])
+    .filter((name) => name !== 'help');
+}
+
+function capture() {
+  const names = commandNames();
+  if (names.length === 0) {
+    console.error('no commands found in `jet --help` output; refusing to write an empty snapshot');
+    process.exit(1);
+  }
+  const sections = [`${SEP}\njet --help\n${SEP}\n${help([])}`];
+  for (const name of names) {
+    sections.push(`${SEP}\njet ${name} --help\n${SEP}\n${help([name])}`);
+  }
+  return { text: sections.join('\n'), count: names.length };
+}
+
+// Split on the full three-line header so the capture group yields the label.
+// Splitting on the separator alone does not work: the header and the body land
+// in separate chunks, and the body's first line gets mistaken for the label.
+function sectionMap(text) {
+  const map = new Map();
+  const parts = text.split(new RegExp(`^${SEP}\\n(.+)\\n${SEP}\\n`, 'm'));
+  // parts is ['', label, body, label, body, ...]
+  for (let i = 1; i + 1 < parts.length; i += 2) map.set(parts[i].trim(), parts[i + 1]);
+  return map;
+}
+
+const { text: actual, count } = capture();
+
+if (process.argv.includes('--update')) {
+  fs.writeFileSync(SNAPSHOT, actual);
+  console.log(`wrote ${path.relative(ROOT, SNAPSHOT)} (${count} commands + top level)`);
+  process.exit(0);
+}
+
+if (!fs.existsSync(SNAPSHOT)) {
+  console.error(`missing ${path.relative(ROOT, SNAPSHOT)}; run: node test/cli-help-snapshot --update`);
+  process.exit(1);
+}
+
+const expected = fs.readFileSync(SNAPSHOT, 'utf8');
+if (actual === expected) {
+  console.log(`cli help snapshot ok (${count} commands + top level)`);
+  process.exit(0);
+}
+
+// Report per section so the failure names what moved rather than dumping the
+// whole file.
+const a = sectionMap(actual);
+const e = sectionMap(expected);
+const changed = [];
+for (const [name, body] of a) {
+  if (!e.has(name)) changed.push(`  + ${name} (new, not in snapshot)`);
+  else if (e.get(name) !== body) changed.push(`  ~ ${name} (output differs)`);
+}
+for (const name of e.keys()) {
+  if (!a.has(name)) changed.push(`  - ${name} (gone from the cli)`);
+}
+
+console.error('cli help snapshot MISMATCH\n');
+console.error(changed.join('\n'));
+console.error('\nIf the change was intended, regenerate and review the diff:');
+console.error('  node test/cli-help-snapshot --update && git diff test/cli-help.snapshot');
+process.exit(1);

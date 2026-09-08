@@ -1,0 +1,490 @@
+========================================================================
+jet --help
+========================================================================
+Usage: jet [options] [command]
+
+Lightning Jet CLI
+
+Options:
+  -V, --version                             output the version number
+  -v                                        output the version number
+  --quiet                                   Quiet mode - only displays warn and error messages
+  --verbose                                 Verbose mode - will also output debug messages
+  --no-color                                Disable colors
+  -h, --help                                display help for command
+
+Commands:
+  info [options] [id]                       Prints info about a node (this or another), or a channel
+  status [options]                          Shows services status
+  start [options] <service>                 Starts a service
+  stop [options] <service>                  Stops a service
+  restart [options] <service>               Restarts a service
+  stats [options]                           Shows channel profitability stats
+  probes [options]                          Displays nodes discovered during probes that have signaled a commitment to liquidity
+  rebalance [options] <from> <to> <amount>  Rebalances the node via circular rebalance
+  pay [options] <request>                   Pay an invoice
+  peers [options]                           Lists peers classified into inbound, outbound and balanced based on routing history
+  fees [options]                            Lists peer fees
+  analyze-fees [options] [node]             Analyzes peer fees
+  htlc-history [options] [days]             Prints cumulative HTLC history for peers
+  htlc-analyzer [options] [node]            Prints stats about failed HTLCs
+  rebalance-history [options] [node]        Lists past rebalances
+  list-peers [options]                      Lists peer aliases and ids
+  list-channels [options]                   Lists channels: active, inactive and force closing
+  monitor [options] [secs]                  Prints information about ongoing rebalances and stuck HTLCs
+  fee-history [options] [node]              Prints fee history for a peer
+  channel-events [options]                  Lists channel events
+  channeldb [options]                       Prints stats about the channel.db
+  send-message [options] <node> <message>   Sends a message to a node via keysend
+  update-channel [options] <chan>           Updates fees on a channel
+  close-channel [options] <chan>            Closes a channel
+  reconnect [options]                       Reconnects to disconnected peers
+  help [command]                            display help for command
+
+========================================================================
+jet info --help
+========================================================================
+Usage: jet info [options] [id]
+
+Returns various node or channel stats
+
+Arguments:
+  id          Node id, node partial alias, or channel id
+
+Options:
+  --db        Lists db tables sorted by size
+  --os        Prints OS stats (cpu & mem)
+  --quiet     Quiet mode - only displays warn and error messages
+  --verbose   Verbose mode - will also output debug messages
+  --no-color  Disable colors
+  -h, --help  display help for command
+
+========================================================================
+jet status --help
+========================================================================
+Usage: jet status [options]
+
+Shows services status.
+
+Options:
+  --quiet     Quiet mode - only displays warn and error messages
+  --verbose   Verbose mode - will also output debug messages
+  --no-color  Disable colors
+  -h, --help  display help for command
+
+========================================================================
+jet start --help
+========================================================================
+Usage: jet start [options] <service>
+
+Starts a service.
+
+Arguments:
+  service     Service; use 'all' to start all services (choices: "rebalancer",
+              "logger", "daddy", "telegram", "worker", "all")
+
+Options:
+  --quiet     Quiet mode - only displays warn and error messages
+  --verbose   Verbose mode - will also output debug messages
+  --no-color  Disable colors
+  -h, --help  display help for command
+
+Services: rebalancer, logger, daddy, telegram, worker
+
+
+========================================================================
+jet stop --help
+========================================================================
+Usage: jet stop [options] <service>
+
+Stops a service.
+
+Arguments:
+  service     Service; use 'all' to stop all services (choices: "rebalancer",
+              "logger", "daddy", "telegram", "worker", "all")
+
+Options:
+  --quiet     Quiet mode - only displays warn and error messages
+  --verbose   Verbose mode - will also output debug messages
+  --no-color  Disable colors
+  -h, --help  display help for command
+
+Services: rebalancer, logger, daddy, telegram, worker
+
+
+========================================================================
+jet restart --help
+========================================================================
+Usage: jet restart [options] <service>
+
+Restarts a service.
+
+Arguments:
+  service     Service; use 'all' to restart all services (choices: "rebalancer",
+              "logger", "daddy", "telegram", "worker", "all")
+
+Options:
+  --quiet     Quiet mode - only displays warn and error messages
+  --verbose   Verbose mode - will also output debug messages
+  --no-color  Disable colors
+  -h, --help  display help for command
+
+Services: rebalancer, logger, daddy, telegram, worker
+
+
+========================================================================
+jet stats --help
+========================================================================
+Usage: jet stats [options]
+
+Shows channel profitability stats.
+
+Options:
+  --days <days>    Depth of history in days; max of 30 days, default 7
+  --hours <hours>  Depth of history in hours; max of 720 hours, default 168
+  --quiet          Quiet mode - only displays warn and error messages
+  --verbose        Verbose mode - will also output debug messages
+  --no-color       Disable colors
+  -h, --help       display help for command
+
+========================================================================
+jet probes --help
+========================================================================
+Usage: jet probes [options]
+
+Displays nodes discovered during probes that have signaled a commitment to
+liquidity. This tool can be used to identify prospects for new channels.
+
+Options:
+  --days <days>    Depth of history in days
+  --hours <hours>  Depth of history in hours
+  --top <n>        Return top n records, default 10
+  --all            Return all records
+  --peers          Shows probe data for current peers instead of prospects for
+                   new channels
+  --sort <col>     Sort by a column (choices: "sats_sum", "count", "avg_ppm",
+                   "min_ppm", "max_ppm")
+  --quiet          Quiet mode - only displays warn and error messages
+  --verbose        Verbose mode - will also output debug messages
+  --no-color       Disable colors
+  -h, --help       display help for command
+
+========================================================================
+jet rebalance --help
+========================================================================
+Usage: jet rebalance [options] <from> <to> <amount>
+
+Rebalances the node via circular rebalance. Calls the BalanceOfSatoshis
+rebalance API in a loop until the target amount is met or all possible routes
+are exhausted.
+
+Arguments:
+  from           From this peer. Can be a partial alias, a pub id, or a BOS tag
+  to             To this peer. Can be a partial alias, a pub id, or a BOS tag
+  amount         Amount in sats
+
+Options:
+  --ppm <ppm>    Max ppm
+  --mins <mins>  Max time to run in minutes
+  --quiet        Quiet mode - only displays warn and error messages
+  --verbose      Verbose mode - will also output debug messages
+  --no-color     Disable colors
+  -h, --help     display help for command
+
+========================================================================
+jet pay --help
+========================================================================
+Usage: jet pay [options] <request>
+
+Pay a Lightning invoice.
+
+Arguments:
+  request              Payment Request
+
+Options:
+  --avoid <avoid...>   Avoid forwarding via node/chan/tag
+  --in <peer>          Route through specific peer of destination
+  --max-fee <sats>     Maximum fee to pay (default: 1337)
+  --max-paths <paths>  Maximum paths to use (default: 1)
+  --message <message>  Attach text message to payment
+  --no-color           Mute all colors
+  --node <node>        Node to use to pay payment request
+  --out <peer...>      Make first hop through peer
+  --quiet              Quiet mode - only displays warn and error messages
+  --verbose            Verbose mode - will also output debug messages
+  -h, --help           display help for command
+
+========================================================================
+jet peers --help
+========================================================================
+Usage: jet peers [options]
+
+Lists peers classified into inbound, outbound and balanced based on routing
+history.
+
+Options:
+  --days <days>  Depth of routing history in days (default: 1)
+  --quiet        Quiet mode - only displays warn and error messages
+  --verbose      Verbose mode - will also output debug messages
+  --no-color     Disable colors
+  -h, --help     display help for command
+
+Notable columns:
+  p       % of inbound or outbound routing by the peer out of total inbound or outbound across all peers
+  ppm     peer's current ppm rate
+  margin  rebalance ppm margin; rebalance will be profitable as long as its ppm is below this margin
+
+
+========================================================================
+jet fees --help
+========================================================================
+Usage: jet fees [options]
+
+Lists peer fees.
+
+Options:
+  --quiet     Quiet mode - only displays warn and error messages
+  --verbose   Verbose mode - will also output debug messages
+  --no-color  Disable colors
+  -h, --help  display help for command
+
+========================================================================
+jet analyze-fees --help
+========================================================================
+Usage: jet analyze-fees [options] [node]
+
+Each peer's channel local and remote fees will be evaluated against the
+profitability margin.
+
+Arguments:
+  node               Pub id or an alias, full or partial, of outbound node for
+                     fee analysis
+
+Options:
+  --profit <profit>  Profit margin in % to evaluate fees against
+  --quiet            Quiet mode - only displays warn and error messages
+  --verbose          Verbose mode - will also output debug messages
+  --no-color         Disable colors
+  -h, --help         display help for command
+
+========================================================================
+jet htlc-history --help
+========================================================================
+Usage: jet htlc-history [options] [days]
+
+Prints cumulative HTLC history for peers.
+
+Arguments:
+  days        Depth of history in days (default: 7)
+
+Options:
+  --quiet     Quiet mode - only displays warn and error messages
+  --verbose   Verbose mode - will also output debug messages
+  --no-color  Disable colors
+  -h, --help  display help for command
+
+Details:
+  Prints % of total inbound / outbound routing for each peer.
+  Example: inbound routing from a peer takes 25% of total inbound traffic across all peers.
+
+  Also prints % of inbound / outbound routing for a peer.
+  Example: inbound routing from a peer takes 95% of total routing from that peer.
+
+
+========================================================================
+jet htlc-analyzer --help
+========================================================================
+Usage: jet htlc-analyzer [options] [node]
+
+Prints stats about failed HTLCs.
+
+Arguments:
+  node             Pub id or an alias, full or partial, of outbound node for
+                   HTLC analysis
+
+Options:
+  --days <days>    Depth of history in days. Can provide partial days, e.g. .5
+                   days for 12 hours
+  --hours <hours>  Depth of history in hours
+  --quiet          Quiet mode - only displays warn and error messages
+  --verbose        Verbose mode - will also output debug messages
+  --no-color       Disable colors
+  -h, --help       display help for command
+
+========================================================================
+jet rebalance-history --help
+========================================================================
+Usage: jet rebalance-history [options] [node]
+
+Lists past rebalances.
+
+Arguments:
+  node               Pub id or an alias, full or partial
+
+Options:
+  --mins <mins>      Depth of history in minutes
+  --hours <hours>    Depth of history in hours
+  --days <days>      Depth of history in days
+  --all              Show all records from the beginning
+  --filter <filter>  Filter by success or failed (choices: "success", "failed")
+  --quiet            Quiet mode - only displays warn and error messages
+  --verbose          Verbose mode - will also output debug messages
+  --no-color         Disable colors
+  -h, --help         display help for command
+
+========================================================================
+jet list-peers --help
+========================================================================
+Usage: jet list-peers [options]
+
+Lists peer aliases and ids.
+
+Options:
+  --quiet     Quiet mode - only displays warn and error messages
+  --verbose   Verbose mode - will also output debug messages
+  --no-color  Disable colors
+  -h, --help  display help for command
+
+========================================================================
+jet list-channels --help
+========================================================================
+Usage: jet list-channels [options]
+
+Lists channels: active, inactive and force closing. Lists top ten channels
+sorted based on channel state updates.
+
+Options:
+  --quiet     Quiet mode - only displays warn and error messages
+  --verbose   Verbose mode - will also output debug messages
+  --no-color  Disable colors
+  -h, --help  display help for command
+
+========================================================================
+jet monitor --help
+========================================================================
+Usage: jet monitor [options] [secs]
+
+Prints information about ongoing rebalances and stuck HTLCs.
+
+Arguments:
+  secs        Refresh delay in seconds
+
+Options:
+  --status    Prints rebalance status for peers
+  --current   Lists rebalances in progress
+  --quiet     Quiet mode - only displays warn and error messages
+  --verbose   Verbose mode - will also output debug messages
+  --no-color  Disable colors
+  -h, --help  display help for command
+
+========================================================================
+jet fee-history --help
+========================================================================
+Usage: jet fee-history [options] [node]
+
+Prints fee history for a peer.
+
+Arguments:
+  node             Pub id or an alias, full or partial
+
+Options:
+  --hours <hours>  Depth of history in hours
+  --days <days>    Depth of history in days
+  --quiet          Quiet mode - only displays warn and error messages
+  --verbose        Verbose mode - will also output debug messages
+  --no-color       Disable colors
+  -h, --help       display help for command
+
+========================================================================
+jet channel-events --help
+========================================================================
+Usage: jet channel-events [options]
+
+Lists channel events.
+
+Options:
+  --hours <hours>  Depth of history in hours
+  --quiet          Quiet mode - only displays warn and error messages
+  --verbose        Verbose mode - will also output debug messages
+  --no-color       Disable colors
+  -h, --help       display help for command
+
+========================================================================
+jet channeldb --help
+========================================================================
+Usage: jet channeldb [options]
+
+Prints stats about the channel.db.
+
+Options:
+  --quiet     Quiet mode - only displays warn and error messages
+  --verbose   Verbose mode - will also output debug messages
+  --no-color  Disable colors
+  -h, --help  display help for command
+
+========================================================================
+jet send-message --help
+========================================================================
+Usage: jet send-message [options] <node> <message>
+
+Sends a message to a node via keysend.
+
+Arguments:
+  node        Node pub id
+  message     Message to send
+
+Options:
+  --quiet     Quiet mode - only displays warn and error messages
+  --verbose   Verbose mode - will also output debug messages
+  --no-color  Disable colors
+  -h, --help  display help for command
+
+========================================================================
+jet update-channel --help
+========================================================================
+Usage: jet update-channel [options] <chan>
+
+Updates fees on a channel. Requires admin.macaroon in api/config.json.
+
+Arguments:
+  chan           Channel id
+
+Options:
+  --base <base>  Base fee in msats
+  --ppm <ppm>    Ppm in sats per million
+  --quiet        Quiet mode - only displays warn and error messages
+  --verbose      Verbose mode - will also output debug messages
+  --no-color     Disable colors
+  -h, --help     display help for command
+
+========================================================================
+jet close-channel --help
+========================================================================
+Usage: jet close-channel [options] <chan>
+
+Closes a channel.
+
+Arguments:
+  chan         Channel id, node id, or partial/full node alias
+
+Options:
+  --fee <fee>  Sat/vbyte closing fee, default 1
+  --force      Force close the channel
+  --quiet      Quiet mode - only displays warn and error messages
+  --verbose    Verbose mode - will also output debug messages
+  --no-color   Disable colors
+  -h, --help   display help for command
+
+========================================================================
+jet reconnect --help
+========================================================================
+Usage: jet reconnect [options]
+
+Reconnects to disconnected peers. Same as BalanceOfSatoshis reconnect; calls the
+BOS API.
+
+Options:
+  --quiet     Quiet mode - only displays warn and error messages
+  --verbose   Verbose mode - will also output debug messages
+  --no-color  Disable colors
+  -h, --help  display help for command

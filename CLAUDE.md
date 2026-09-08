@@ -13,10 +13,13 @@ node jet <command> --help   # explore any command; ./jet is the installed bin (a
 npm run lint                 # eslint over jet, cli/**, service/**
 npm run lint:errors          # eslint --quiet (errors only)
 npm run check:cli            # smoke-test: runs --help for every registered command
-npm run check                # check:cli + lint:errors — run this before considering CLI work done
+npm run test:cli-surface     # golden-file snapshot of the CLI surface + README flag checks
+npm run check                # check:cli + test:cli-surface + lint:errors — run before considering CLI work done
 ```
 
 There is **no test framework**. Files under `test/` are standalone scripts run directly (`node test/fee-monitor.js`); many set `global.testModeOn = true` and/or `global.testDb` to avoid touching live LND/db. Some `test/` entries are directories of such scripts.
+
+`test/cli-help-snapshot` compares `--help` for every command against the committed `test/cli-help.snapshot`; after an intentional CLI change, regenerate with `node test/cli-help-snapshot --update` and review the diff. `test/cli-documented-flags` runs the invocations the README promises and fails only on a Commander parse error, so it works with or without a live LND. It invokes only commands that cannot take an action — never `rebalance`, `pay`, `send-message`, `update-channel`, `close-channel` or `start`/`stop`/`restart`; flags reachable only through those are covered by the snapshot instead.
 
 Runtime config lives in `api/config.json` (git-ignored, created from a template by `tools/genconfig` on `postinstall`). It needs valid `macaroonPath`/`tlsCertPath` to reach a real LND node, so most commands and all services fail without a configured node — expect this in a dev checkout and don't treat it as a code bug.
 

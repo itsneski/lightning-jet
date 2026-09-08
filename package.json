@@ -47,9 +47,10 @@
   "scripts": {
     "postinstall": "./tools/genconfig",
     "check:cli": "node jet --help && node jet status --help && node jet info --help && node jet stats --help && node jet probes --help && node jet rebalance --help && node jet pay --help && node jet peers --help && node jet fees --help && node jet analyze-fees --help && node jet htlc-history --help && node jet htlc-analyzer --help && node jet rebalance-history --help && node jet list-peers --help && node jet list-channels --help && node jet monitor --help && node jet fee-history --help && node jet channel-events --help && node jet channeldb --help && node jet send-message --help && node jet update-channel --help && node jet close-channel --help && node jet reconnect --help",
+    "test:cli-surface": "node test/cli-help-snapshot && node test/cli-documented-flags",
     "lint": "eslint jet cli/**/*.js service/**/*.js",
     "lint:errors": "eslint jet cli/**/*.js service/**/*.js --quiet",
-    "check": "npm run check:cli && npm run lint:errors"
+    "check": "npm run check:cli && npm run test:cli-surface && npm run lint:errors"
   },
   "version": "1.6.0",
   "devDependencies": {

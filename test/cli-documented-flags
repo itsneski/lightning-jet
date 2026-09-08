@@ -1,0 +1,94 @@
+#!/usr/bin/env node
+
+// Asserts that the invocations the README tells users to run still parse.
+//
+// This is deliberately a hand-written list rather than something scraped out
+// of README.md. Scraping does not work here: of the seven `-v` mentions in the
+// README only two are `jet -v`, the rest are npm, node, docker and
+// docker-compose, and a pass over `jet <word>` also picks up prose like "jet
+// may", "jet will" and "jet bot". A hand-written list has no false positives
+// and encodes which invocations the docs actually promise.
+//
+// What counts as a failure: only a commander parse error. Anything else,
+// including "lnd is offline", is a pass, because the point is whether the flag
+// is still wired up - not whether a node is reachable. That keeps this usable
+// in a dev checkout with no lnd and on a live host.
+//
+// SAFETY - why this list is short.
+//
+// Verifying a flag by invoking it means the command actually runs. Several
+// commands take real action, and against a live node this test would perform
+// it: rebalance moves funds, pay sends, update-channel and close-channel alter
+// or close channels, send-message contacts a peer, start/stop/restart cycle
+// the daemons. None of those are invoked here at any cost.
+//
+// The consequence is that two README-documented flags cannot be reached this
+// way: --base and --ppm exist only on update-channel and rebalance. Those are
+// covered by test/cli-help-snapshot instead, which reads help output and never
+// executes the command.
+
+const { execFileSync } = require('node:child_process');
+const path = require('node:path');
+
+const ROOT = path.join(__dirname, '..');
+const JET = path.join(ROOT, 'jet');
+
+// A commander parse failure. "lnd is offline" and friends are not in here on
+// purpose.
+const PARSE_ERROR = /error: (unknown option|unknown command|option .* argument missing|missing required argument|too many arguments)/i;
+
+const CHECKS = [
+  { args: ['-v'], why: 'README:63 and :201 - the post-install PATH check' },
+  { args: ['--help'], why: 'top level help' },
+  { args: ['info', '--db'], why: 'README documents --db' },
+  { args: ['monitor', '--status'], why: 'README documents --status' },
+  { args: ['rebalance-history', '--hours', '1'], why: 'README documents --hours' },
+  { args: ['rebalance-history', '--mins', '30'], why: 'README documents --mins' },
+  // remaining --hours carriers, so the flag is checked wherever it is offered
+  { args: ['stats', '--hours', '1'], why: '--hours on stats' },
+  { args: ['fee-history', '--hours', '1'], why: '--hours on fee-history' },
+  { args: ['probes', '--hours', '1'], why: '--hours on probes' },
+  { args: ['htlc-analyzer', '--hours', '1'], why: '--hours on htlc-analyzer' },
+  { args: ['channel-events', '--hours', '1'], why: '--hours on channel-events' },
+];
+
+let failed = 0;
+
+for (const { args, why } of CHECKS) {
+  const label = `jet ${args.join(' ')}`;
+  let output = '';
+  try {
+    output = execFileSync(process.execPath, [JET, ...args], {
+      cwd: ROOT,
+      encoding: 'utf8',
+      env: { ...process.env, NO_COLOR: '1' },
+      stdio: ['ignore', 'pipe', 'pipe'],
+      timeout: 60000,
+    });
+  } catch (err) {
+    // a non-zero exit is expected without lnd; what matters is the reason
+    output = `${err.stdout || ''}${err.stderr || ''}`;
+    if (err.killed) {
+      console.error(`TIMEOUT  ${label}  (${why})`);
+      failed++;
+      continue;
+    }
+  }
+
+  const m = output.match(PARSE_ERROR);
+  if (m) {
+    console.error(`FAIL     ${label}  (${why})`);
+    console.error(`         ${output.trim().split('\n')[0]}`);
+    failed++;
+  } else {
+    console.log(`ok       ${label}`);
+  }
+}
+
+if (failed > 0) {
+  console.error(`\n${failed} documented invocation(s) no longer parse.`);
+  console.error('A flag the README tells users to run has been dropped or renamed.');
+  process.exit(1);
+}
+
+console.log(`\nall ${CHECKS.length} documented invocations parse`);
