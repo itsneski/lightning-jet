@@ -279,3 +279,39 @@ delivers every alert. The surface in use is small and contained - all of it in
 So the migration is likely small, but it must be verified against a live bot
 before shipping: a silent break here means losing every notification, including
 the ones that report that something else broke.
+
+---
+
+## 12. Retire `check:cli`, now subsumed by the help snapshot
+
+**Severity:** low — redundant work, and a coverage gap while it stays
+**Where it belongs:** opportunistic, small
+
+`check:cli` is a hardcoded chain of `node jet <command> --help` calls. It lists
+**22 of the 25 commands** — `start`, `stop` and `restart` were never added,
+which is the drift a hardcoded list invites.
+
+`test/cli-help-snapshot` now runs `--help` for every command *and* asserts the
+output, and it discovers commands from the help output rather than a list, so
+new commands are covered the moment they are registered. That makes `check:cli`
+strictly redundant: it does less, on fewer commands, and both run on every
+`npm run check`.
+
+Left in place for now because removing it is a change to existing tooling
+rather than part of adding the test. When retiring it, drop the script from
+`package.json`, take it out of the `check` chain, and update the command list
+in `CLAUDE.md`.
+
+---
+
+## 13. `describegraph.json` is not gitignored
+
+**Severity:** trivial
+**Where it belongs:** opportunistic, one line
+
+`bos` writes a `describegraph.json` into the repo root when certain commands
+run. It is not in `.gitignore`, so it shows up as untracked in `git status` and
+is easy to commit by accident.
+
+Not produced by the new CLI surface tests — those leave the tree clean. Adding
+`describegraph.json` to `.gitignore` is the whole fix.
