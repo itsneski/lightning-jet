@@ -70,13 +70,13 @@ intentionally unlinted legacy layer and should be costed separately.
 
 ---
 
-## 2. Documented Node version does not match what the code needs
+## 2. Documented Node version does not match what the code needs — RESOLVED
+
+**Resolved** on `chore/runtime-modernization`, together with the `engines`
+bump, so the two agree. `README.md:27` now says 22.x+ to match
+`engines: { node: ">=22" }` and `.nvmrc`. Retained below for context.
 
 **Severity:** high — new users hit it on first run
-**Where it belongs:** Phase 2, alongside `chore/runtime-modernization`
-**Why not on the baseline branch:** the fix has to agree with the `engines`
-bump that `runtime-modernization` already makes. Landing the two separately
-risks them disagreeing.
 
 Note this one **is** delta-caused. `main` contains no `styleText` and no
 `replaceAll`, so it genuinely ran on Node 16 as documented. The delta raised
@@ -223,3 +223,59 @@ Stale, safe to drop.
 
 `api/utils.js:219` — `'cound find peer record for'` should be
 `'could not find peer record for'`.
+
+---
+
+## 10. `tools/genconfig` still writes the pre-umbrel-0.5 macaroon paths
+
+**Severity:** high — every fresh host install starts broken
+**Where it belongs:** its own branch, small
+
+The umbrel path migration updated two of the three places that carry these
+paths and missed the third:
+
+| File | Path | Install route |
+|---|---|---|
+| `README.md` | `app-data/lightning/...` (new) | docs |
+| `docker/genconfig.sh` | `app-data/lightning/...` (new) | Docker |
+| **`tools/genconfig`** | **`/home/umbrel/umbrel/lnd/...` (old)** | **host** |
+
+`tools/genconfig` is the host install path — it runs on `postinstall` and
+generates `api/config.json`. So on umbrel 0.5+ a fresh host install writes a
+config pointing at a macaroon that does not exist, while the README beside it
+gives the correct path. The host route is the primary one, per the install
+instructions.
+
+Fix is to bring the two paths in `tools/genconfig` in line with
+`docker/genconfig.sh`. Worth checking at the same time whether the two
+generators should share a single source rather than duplicating the template.
+
+---
+
+## 11. Upgrade node-telegram-bot-api to 2.x to clear the last dependency criticals
+
+**Severity:** medium — security debt
+**Where it belongs:** its own branch, needs testing against a live bot
+
+After `chore/runtime-modernization`, three critical advisories remain:
+`form-data`, `request` and `tar`. The first two both come from
+`@cypress/request`, which `node-telegram-bot-api@0.67.0` still depends on.
+Bumping 0.66 to 0.67 does not move them — audited before and after, the result
+is identical.
+
+`node-telegram-bot-api@2.1.0` has **no dependencies at all**, so it drops the
+chain entirely and would take criticals from 3 to 1, leaving only `tar` (via
+`@mapbox/node-pre-gyp`, under `sqlite3`). It requires `node >= 18`, which the
+new Node 22 baseline satisfies.
+
+The catch is that 0.67 to 2.1.0 is a major version jump on the code path that
+delivers every alert. The surface in use is small and contained - all of it in
+`service/telegram.js`:
+
+- `new TelegramBot(token, { polling: true })`
+- `bot.onText(regex, handler)` x2
+- `bot.sendMessage(chatId, msg)` x4, one with `{ parse_mode: 'HTML' }`
+
+So the migration is likely small, but it must be verified against a live bot
+before shipping: a silent break here means losing every notification, including
+the ones that report that something else broke.

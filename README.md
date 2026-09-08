@@ -24,7 +24,7 @@ Jet can be installed in [Ubuntu VM](#ubuntu-vm) on Windows, Mac OS, and other pl
 
 ## Prerequisites
 
-Make sure to [install node](https://nodejs.org/en/download/) if you don't have it already. Run `node -v` to check if you have `node` and whether it is up to date (version 16.x+). Update `node` in case of an old version (this will also update `npm`).
+Make sure to [install node](https://nodejs.org/en/download/) if you don't have it already. Run `node -v` to check if you have `node` and whether it is up to date (version 22.x+). Update `node` in case of an old version (this will also update `npm`).
 
 ```bash
 curl -sL https://deb.nodesource.com/setup_16.x | sudo -E bash -
